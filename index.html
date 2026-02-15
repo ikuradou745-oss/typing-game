@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Typing Game - Professional System</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -14,7 +14,10 @@
                 <h1>Typing Game</h1>
             </header>
             <div id="typing-screen">
-                <p class="placeholder-text">ここにタイピングゲームが表示されます</p>
+                <div class="game-placeholder">
+                    <p>ここにタイピングゲームが表示されます</p>
+                    <p class="sub-text">（現在はフレンド機能を実装中）</p>
+                </div>
             </div>
         </main>
 
@@ -24,12 +27,15 @@
                 <div class="card">
                     <div class="profile-info">
                         <p><strong>名前:</strong> <span id="display-name">読み込み中...</span></p>
-                        <input type="text" id="name-input" placeholder="名前を変更">
-                        <button id="update-name-btn">更新</button>
+                        <div class="input-group">
+                            <input type="text" id="name-input" placeholder="新しい名前を入力">
+                            <button id="update-name-btn">更新</button>
+                        </div>
                     </div>
                     <div class="code-info">
                         <p>あなたのフレンドコード</p>
                         <code id="my-friend-code">--------</code>
+                        <p class="device-note">※GoogleとSafariなど、ブラウザごとに異なります</p>
                     </div>
                 </div>
             </section>
@@ -37,26 +43,31 @@
             <section class="sidebar-section" id="add-friend-area">
                 <h2>フレンド申請</h2>
                 <div class="card">
-                    <input type="text" id="target-code-input" placeholder="相手の8桁コードを入力" maxlength="8">
-                    <button id="send-request-btn">申請を送る</button>
+                    <p class="input-label">相手の8桁コードを入力</p>
+                    <div class="input-group">
+                        <input type="text" id="target-code-input" placeholder="例: 12345678" maxlength="8">
+                        <button id="send-request-btn">申請</button>
+                    </div>
                 </div>
             </section>
 
             <section class="sidebar-section" id="friend-list-area">
-                <h2>フレンドリスト (<span id="friend-count">0</span>)</h2>
+                <div class="section-header">
+                    <h2>フレンドリスト</h2>
+                    <span class="count-badge"><span id="friend-count">0</span>人</span>
+                </div>
                 <ul id="friend-list">
                     </ul>
             </section>
         </aside>
     </div>
 
-    <script type="importmap">
-        {
-          "imports": {
-            "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-            "firebase/database": "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
-          }
-        }
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, get, update, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        
+        // グローバルに公開（後続のscript.jsで使用可能にするため、または直接ここで記述）
+        window.firebaseDeps = { initializeApp, getDatabase, ref, set, get, update, onValue, onDisconnect, remove };
     </script>
     <script type="module" src="script.js"></script>
 </body>
