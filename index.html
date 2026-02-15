@@ -214,20 +214,49 @@ window.inviteParty=async function(target){
   });
 };
 
-/* 招待受信 */
-onSnapshot(doc(db,"partyInvites",myCode),(snap)=>{
-  if(!snap.exists()) return;
-  const d=snap.data();
-  if(confirm(d.fromName+" からパーティー招待！参加しますか？")){
-    joinParty(d.from);
-  }
+/* ===== パーティー招待 ===== */
+
+/* 招待送信 */
+window.inviteParty = async function(target){
+  await setDoc(doc(db,"users",target,"invites",myCode),{
+    from: myCode,
+    fromName: myName,
+    created: Date.now()
+  });
+  alert("招待を送りました！");
+};
+
+/* 招待受信（リアルタイム） */
+onSnapshot(collection(db,"users",myCode,"invites"),(snapshot)=>{
+  snapshot.docChanges().forEach(async change=>{
+    if(change.type==="added"){
+      const data = change.doc.data();
+
+      const ok = confirm(
+        data.fromName + " からパーティー招待！参加しますか？"
+      );
+
+      if(ok){
+        await joinParty(data.from);
+      }
+
+      // 🔥 受け取ったら必ず削除（超重要）
+      await deleteDoc(doc(db,"users",myCode,"invites",change.doc.id));
+    }
+  });
 });
 
-/* 参加 */
+/* パーティー参加 */
 async function joinParty(leader){
-  await setDoc(doc(db,"parties",leader,"members",myCode),{name:myName});
-  await setDoc(doc(db,"parties",leader),{leader:leader},{merge:true});
+  await setDoc(doc(db,"parties",leader,"members",myCode),{
+    name: myName
+  });
+
+  await setDoc(doc(db,"parties",leader),{
+    leader: leader
+  },{merge:true});
 }
+
 
 /* UI表示（全員見える） */
 function renderPartyUI(){
