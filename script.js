@@ -1,5 +1,5 @@
-import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, update, onValue, onDisconnect, remove } from "firebase/database";
+// Firebaseの初期化（windowオブジェクト経由で取得）
+const { initializeApp, getDatabase, ref, set, get, update, onValue, onDisconnect, remove } = window.firebaseDeps;
 
 const firebaseConfig = {
     apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
@@ -14,24 +14,31 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- データの初期化 ---
-let myCode = localStorage.getItem("typing_friend_code");
-let myName = localStorage.getItem("typing_user_name");
+// --- データの初期化 (Safariのプライベートモード対策) ---
+let myCode = "";
+let myName = "";
 
-if (!myCode) {
-    // 8桁の数字コードを生成
-    myCode = Math.floor(10000000 + Math.random() * 90000000).toString();
-    localStorage.setItem("typing_friend_code", myCode);
+try {
+    myCode = localStorage.getItem("typing_friend_code");
+    myName = localStorage.getItem("typing_user_name");
+} catch (e) {
+    console.warn("LocalStorage access denied:", e);
 }
 
+// コードがない場合は新規生成 (8桁数字)
+if (!myCode) {
+    myCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+    try { localStorage.setItem("typing_friend_code", myCode); } catch(e){}
+}
+
+// 名前がない場合は新規生成 (園名：数字12桁)
 if (!myName) {
-    // 園名：数字12桁
     const randomSuffix = Math.floor(Math.random() * 900000000000 + 100000000000).toString();
     myName = "園名：" + randomSuffix;
-    localStorage.setItem("typing_user_name", myName);
+    try { localStorage.setItem("typing_user_name", myName); } catch(e){}
 }
 
-// UIの反映
+// 初期UI反映
 document.getElementById("my-friend-code").innerText = myCode;
 document.getElementById("display-name").innerText = myName;
 
@@ -41,13 +48,13 @@ const connectedRef = ref(db, ".info/connected");
 
 onValue(connectedRef, (snap) => {
     if (snap.val() === true) {
-        // 接続中：オンラインに設定
+        // オンライン設定
         update(myStatusRef, {
             name: myName,
             status: "online",
             lastSeen: Date.now()
         });
-        // 切断時：オフラインに自動切り替え
+        // ブラウザを閉じた時のオフライン設定
         onDisconnect(myStatusRef).update({
             status: "offline",
             lastSeen: Date.now()
@@ -55,13 +62,13 @@ onValue(connectedRef, (snap) => {
     }
 });
 
-// --- 名前変更機能 ---
+// --- 名前変更 ---
 document.getElementById("update-name-btn").onclick = () => {
     const input = document.getElementById("name-input");
     const newName = input.value.trim();
     if (newName) {
         myName = newName;
-        localStorage.setItem("typing_user_name", myName);
+        try { localStorage.setItem("typing_user_name", myName); } catch(e){}
         document.getElementById("display-name").innerText = myName;
         update(myStatusRef, { name: myName });
         input.value = "";
@@ -73,11 +80,11 @@ document.getElementById("send-request-btn").onclick = async () => {
     const targetCode = document.getElementById("target-code-input").value.trim();
     
     if (targetCode.length !== 8 || isNaN(targetCode)) {
-        alert("有効な8桁の数字コードを入力してください。");
+        alert("8桁の数字を入力してください。");
         return;
     }
     if (targetCode === myCode) {
-        alert("自分自身は追加できません。");
+        alert("自分のコードです。");
         return;
     }
 
@@ -85,7 +92,7 @@ document.getElementById("send-request-btn").onclick = async () => {
     const snapshot = await get(targetUserRef);
 
     if (snapshot.exists()) {
-        // 相互に記録する（どちらかから申請があれば即フレンド）
+        // 相互にフレンド登録
         const updates = {};
         updates[`friends/${myCode}/${targetCode}`] = true;
         updates[`friends/${targetCode}/${myCode}`] = true;
@@ -94,7 +101,7 @@ document.getElementById("send-request-btn").onclick = async () => {
         alert(`${snapshot.val().name} さんとフレンドになりました！`);
         document.getElementById("target-code-input").value = "";
     } else {
-        alert("相手が見つかりませんでした。コードを確認してください。");
+        alert("相手が見つかりません。");
     }
 };
 
@@ -113,7 +120,6 @@ onValue(friendsRef, (snapshot) => {
     document.getElementById("friend-count").innerText = count;
 });
 
-// 個別のフレンド情報を描画
 function renderFriendItem(friendId) {
     const friendInfoRef = ref(db, `users/${friendId}`);
     onValue(friendInfoRef, (snap) => {
@@ -134,21 +140,21 @@ function renderFriendItem(friendId) {
 
         item.innerHTML = `
             <div class="friend-top">
-                <strong>${data.name}</strong>
+                <span class="friend-name">${data.name}</span>
                 <button class="delete-btn" onclick="deleteFriend('${friendId}')">削除</button>
             </div>
             <div class="status-indicator">
                 <span class="dot ${statusClass}"></span>
                 <span>${statusText}</span>
             </div>
-            <div style="font-size:0.7rem; color:#64748b;">ID: ${friendId}</div>
+            <div style="font-size:0.65rem; color:#64748b; margin-top:4px;">ID: ${friendId}</div>
         `;
     });
 }
 
-// --- フレンド削除機能 ---
+// --- 削除機能 ---
 window.deleteFriend = async (targetId) => {
-    if (confirm("このフレンドを削除しますか？")) {
+    if (confirm("フレンドを削除しますか？")) {
         const updates = {};
         updates[`friends/${myCode}/${targetId}`] = null;
         updates[`friends/${targetId}/${myCode}`] = null;
