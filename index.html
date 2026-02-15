@@ -16,6 +16,7 @@
     <audio id="sound-click" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
     <audio id="sound-start" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
     <audio id="sound-join" src="https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"></audio>
+    <audio id="sound-sizzle" src="https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"></audio>
 
     <div id="invite-notification" class="hidden">
         <div class="notify-content">
@@ -39,8 +40,47 @@
                 
                 <div id="mode-selection" class="menu-screen">
                     <button class="mode-btn" id="single-play-btn">一人でプレイ</button>
+                    <button class="mode-btn" id="custom-play-btn">作ったものを遊ぶ</button>
                     <button class="mode-btn" id="friend-play-btn">フレンドと対戦</button>
+                    <button class="mode-btn" id="online-play-btn">オンライン対戦</button>
+                    <button class="mode-btn" id="open-editor-btn" style="margin-top: 20px; font-size: 1rem; padding: 15px 30px;">タイピングを作る</button>
                     <p id="mode-error-msg" class="error-text hidden"></p>
+                </div>
+
+                <div id="online-selection" class="menu-screen hidden">
+                    <h2 class="menu-title">オンライン対戦</h2>
+                    <p>人数を選んでください</p>
+                    <div class="diff-btns">
+                        <button class="diff-btn easy" onclick="joinMatchmaking(2)">
+                            <span class="diff-name">2人対戦</span>
+                        </button>
+                        <button class="diff-btn normal" onclick="joinMatchmaking(3)">
+                            <span class="diff-name">3人対戦</span>
+                        </button>
+                        <button class="diff-btn hard" onclick="joinMatchmaking(4)">
+                            <span class="diff-name">4人対戦</span>
+                        </button>
+                    </div>
+                    <button class="back-btn" onclick="showScreen('mode')">メインメニューへ</button>
+                </div>
+
+                <div id="online-waiting" class="menu-screen hidden">
+                    <h2 class="menu-title">マッチング待機中...</h2>
+                    <p>他のプレイヤーを待っています</p>
+                    <h1 id="online-wait-count" style="color: #00d4ff;">1 / ?</h1>
+                    <button class="back-btn" onclick="cancelMatchmaking()">キャンセル</button>
+                </div>
+
+                <div id="custom-editor" class="menu-screen hidden">
+                    <h2 class="menu-title">タイピングを作る</h2>
+                    <p>※ひらがなで入力（2〜15文字） / 現在: <span id="custom-count">0</span>個（最低5、最高20）</p>
+                    <div id="custom-word-list" style="max-height: 250px; overflow-y: auto; width: 80%; background: #111; padding: 10px; border-radius: 10px;">
+                        </div>
+                    <div class="btn-row">
+                        <button class="success-btn" onclick="addCustomWord()" style="padding: 10px 20px;">+ 増やす</button>
+                        <button class="mode-btn" onclick="saveCustomWords()" style="padding: 10px 20px;">完成！</button>
+                        <button class="back-btn" onclick="showScreen('mode')" style="margin-top: 0;">メインメニューへ</button>
+                    </div>
                 </div>
 
                 <div id="difficulty-selection" class="menu-screen hidden">
