@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>日本語 Typing - Combo & Sound</title>
+    <title>Ultimate Typing - Japanese & Social</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,9 +15,9 @@
 
     <div id="invite-notification" class="hidden">
         <div class="notify-content">
-            <p><span id="inviter-name">---</span> さんから招待！</p>
+            <p><span id="inviter-name">---</span> さんからパーティー招待！</p>
             <div class="invite-btns">
-                <button id="accept-invite-btn" class="success-btn">入る</button>
+                <button id="accept-invite-btn" class="success-btn">参加</button>
                 <button id="decline-invite-btn" class="danger-btn">拒否</button>
             </div>
         </div>
@@ -26,47 +26,41 @@
     <div id="app-container">
         <main id="game-main">
             <header>
-                <h1>Typing Game</h1>
+                <h1>TYPING ONLINE</h1>
             </header>
             
             <div id="typing-screen">
                 <div id="mode-selection" class="menu-screen">
                     <button class="mode-btn" id="single-play-btn">一人でプレイ</button>
-                    <button class="mode-btn" id="friend-play-btn">フレンドとプレイ</button>
+                    <button class="mode-btn" id="friend-play-btn">フレンドと対戦 (準備中)</button>
                 </div>
 
                 <div id="difficulty-selection" class="menu-screen hidden">
                     <h2 class="menu-title">難易度を選択</h2>
                     <div class="diff-btns">
                         <button class="diff-btn easy" data-level="easy">
-                            かんたん<br><small>自己ベスト: <span id="best-easy">0</span></small>
+                            かんたん<br><small>Best: <span id="best-easy">0</span></small>
                         </button>
                         <button class="diff-btn normal" data-level="normal">
-                            ちゅうきゅう<br><small>自己ベスト: <span id="best-normal">0</span></small>
+                            ちゅうきゅう<br><small>Best: <span id="best-normal">0</span></small>
                         </button>
                         <button class="diff-btn hard" data-level="hard">
-                            むずかしい<br><small>自己ベスト: <span id="best-hard">0</span></small>
+                            むずかしい<br><small>Best: <span id="best-hard">0</span></small>
                         </button>
                     </div>
-                    <button class="back-btn" id="back-to-mode">一番最初に戻る</button>
+                    <button class="back-btn" id="back-to-mode">メインメニューへ</button>
                 </div>
 
                 <div id="game-play-area" class="menu-screen hidden">
                     <div id="combo-display">0 COMBO</div>
                     <div id="japanese-word">読み込み中</div>
-                    <div id="word-display">
+                    <div id="roma-display">
                         <span id="char-done" class="text-done"></span><span id="char-todo" class="text-todo"></span>
                     </div>
                     <div class="game-info">
-                        <p>スコア: <span id="score-count">0</span></p>
+                        SCORE: <span id="score-count">0</span>
                     </div>
-                    <button class="end-btn" id="end-game-btn">終了して戻る</button>
-                </div>
-
-                <div id="multi-play-area" class="menu-screen hidden">
-                    <h2 class="menu-title">フレンドとプレイ</h2>
-                    <p>パーティーメンバーを待っています...</p>
-                    <button class="back-btn" id="back-to-mode-from-multi">戻る</button>
+                    <button class="end-btn" id="end-game-btn">中断して戻る</button>
                 </div>
             </div>
         </main>
@@ -75,12 +69,13 @@
             <section class="sidebar-section">
                 <h2>プロフィール</h2>
                 <div class="card">
-                    <p><strong>名前:</strong> <span id="display-name">---</span></p>
+                    <p>NAME: <strong id="display-name">---</strong></p>
                     <div class="input-group">
-                        <input type="text" id="name-input" placeholder="名前を変更">
+                        <input type="text" id="name-input" placeholder="名前変更" maxlength="12">
                         <button id="update-name-btn">更新</button>
                     </div>
                     <div class="code-box">
+                        <small>マイコード</small>
                         <code id="my-friend-code">--------</code>
                     </div>
                 </div>
@@ -89,10 +84,10 @@
             <section class="sidebar-section">
                 <div class="header-flex">
                     <h2>フレンド</h2>
-                    <span id="friend-count-badge">0</span>
+                    <span id="friend-count-badge" class="badge">0</span>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="target-code-input" placeholder="8桁コード" maxlength="8">
+                    <input type="text" id="target-code-input" placeholder="8桁コードで追加" maxlength="8">
                     <button id="send-request-btn">追加</button>
                 </div>
                 <ul id="friend-list"></ul>
@@ -101,7 +96,7 @@
             <section class="sidebar-section">
                 <h2>パーティー</h2>
                 <div id="party-container" class="card">
-                    <div id="no-party-msg">未参加</div>
+                    <div id="no-party-msg">パーティー未参加</div>
                     <div id="party-info" class="hidden">
                         <div id="party-member-list"></div>
                         <div id="party-controls" class="margin-top"></div>
