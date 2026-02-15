@@ -3,71 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Typing Game - Professional System</title>
+    <title>Typing Game - Party System</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+    <div id="invite-notification" class="hidden">
+        <p><span id="inviter-name">---</span> さんから招待が届きました！</p>
+        <div class="invite-btns">
+            <button id="accept-invite-btn" class="success-btn">入る</button>
+            <button id="decline-invite-btn" class="danger-btn">拒否</button>
+        </div>
+    </div>
 
     <div id="app-container">
         <main id="game-main">
             <header>
                 <h1>Typing Game</h1>
             </header>
+            
             <div id="typing-screen">
-                <div class="game-placeholder">
-                    <p>ここにタイピングゲームが表示されます</p>
-                    <p class="sub-text">（現在はフレンド機能を実装中）</p>
+                <div id="mode-selection">
+                    <button class="mode-btn" id="single-play-btn">一人でプレイ</button>
+                    <button class="mode-btn" id="friend-play-btn">フレンドとプレイ</button>
                 </div>
             </div>
         </main>
 
         <aside id="right-sidebar">
-            <section class="sidebar-section" id="profile-area">
+            <section class="sidebar-section">
                 <h2>プロフィール</h2>
                 <div class="card">
-                    <div class="profile-info">
-                        <p><strong>名前:</strong> <span id="display-name">読み込み中...</span></p>
-                        <div class="input-group">
-                            <input type="text" id="name-input" placeholder="新しい名前を入力">
-                            <button id="update-name-btn">更新</button>
-                        </div>
-                    </div>
-                    <div class="code-info">
-                        <p>あなたのフレンドコード</p>
-                        <code id="my-friend-code">--------</code>
-                        <p class="device-note">※GoogleとSafariなど、ブラウザごとに異なります</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="sidebar-section" id="add-friend-area">
-                <h2>フレンド申請</h2>
-                <div class="card">
-                    <p class="input-label">相手の8桁コードを入力</p>
+                    <p><strong>名前:</strong> <span id="display-name">---</span></p>
                     <div class="input-group">
-                        <input type="text" id="target-code-input" placeholder="例: 12345678" maxlength="8">
-                        <button id="send-request-btn">申請</button>
+                        <input type="text" id="name-input" placeholder="名前を変更">
+                        <button id="update-name-btn">更新</button>
+                    </div>
+                    <div class="code-box">
+                        <code id="my-friend-code">--------</code>
                     </div>
                 </div>
             </section>
 
-            <section class="sidebar-section" id="friend-list-area">
-                <div class="section-header">
-                    <h2>フレンドリスト</h2>
-                    <span class="count-badge"><span id="friend-count">0</span>人</span>
+            <section class="sidebar-section">
+                <div class="header-flex">
+                    <h2>フレンド</h2>
+                    <span id="friend-count-badge">0</span>
                 </div>
-                <ul id="friend-list">
-                    </ul>
+                <div class="input-group">
+                    <input type="text" id="target-code-input" placeholder="8桁コードで追加" maxlength="8">
+                    <button id="send-request-btn">追加</button>
+                </div>
+                <ul id="friend-list"></ul>
+            </section>
+
+            <section class="sidebar-section" id="party-section">
+                <h2>パーティー</h2>
+                <div id="party-container" class="card">
+                    <div id="no-party-msg">パーティーに参加していません</div>
+                    <div id="party-info" class="hidden">
+                        <div id="party-member-list">
+                            </div>
+                        <div id="party-controls" class="margin-top">
+                            </div>
+                    </div>
+                </div>
             </section>
         </aside>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, get, update, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-        
-        // グローバルに公開（後続のscript.jsで使用可能にするため、または直接ここで記述）
-        window.firebaseDeps = { initializeApp, getDatabase, ref, set, get, update, onValue, onDisconnect, remove };
+    <script type="importmap">
+        {
+          "imports": {
+            "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+            "firebase/database": "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
+          }
+        }
     </script>
     <script type="module" src="script.js"></script>
 </body>
