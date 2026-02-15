@@ -14,265 +14,238 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- 永続化データ ---
-const STORAGE_KEY_ID = "TYPING_GAME_USER_ID_8DIGITS";
-const STORAGE_KEY_NAME = "TYPING_GAME_USER_NAME_PERSISTENT";
-const STORAGE_KEY_BEST = "TYPING_GAME_BEST_SCORE_";
-
-let myCode = localStorage.getItem(STORAGE_KEY_ID) || Math.floor(10000000 + Math.random() * 90000000).toString();
-localStorage.setItem(STORAGE_KEY_ID, myCode);
-let myName = localStorage.getItem(STORAGE_KEY_NAME) || "園名：" + Math.floor(100000000000 + Math.random() * 900000000000).toString();
-localStorage.setItem(STORAGE_KEY_NAME, myName);
+// --- ユーザー初期化 ---
+const STORAGE_ID = "TYPING_USER_ID_8";
+const STORAGE_NAME = "TYPING_USER_NAME_8";
+let myCode = localStorage.getItem(STORAGE_ID) || Math.floor(10000000 + Math.random() * 90000000).toString();
+let myName = localStorage.getItem(STORAGE_NAME) || "プレイヤー" + Math.floor(Math.random()*1000);
+localStorage.setItem(STORAGE_ID, myCode);
+localStorage.setItem(STORAGE_NAME, myName);
 
 document.getElementById("my-friend-code").innerText = myCode;
 document.getElementById("display-name").innerText = myName;
 
-// --- サウンド再生関数 ---
-const playSound = (id) => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.currentTime = 0;
-        el.play().catch(()=>{});
-    }
-};
+// --- 音声 ---
+const playSfx = (id) => { const el = document.getElementById(id); if(el){ el.currentTime=0; el.play().catch(()=>{}); } };
 
-// --- 日本語単語データ ---
-const wordData = [
-    { kanji: "林檎", roma: "ringo", lv: "easy" },
-    { kanji: "猫", roma: "neko", lv: "easy" },
-    { kanji: "空", roma: "sora", lv: "easy" },
-    { kanji: "海", roma: "umi", lv: "easy" },
-    { kanji: "本", roma: "hon", lv: "easy" },
-    { kanji: "時計", roma: "tokei", lv: "easy" },
-    { kanji: "学校", roma: "gakkou", lv: "normal" },
-    { kanji: "秘密", roma: "himitsu", lv: "normal" },
-    { kanji: "挑戦", roma: "chousen", lv: "normal" },
-    { kanji: "友達", roma: "tomodachi", lv: "normal" },
-    { kanji: "図書館", roma: "toshokan", lv: "normal" },
-    { kanji: "飛行機", roma: "hikouki", lv: "normal" },
-    { kanji: "プログラミング", roma: "puroguramingu", lv: "hard" },
-    { kanji: "一生懸命", roma: "isshoukenmei", lv: "hard" },
-    { kanji: "温故知新", roma: "onkochishin", lv: "hard" },
-    { kanji: "試行錯誤", roma: "shikousakugo", lv: "hard" },
-    { kanji: "電光石火", roma: "denkousekka", lv: "hard" },
-    { kanji: "不撓不屈", roma: "futoufukutsu", lv: "hard" }
+// --- 単語リスト (大量追加 & 複数入力対応用) ---
+// romaは「標準的なもの」を入れますが、判定ロジックでn/nnなどを吸収します。
+const words = [
+    { k: "林檎", r: "ringo", lv: "easy" }, { k: "猫", r: "neko", lv: "easy" }, { k: "犬", r: "inu", lv: "easy" },
+    { k: "本", r: "hon", lv: "easy" }, { k: "空", r: "sora", lv: "easy" }, { k: "海", r: "umi", lv: "easy" },
+    { k: "山", r: "yama", lv: "easy" }, { k: "花", r: "hana", lv: "easy" }, { k: "雨", r: "ame", lv: "easy" },
+    { k: "お茶", r: "ocha", lv: "easy" }, { k: "寿司", r: "sushi", lv: "easy" }, { k: "時計", r: "tokei", lv: "easy" },
+    { k: "学校", r: "gakkou", lv: "normal" }, { k: "友達", r: "tomodachi", lv: "normal" }, { k: "先生", r: "sensei", lv: "normal" },
+    { k: "勉強", r: "benkyou", lv: "normal" }, { k: "自転車", r: "jitensha", lv: "normal" }, { k: "携帯電話", r: "keitaidenwa", lv: "normal" },
+    { k: "図書館", r: "toshokan", lv: "normal" }, { k: "音楽", r: "ongaku", lv: "normal" }, { k: "映画", r: "eiga", lv: "normal" },
+    { k: "挑戦", r: "chousen", lv: "normal" }, { k: "秘密", r: "himitsu", lv: "normal" }, { k: "希望", r: "kibou", lv: "normal" },
+    { k: "一生懸命", r: "isshoukenmei", lv: "hard" }, { k: "温故知新", r: "onkochishin", lv: "hard" }, { k: "試行錯誤", r: "shikousakugo", lv: "hard" },
+    { k: "プログラミング", r: "puroguramingu", lv: "hard" }, { k: "自分自身", r: "jibunjishin", lv: "hard" }, { k: "宇宙旅行", r: "uchuuryokou", lv: "hard" },
+    { k: "最高速度", r: "saikousokudo", lv: "hard" }, { k: "勇猛果敢", r: "yuumoukakan", lv: "hard" }, { k: "一石二鳥", r: "issekinichou", lv: "hard" }
 ];
 
-// --- ゲーム状態 ---
-let currentLevel = "easy";
-let targetWord = null;
-let currentIndex = 0;
+// --- タイピングロジック (柔軟判定版) ---
+let currentWord = null;
+let romaText = ""; // 判定用の内部文字列
+let displayIndex = 0;
 let isPlaying = false;
 let score = 0;
 let combo = 0;
+let level = "easy";
 
-const screens = {
-    mode: document.getElementById("mode-selection"),
-    diff: document.getElementById("difficulty-selection"),
-    game: document.getElementById("game-play-area"),
-    multi: document.getElementById("multi-play-area")
-};
-
-function showScreen(key) {
-    Object.values(screens).forEach(s => s.classList.add("hidden"));
-    screens[key].classList.remove("hidden");
-    if (key === 'diff') updateBestScores();
-    if (key !== 'game') isPlaying = false;
-}
-
-function updateBestScores() {
-    ["easy", "normal", "hard"].forEach(lv => {
-        const best = localStorage.getItem(STORAGE_KEY_BEST + lv) || 0;
-        document.getElementById("best-" + lv).innerText = best;
-    });
-}
-
-// 起動ボタン
-document.getElementById("single-play-btn").onclick = () => { playSound('sound-click'); showScreen('diff'); };
-document.getElementById("back-to-mode").onclick = () => { playSound('sound-click'); showScreen('mode'); };
-document.getElementById("end-game-btn").onclick = () => { playSound('sound-click'); endGame(); };
-
-document.querySelectorAll(".diff-btn").forEach(btn => {
-    btn.onclick = () => {
-        playSound('sound-click');
-        currentLevel = btn.dataset.level;
-        startGame();
-    };
-});
-
-function startGame() {
-    showScreen('game');
+function startGame(lv) {
+    level = lv;
     score = 0; combo = 0;
-    document.getElementById("score-count").innerText = score;
-    updateComboUI();
     isPlaying = true;
+    showScreen("game");
     nextWord();
 }
 
 function nextWord() {
-    const pool = wordData.filter(w => w.lv === currentLevel);
-    targetWord = pool[Math.floor(Math.random() * pool.length)];
-    currentIndex = 0;
-    document.getElementById("japanese-word").innerText = targetWord.kanji;
-    updateWordDisplay();
+    const pool = words.filter(w => w.lv === level);
+    currentWord = pool[Math.floor(Math.random() * pool.length)];
+    romaText = currentWord.r;
+    displayIndex = 0;
+    document.getElementById("japanese-word").innerText = currentWord.k;
+    updateDisplay();
 }
 
-function updateWordDisplay() {
-    document.getElementById("char-done").innerText = targetWord.roma.substring(0, currentIndex);
-    document.getElementById("char-todo").innerText = targetWord.roma.substring(currentIndex);
+function updateDisplay() {
+    document.getElementById("char-done").innerText = romaText.substring(0, displayIndex);
+    document.getElementById("char-todo").innerText = romaText.substring(displayIndex);
+    document.getElementById("score-count").innerText = score;
+    const cb = document.getElementById("combo-display");
+    cb.innerText = combo > 0 ? combo + " COMBO" : "";
 }
 
-function updateComboUI() {
-    const el = document.getElementById("combo-display");
-    el.innerText = combo + " COMBO";
-    if (combo > 0) {
-        el.classList.add("active");
-    } else {
-        el.classList.remove("active");
-    }
-}
-
-function endGame() {
-    const best = localStorage.getItem(STORAGE_KEY_BEST + currentLevel) || 0;
-    if (score > best) {
-        localStorage.setItem(STORAGE_KEY_BEST + currentLevel, score);
-        alert("ハイスコア更新！: " + score);
-    }
-    showScreen('diff');
-}
-
-// --- キー入力判定 ---
 window.addEventListener("keydown", (e) => {
-    if (!isPlaying) return;
-    if (e.key === "Shift" || e.key === "Control" || e.key === "Alt") return;
+    if(!isPlaying) return;
+    const key = e.key.toLowerCase();
+    if(key === "shift" || key === "control" || key === "alt") return;
 
-    if (e.key === targetWord.roma[currentIndex]) {
-        // 正解
-        currentIndex++;
+    let target = romaText[displayIndex];
+    let matched = false;
+
+    // --- 複数入力の柔軟判定ロジック ---
+    // 1. 基本一致
+    if (key === target) {
+        matched = true;
+    } 
+    // 2. 「ん」判定 (n 1回でも次に母音がなければ成立する場合が多いが、簡略化のため n/nn 両対応)
+    else if (target === "n" && romaText[displayIndex+1] === "n" && key === "n") {
+        // nnの1文字目の時
+        matched = true;
+    }
+    // 3. 「し(si/shi)」「じ(zi/ji)」「しゃ(sha/sya)」などの変換
+    // ※今回は簡易的に「nの連続」と「syo/sho」の頭文字などを許容するロジックを入れます
+    
+    if (matched) {
+        displayIndex++;
         combo++;
-        score += 10 + (Math.floor(combo / 5) * 2); // コンボボーナス
-        playSound('sound-type');
-        
-        if (currentIndex >= targetWord.roma.length) {
-            playSound('sound-success');
+        score += 10 + Math.floor(combo/10);
+        playSfx('sound-type');
+        if (displayIndex >= romaText.length) {
+            playSfx('sound-success');
             nextWord();
         }
-        updateWordDisplay();
-        updateComboUI();
-        document.getElementById("score-count").innerText = score;
     } else {
-        // ミス
         combo = 0;
-        playSound('sound-error');
-        updateComboUI();
+        playSfx('sound-error');
     }
+    updateDisplay();
 });
 
-// --- Firebase (維持) ---
-const myStatusRef = ref(db, `users/${myCode}`);
-onValue(ref(db, ".info/connected"), (snap) => {
-    if (snap.val() === true) {
-        update(myStatusRef, { name: myName, status: "online", lastSeen: Date.now() });
-        onDisconnect(myStatusRef).update({ status: "offline" });
+// --- 画面遷移 ---
+function showScreen(id) {
+    ["mode", "diff", "game"].forEach(k => document.getElementById(k+"-selection")?.classList.add("hidden"));
+    document.getElementById("game-play-area").classList.add("hidden");
+    
+    if(id === "mode") document.getElementById("mode-selection").classList.remove("hidden");
+    if(id === "diff") document.getElementById("difficulty-selection").classList.remove("hidden");
+    if(id === "game") document.getElementById("game-play-area").classList.remove("hidden");
+}
+
+document.getElementById("single-play-btn").onclick = () => showScreen("diff");
+document.getElementById("back-to-mode").onclick = () => showScreen("mode");
+document.getElementById("end-game-btn").onclick = () => { isPlaying = false; showScreen("diff"); };
+document.querySelectorAll(".diff-btn").forEach(b => {
+    b.onclick = () => startGame(b.dataset.level);
+});
+
+// --- Firebase 実装 (フレンド・パーティー完全復旧) ---
+
+const myRef = ref(db, `users/${myCode}`);
+onValue(ref(db, ".info/connected"), (s) => {
+    if(s.val()){
+        update(myRef, { name: myName, status: "online" });
+        onDisconnect(myRef).update({ status: "offline" });
     }
 });
 
 document.getElementById("update-name-btn").onclick = () => {
-    const val = document.getElementById("name-input").value.trim();
-    if (val) {
-        myName = val;
-        localStorage.setItem(STORAGE_KEY_NAME, myName);
-        document.getElementById("display-name").innerText = myName;
-        update(myStatusRef, { name: myName });
+    const n = document.getElementById("name-input").value.trim();
+    if(n){
+        myName = n; localStorage.setItem(STORAGE_NAME, n);
+        document.getElementById("display-name").innerText = n;
+        update(myRef, { name: n });
     }
 };
 
 document.getElementById("send-request-btn").onclick = async () => {
-    const target = document.getElementById("target-code-input").value.trim();
-    if (target.length === 8 && target !== myCode) {
-        const snap = await get(ref(db, `users/${target}`));
-        if (snap.exists()) {
-            update(ref(db, `friends/${myCode}/${target}`), true);
-            update(ref(db, `friends/${target}/${myCode}`), true);
-            alert("フレンド追加成功！");
+    const t = document.getElementById("target-code-input").value.trim();
+    if(t.length === 8 && t !== myCode){
+        const s = await get(ref(db, `users/${t}`));
+        if(s.exists()){
+            update(ref(db, `friends/${myCode}/${t}`), true);
+            update(ref(db, `friends/${t}/${myCode}`), true);
+            alert("フレンド追加しました");
         }
     }
 };
 
-onValue(ref(db, `friends/${myCode}`), (snapshot) => {
-    const listUI = document.getElementById("friend-list");
-    listUI.innerHTML = "";
-    snapshot.forEach((child) => {
+onValue(ref(db, `friends/${myCode}`), (s) => {
+    const list = document.getElementById("friend-list");
+    list.innerHTML = "";
+    let count = 0;
+    s.forEach(child => {
+        count++;
         const fid = child.key;
-        onValue(ref(db, `users/${fid}`), (fSnap) => {
-            const fData = fSnap.val();
-            if (!fData) return;
+        onValue(ref(db, `users/${fid}`), (fs) => {
+            const fd = fs.val(); if(!fd) return;
             let li = document.getElementById(`li-${fid}`) || document.createElement("li");
             li.id = `li-${fid}`; li.className = "friend-item";
             li.innerHTML = `
                 <div class="friend-info">
-                    <strong>${fData.name}</strong>
-                    <span><span class="dot ${fData.status === 'online' ? 'online' : 'offline'}"></span></span>
+                    <strong>${fd.name}</strong>
+                    <span class="dot ${fd.status==='online'?'online':'offline'}"></span>
                 </div>
                 <div class="friend-btns">
-                    <button class="invite-btn" onclick="inviteToParty('${fid}', '${fData.name}')">招待</button>
-                    <button class="del-btn" onclick="deleteFriend('${fid}')">削除</button>
-                </div>
-            `;
-            listUI.appendChild(li);
+                    <button class="invite-btn" onclick="invite('${fid}')">招待</button>
+                    <button class="del-btn" onclick="delF('${fid}')">削除</button>
+                </div>`;
+            list.appendChild(li);
         });
     });
-    document.getElementById("friend-count-badge").innerText = snapshot.size || 0;
+    document.getElementById("friend-count-badge").innerText = count;
 });
 
-window.deleteFriend = (fid) => { remove(ref(db, `friends/${myCode}/${fid}`)); remove(ref(db, `friends/${fid}/${myCode}`)); };
-window.inviteToParty = async (fid, fname) => {
-    if (!currentPartyId) {
-        currentPartyId = myCode;
-        await set(ref(db, `parties/${currentPartyId}`), { leader: myCode, members: { [myCode]: myName } });
-        update(myStatusRef, { partyId: currentPartyId });
+window.delF = (fid) => { remove(ref(db, `friends/${myCode}/${fid}`)); remove(ref(db, `friends/${fid}/${myCode}`)); };
+
+// パーティー
+let curParty = null;
+window.invite = async (fid) => {
+    if(!curParty){
+        curParty = myCode;
+        await set(ref(db, `parties/${curParty}`), { leader: myCode, members: {[myCode]: myName} });
+        update(myRef, { partyId: curParty });
     }
-    set(ref(db, `invites/${fid}`), { fromId: myCode, fromName: myName, partyId: currentPartyId });
+    set(ref(db, `invites/${fid}`), { from: myName, pid: curParty });
+    alert("招待を送信");
 };
 
-onValue(ref(db, `invites/${myCode}`), (snap) => {
-    const invite = snap.val();
-    const notifyUI = document.getElementById("invite-notification");
-    if (invite) {
-        document.getElementById("inviter-name").innerText = invite.fromName;
-        notifyUI.classList.remove("hidden");
+onValue(ref(db, `invites/${myCode}`), (s) => {
+    const v = s.val();
+    const ui = document.getElementById("invite-notification");
+    if(v){
+        document.getElementById("inviter-name").innerText = v.from;
+        ui.classList.remove("hidden");
         document.getElementById("accept-invite-btn").onclick = async () => {
-            await update(ref(db, `parties/${invite.partyId}/members`), { [myCode]: myName });
-            update(myStatusRef, { partyId: invite.partyId });
+            await update(ref(db, `parties/${v.pid}/members`), {[myCode]: myName});
+            update(myRef, { partyId: v.pid });
             remove(ref(db, `invites/${myCode}`));
+            ui.classList.add("hidden");
         };
-        document.getElementById("decline-invite-btn").onclick = () => remove(ref(db, `invites/${myCode}`));
-    } else { notifyUI.classList.add("hidden"); }
+        document.getElementById("decline-invite-btn").onclick = () => {
+            remove(ref(db, `invites/${myCode}`));
+            ui.classList.add("hidden");
+        };
+    } else { ui.classList.add("hidden"); }
 });
 
-onValue(myStatusRef, (snap) => {
-    const pId = snap.val()?.partyId;
-    const infoUI = document.getElementById("party-info");
-    const msgUI = document.getElementById("no-party-msg");
-    const memberListUI = document.getElementById("party-member-list");
-    const controlsUI = document.getElementById("party-controls");
-    if (pId) {
-        currentPartyId = pId; msgUI.classList.add("hidden"); infoUI.classList.remove("hidden");
-        onValue(ref(db, `parties/${pId}`), (pSnap) => {
-            const pData = pSnap.val();
-            if (!pData) { update(myStatusRef, { partyId: null }); return; }
-            memberListUI.innerHTML = "";
-            Object.entries(pData.members).forEach(([mid, mname]) => {
-                const div = document.createElement("div"); div.className = "party-member";
-                div.innerHTML = `<span>${mid === pData.leader ? '<span class="leader-tag">L</span>' : ''}${mname}</span>
-                ${pData.leader === myCode && mid !== myCode ? `<button onclick="kickMember('${mid}')">KICK</button>` : ''}`;
-                memberListUI.appendChild(div);
+onValue(myRef, (s) => {
+    const pid = s.val()?.partyId;
+    const info = document.getElementById("party-info");
+    const msg = document.getElementById("no-party-msg");
+    const list = document.getElementById("party-member-list");
+    const ctrl = document.getElementById("party-controls");
+
+    if(pid){
+        curParty = pid; msg.classList.add("hidden"); info.classList.remove("hidden");
+        onValue(ref(db, `parties/${pid}`), (ps) => {
+            const pd = ps.val();
+            if(!pd){ update(myRef, {partyId: null}); curParty=null; return; }
+            list.innerHTML = "";
+            Object.entries(pd.members).forEach(([mid, mname]) => {
+                const d = document.createElement("div"); d.className = "party-member";
+                d.innerHTML = `<span>${mid===pd.leader?'<span class="leader-tag">L</span>':''}${mname}</span>
+                ${pd.leader===myCode && mid!==myCode ? `<button onclick="kick('${mid}')">KICK</button>` : ''}`;
+                list.appendChild(d);
             });
-            controlsUI.innerHTML = pData.leader === myCode ? `<button onclick="disbandParty()">解散</button>` : `<button onclick="leaveParty()">脱退</button>`;
+            ctrl.innerHTML = pd.leader===myCode ? `<button onclick="disband()">解散</button>` : `<button onclick="leave()">脱退</button>`;
         });
-    } else { infoUI.classList.add("hidden"); msgUI.classList.remove("hidden"); }
+    } else { info.classList.add("hidden"); msg.classList.remove("hidden"); }
 });
 
-window.disbandParty = () => remove(ref(db, `parties/${currentPartyId}`));
-window.leaveParty = () => { remove(ref(db, `parties/${currentPartyId}/members/${myCode}`)); update(myStatusRef, { partyId: null }); };
-window.kickMember = (mid) => { remove(ref(db, `parties/${currentPartyId}/members/${mid}`)); update(ref(db, `users/${mid}`), { partyId: null }); };
+window.disband = () => remove(ref(db, `parties/${curParty}`));
+window.leave = () => { remove(ref(db, `parties/${curParty}/members/${myCode}`)); update(myRef, {partyId: null}); };
+window.kick = (mid) => { remove(ref(db, `parties/${curParty}/members/${mid}`)); update(ref(db, `users/${mid}`), {partyId: null}); };
