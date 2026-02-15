@@ -6,11 +6,11 @@
 
 <style>
 
-  <!-- Firebase読み込み -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
   authDomain: "typing-game-28ed0.firebaseapp.com",
@@ -20,9 +20,79 @@ const firebaseConfig = {
   appId: "1:963797267101:web:0d5d700458fb1991021a74"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ランダム数字
+function randomNumber(length){
+  let r="";
+  for(let i=0;i<length;i++){
+    r+=Math.floor(Math.random()*10);
+  }
+  return r;
+}
+
+// 初期設定
+if(!localStorage.friendCode){
+  localStorage.friendCode=randomNumber(8);
+}
+if(!localStorage.playerName){
+  localStorage.playerName="園名:"+randomNumber(12);
+}
+
+const myCode = localStorage.friendCode;
+const myName = localStorage.playerName;
+
+// ユーザー登録（存在しなければ作る）
+const userRef = doc(db, "users", myCode);
+const userSnap = await getDoc(userRef);
+
+if(!userSnap.exists()){
+  await setDoc(userRef,{
+    name: myName,
+    status: "ロビー中"
+  });
+}
+
+// フレンド追加（両方向）
+window.requestFriend = async function(){
+  const code = document.getElementById("friendCodeInput").value;
+  if(code.length !== 8) return alert("8桁入力！");
+
+  const targetRef = doc(db,"users",code);
+  const targetSnap = await getDoc(targetRef);
+
+  if(!targetSnap.exists()){
+    return alert("そのユーザーはいません");
+  }
+
+  // 自分側に追加
+  await setDoc(doc(db,"users",myCode,"friends",code),{
+    name: targetSnap.data().name
+  });
+
+  // 相手側にも追加
+  await setDoc(doc(db,"users",code,"friends",myCode),{
+    name: myName
+  });
+};
+
+// リアルタイム表示
+onSnapshot(collection(db,"users",myCode,"friends"), (snapshot)=>{
+  const list = document.getElementById("friendList");
+  list.innerHTML="";
+  snapshot.forEach(docSnap=>{
+    const div=document.createElement("div");
+    div.className="friend";
+    div.innerHTML=`
+      <strong>${docSnap.data().name}</strong><br>
+      Code:${docSnap.id}
+    `;
+    list.appendChild(div);
+  });
+});
 </script>
+
 
 body{
   margin:0;
