@@ -3,56 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Typing Game - Professional Friend System</title>
+    <title>Typing Game - Professional System</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="game-container">
-        <aside id="left-sidebar">
-            <section id="profile-section">
-                <h2>プロフィール</h2>
-                <div class="profile-card">
-                    <p><strong>名前:</strong> <span id="display-name">読み込み中...</span></p>
-                    <input type="text" id="name-input" placeholder="新しい名前を入力">
-                    <button id="update-name-btn">名前を変更</button>
-                </div>
-                
-                <div class="id-card">
-                    <p><strong>あなたのフレンドコード</strong></p>
-                    <code id="friend-code">--------</code>
-                    <p class="small-info">※端末ごとに固有です</p>
-                </div>
-            </section>
-            
-            <section id="status-section">
-                <div id="my-status-display">
-                    状態: <span id="my-status-indicator" class="status-offline"></span> <span id="my-status-text">オフライン</span>
-                </div>
-            </section>
-        </aside>
-
-        <main id="main-content">
-            <h1>タイピングゲーム</h1>
-            <div id="typing-area">
-                <p>ゲーム画面（開発中）</p>
+    <div id="app-container">
+        <main id="game-main">
+            <header>
+                <h1>Typing Game</h1>
+            </header>
+            <div id="typing-screen">
+                <p class="placeholder-text">ここにタイピングゲームが表示されます</p>
             </div>
         </main>
 
         <aside id="right-sidebar">
-            <section id="friend-section">
-                <h2>フレンド機能</h2>
-                <div class="add-friend">
-                    <p>フレンド申請</p>
-                    <input type="text" id="friend-input" placeholder="8桁の数字を入力" maxlength="8">
-                    <button id="add-friend-btn">申請を送る</button>
+            <section class="sidebar-section" id="profile-area">
+                <h2>プロフィール</h2>
+                <div class="card">
+                    <div class="profile-info">
+                        <p><strong>名前:</strong> <span id="display-name">読み込み中...</span></p>
+                        <input type="text" id="name-input" placeholder="名前を変更">
+                        <button id="update-name-btn">更新</button>
+                    </div>
+                    <div class="code-info">
+                        <p>あなたのフレンドコード</p>
+                        <code id="my-friend-code">--------</code>
+                    </div>
                 </div>
-                
-                <div id="friend-list-container">
-                    <p>フレンドリスト (<span id="friend-count">0</span>)</p>
-                    <ul id="friend-list">
-                        </ul>
+            </section>
+
+            <section class="sidebar-section" id="add-friend-area">
+                <h2>フレンド申請</h2>
+                <div class="card">
+                    <input type="text" id="target-code-input" placeholder="相手の8桁コードを入力" maxlength="8">
+                    <button id="send-request-btn">申請を送る</button>
                 </div>
+            </section>
+
+            <section class="sidebar-section" id="friend-list-area">
+                <h2>フレンドリスト (<span id="friend-count">0</span>)</h2>
+                <ul id="friend-list">
+                    </ul>
             </section>
         </aside>
     </div>
@@ -61,7 +54,6 @@
         {
           "imports": {
             "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-            "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js",
             "firebase/database": "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
           }
         }
