@@ -8,67 +8,62 @@
     --text: #ffffff;
 }
 
-* { box-sizing: border-box; }
-body, html { margin: 0; padding: 0; height: 100vh; height: 100svh; background: var(--bg); color: var(--text); font-family: 'Hiragino Kaku Gothic ProN', sans-serif; overflow: hidden; }
+* { box-sizing: border-box; outline: none; }
+body, html { margin: 0; padding: 0; height: 100vh; height: 100svh; background: var(--bg); color: var(--text); font-family: 'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif; overflow: hidden; }
+
 #app-container { display: flex; width: 100vw; height: 100%; }
 .hidden { display: none !important; }
 
 /* メインエリア */
 #game-main { flex: 1; display: flex; flex-direction: column; padding: 20px; align-items: center; }
 #typing-screen {
-    width: 100%; max-width: 900px; height: 500px; background: #000;
-    border-radius: 20px; border: 2px solid var(--card);
+    width: 100%; max-width: 900px; height: 500px; background: radial-gradient(circle, #1e293b 0%, #000 100%);
+    border-radius: 24px; border: 3px solid var(--card);
     display: flex; flex-direction: column; justify-content: center; align-items: center;
-    position: relative; overflow: hidden;
+    position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.5);
 }
 
 .menu-screen { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
-.menu-title { font-size: 1.5rem; color: var(--accent); margin-bottom: 20px; }
+.menu-title { font-size: 1.5rem; color: var(--accent); margin-bottom: 20px; text-shadow: 0 0 10px var(--accent); }
 
-/* タイピング表示 */
-#word-display { font-size: 3rem; font-family: 'Courier New', Courier, monospace; letter-spacing: 5px; margin-bottom: 30px; }
-.text-done { color: var(--accent); }
+/* コンボ演出 */
+#combo-display {
+    font-size: 2rem; font-weight: 900; color: #fbbf24; margin-bottom: 10px;
+    opacity: 0; transform: scale(0.5); transition: 0.1s;
+}
+#combo-display.active { opacity: 1; transform: scale(1.2); }
+
+/* 日本語・ローマ字表示 */
+#japanese-word { font-size: 2.2rem; font-weight: bold; margin-bottom: 5px; color: #fff; }
+#word-display { font-size: 2.5rem; font-family: 'Consolas', monospace; letter-spacing: 3px; margin-bottom: 20px; }
+.text-done { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
 .text-todo { color: #444; }
-.game-info { font-size: 1.2rem; color: #888; margin-bottom: 20px; }
 
-/* 各種ボタン */
+/* ボタン類 */
 .mode-btn {
     padding: 30px 50px; font-size: 1.4rem; font-weight: bold;
     background: var(--accent); color: #000; border: none; border-radius: 15px;
-    cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(76, 201, 240, 0.3);
+    cursor: pointer; transition: 0.2s;
 }
-.mode-btn:hover { transform: translateY(-5px); filter: brightness(1.1); }
+.mode-btn:active { transform: scale(0.95); }
 
-.diff-btns { display: flex; flex-direction: column; gap: 15px; width: 300px; }
-.diff-btn { padding: 15px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; color: #000; transition: 0.2s; }
+.diff-btns { display: flex; gap: 15px; }
+.diff-btn { 
+    padding: 20px; width: 180px; font-size: 1rem; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; color: #000; 
+    display: flex; flex-direction: column; align-items: center; line-height: 1.4;
+}
+.diff-btn small { font-weight: normal; font-size: 0.75rem; opacity: 0.8; }
 .easy { background: var(--online); }
 .normal { background: #fbbf24; }
-.hard { background: var(--offline); color: white; }
-.diff-btn:hover { transform: scale(1.03); opacity: 0.9; }
+.hard { background: var(--offline); color: #fff; }
 
-.back-btn, .end-btn { background: #334155; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; }
-.back-btn:hover, .end-btn:hover { background: #475569; }
-
-/* 右側サイドバー（前回同様） */
+/* サイドバーは維持 */
 #right-sidebar { width: 350px; background: var(--sidebar-bg); border-left: 1px solid #2d3748; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
-.sidebar-section { border-bottom: 1px solid #2d3748; padding-bottom: 20px; }
-h2 { font-size: 1.1rem; margin: 0 0 12px 0; color: var(--accent); border-left: 4px solid var(--accent); padding-left: 10px; }
-.card { background: var(--card); padding: 15px; border-radius: 12px; }
-input { background: #0a0f1e; border: 1px solid #4a5568; color: white; padding: 10px; border-radius: 8px; width: 100%; }
-.input-group { display: flex; gap: 8px; margin-top: 10px; }
-button { cursor: pointer; border-radius: 8px; border: none; padding: 10px; font-weight: bold; }
-#my-friend-code { display: block; font-size: 1.6rem; background: #000; color: #ffd700; padding: 12px; border-radius: 10px; text-align: center; letter-spacing: 4px; margin-top: 10px; }
-#friend-list { list-style: none; padding: 0; margin-top: 15px; display: flex; flex-direction: column; gap: 12px; }
-.friend-item { background: var(--card); padding: 12px; border-radius: 10px; }
+.card { background: var(--card); padding: 15px; border-radius: 12px; margin-top: 5px; }
+.sidebar-section { border-bottom: 1px solid #2d3748; padding-bottom: 15px; }
+#my-friend-code { display: block; font-size: 1.6rem; background: #000; color: #ffd700; padding: 10px; border-radius: 10px; text-align: center; margin-top: 10px; }
+#friend-list { list-style: none; padding: 0; margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.friend-item { background: var(--card); padding: 12px; border-radius: 10px; border-left: 4px solid #475569; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-.online { background: var(--online); } .offline { background: var(--offline); }
-.friend-btns { display: flex; gap: 8px; margin-top: 10px; }
-.invite-btn { background: #6366f1; color: white; flex: 1; font-size: 0.75rem; }
-.del-btn { background: none; border: 1px solid var(--offline); color: var(--offline); font-size: 0.75rem; }
-.leader-tag { font-size: 0.7rem; background: #fbbf24; color: #000; padding: 2px 5px; border-radius: 4px; margin-right: 8px; font-weight: bold; }
-
-/* 通知UI */
-#invite-notification { position: fixed; top: 20px; left: 20px; z-index: 9999; background: var(--card); border: 2px solid var(--accent); padding: 15px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
-.invite-btns { display: flex; gap: 10px; margin-top: 10px; }
-.success-btn { background: var(--online); color: #000; }
-.danger-btn { background: var(--offline); color: #fff; }
+.online { background: var(--online); box-shadow: 0 0 5px var(--online); }
+.offline { background: var(--offline); }
