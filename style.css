@@ -1,39 +1,38 @@
 body {
     margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f0f2f5;
-    display: flex;
-    justify-content: center;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
 }
 
 #game-container {
     display: flex;
-    width: 100%;
-    max-width: 1200px;
+    width: 100vw;
     height: 100vh;
-    background-color: white;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    overflow: hidden;
 }
 
-/* サイドバー設定 */
-#sidebar {
+/* 共通サイドバー設定 */
+aside {
     width: 300px;
-    background-color: #2c3e50;
-    color: white;
+    background-color: #1e1e1e;
     padding: 20px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    border-right: 2px solid #1a252f;
+    border-right: 1px solid #333;
+    border-left: 1px solid #333;
 }
 
-#sidebar h2 {
-    font-size: 1.2rem;
-    margin-bottom: 15px;
-    color: #3498db;
+h2 {
+    color: #00a8ff;
+    font-size: 1.1rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
 }
 
-.profile-card, .id-card, .add-friend {
-    background-color: #34495e;
+.profile-card, .id-card, .add-friend, .friend-item {
+    background-color: #2d2d2d;
     padding: 15px;
     border-radius: 8px;
     margin-bottom: 15px;
@@ -41,55 +40,90 @@ body {
 
 input[type="text"] {
     width: 100%;
-    padding: 8px;
+    padding: 10px;
     margin-bottom: 10px;
     border-radius: 4px;
-    border: none;
+    border: 1px solid #444;
+    background: #121212;
+    color: white;
     box-sizing: border-box;
 }
 
 button {
     width: 100%;
-    padding: 8px;
-    background-color: #3498db;
+    padding: 10px;
+    background-color: #00a8ff;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    transition: background 0.3s;
+    font-weight: bold;
 }
 
 button:hover {
-    background-color: #2980b9;
+    background-color: #0081c3;
 }
 
-#friend-code {
-    display: block;
-    background: #1a252f;
-    padding: 5px;
-    text-align: center;
-    font-weight: bold;
-    color: #e74c3c;
-    letter-spacing: 1px;
+/* フレンドリストと削除ボタン */
+#friend-list {
+    list-style: none;
+    padding: 0;
+    overflow-y: auto;
+    flex-grow: 1;
 }
+
+.friend-item {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border-left: 4px solid #444;
+}
+
+.friend-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.remove-btn {
+    background: #ff4757;
+    width: auto;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+}
+
+/* ステータスドット */
+.status-dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.status-online { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+.status-offline { background-color: #ff4757; box-shadow: 0 0 5px #ff4757; }
 
 /* メインコンテンツ */
 #main-content {
     flex-grow: 1;
-    padding: 40px;
-    text-align: center;
-}
-
-#friend-list {
-    list-style: none;
-    padding: 0;
-}
-
-.friend-item {
-    background: #3e5871;
-    padding: 10px;
-    margin-bottom: 5px;
-    border-radius: 4px;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #121212;
 }
+
+#friend-code {
+    display: block;
+    background: #000;
+    padding: 10px;
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f1c40f;
+    letter-spacing: 3px;
+    border-radius: 4px;
+}
+
+.small-info { font-size: 0.7rem; color: #888; text-align: center; }
