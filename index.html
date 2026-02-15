@@ -104,6 +104,7 @@ input{
 <div class="sidebar">
   <h2>プロフィール</h2>
   <div id="profileArea"></div>
+  <div id="partyArea"></div>
 
   <h2>フレンド追加</h2>
   <input id="friendCodeInput" placeholder="フレンドコード8桁">
@@ -123,7 +124,7 @@ import {
   getDatabase, ref, set, onValue, onDisconnect
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-/* ---- Firebase 設定（自分のまま使ってOK） ---- */
+/* ===== Firebase ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
   authDomain: "typing-game-28ed0.firebaseapp.com",
@@ -135,297 +136,217 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
 
-/* ---- 初期処理 ---- */
-function randomNumber(l){ let r=""; for(let i=0;i<l;i++){ r += Math.floor(Math.random()*10); } return r; }
-if(!localStorage.playerName) localStorage.playerName = "園名:" + randomNumber(12);
-if(!localStorage.friendCode) localStorage.friendCode = randomNumber(8);
+/* ===== 初期 ===== */
+function rand(l){let r="";for(let i=0;i<l;i++){r+=Math.floor(Math.random()*10);}return r;}
+if(!localStorage.playerName) localStorage.playerName="園名:"+rand(6);
+if(!localStorage.friendCode) localStorage.friendCode=rand(8);
 
-const myCode = localStorage.friendCode;
-let myName = localStorage.playerName;
+const myCode=localStorage.friendCode;
+let myName=localStorage.playerName;
 
-/* ---- オンライン管理（heartbeat方式） ---- */
-const statusPath = "status/" + myCode;
-const statusRef = ref(rtdb, statusPath);
+/* ===== オンライン（超安定版） ===== */
+const statusRef=ref(rtdb,"status/"+myCode);
 
-// 初回セット（online:true と lastSeen）
-function writeOnlineStatus(online = true){
-  set(statusRef, { online: !!online, name: myName, lastSeen: Date.now() });
+function updateOnline(state){
+  set(statusRef,{
+    online:state,
+    name:myName,
+    lastSeen:Date.now()
+  });
 }
-writeOnlineStatus(true);
 
-// onDisconnect でオフラインにする（ブラウザが閉じられたとき）
-onDisconnect(statusRef).set({ online: false, name: myName, lastSeen: Date.now() });
+updateOnline(true);
+onDisconnect(statusRef).set({
+  online:false,
+  name:myName,
+  lastSeen:Date.now()
+});
 
-// heartbeat：5秒ごとに lastSeen を更新して「オンライン判定」を安定化
-const HEARTBEAT_MS = 5000;
-const heartbeatId = setInterval(()=>{
-  writeOnlineStatus(true);
-}, HEARTBEAT_MS);
+/* 5秒ごと更新 */
+setInterval(()=>updateOnline(true),5000);
 
-/* ---- プロフィール領域描画 ---- */
-function renderProfileArea(){
-  document.getElementById("profileArea").innerHTML = `
-    名前:<br>
-    <input id="nameInput" value="${myName}">
-    <button id="changeNameBtn">変更</button>
-    <hr>
-    フレンドコード:<br>
-    <strong>${myCode}</strong>
-  `;
-  document.getElementById("changeNameBtn").onclick = ()=>{
-    myName = document.getElementById("nameInput").value || myName;
-    localStorage.playerName = myName;
-    // 更新してFirestoreの users ドキュメントにも保存
-    setDoc(doc(db,"users",myCode), { name: myName }, { merge: true });
-    writeOnlineStatus(true);
-    // 再描画は不要（inputに反映済み）
-  };
-}
-renderProfileArea();
+/* ===== プロフィール ===== */
+document.getElementById("profileArea").innerHTML=`
+名前:<br>
+<input id="nameInput" value="${myName}">
+<button id="nameBtn">変更</button>
+<hr>
+フレンドコード:<br>
+<strong>${myCode}</strong>
+`;
 
-// 保証：users ドキュメントに自分を登録（merge）
-await setDoc(doc(db,"users",myCode), { name: myName }, { merge: true });
-
-/* ---- フレンド操作 ---- */
-window.requestFriend = async function(){
-  const code = document.getElementById("friendCodeInput").value.trim();
-  if(code.length !== 8) return alert("8桁のフレンドコードを入力してください。");
-  if(code === myCode) return alert("自分自身を追加できません。");
-
-  const snap = await getDoc(doc(db,"users",code));
-  if(!snap.exists()) return alert("そのユーザーは存在しません。");
-
-  // 両方向に friend を作る
-  await setDoc(doc(db,"users",myCode,"friends",code), { name: snap.data().name });
-  await setDoc(doc(db,"users",code,"friends",myCode), { name: myName });
-
-  alert("フレンド申請（登録）しました。");
+document.getElementById("nameBtn").onclick=()=>{
+  myName=document.getElementById("nameInput").value;
+  localStorage.playerName=myName;
+  updateOnline(true);
+  setDoc(doc(db,"users",myCode),{name:myName},{merge:true});
 };
 
-window.removeFriend = async function(code){
-  if(!confirm("本当にフレンドを削除しますか？")) return;
+await setDoc(doc(db,"users",myCode),{name:myName},{merge:true});
+
+/* ===== フレンド ===== */
+window.requestFriend=async function(){
+  const code=document.getElementById("friendCodeInput").value.trim();
+  const snap=await getDoc(doc(db,"users",code));
+  if(!snap.exists()) return alert("存在しません");
+  await setDoc(doc(db,"users",myCode,"friends",code),{name:snap.data().name});
+  await setDoc(doc(db,"users",code,"friends",myCode),{name:myName});
+};
+
+window.removeFriend=async function(code){
   await deleteDoc(doc(db,"users",myCode,"friends",code));
   await deleteDoc(doc(db,"users",code,"friends",myCode));
 };
 
-/* ---- フレンド一覧表示 + 安定したオンライン判定 ---- */
-/* friendUnsubs: 既存のonValueリスナを解除するために保存 */
-let friendUnsubs = {}; // key: friendCode -> unsubscribe function
+/* ===== フレンド表示 ===== */
+onSnapshot(collection(db,"users",myCode,"friends"),(snap)=>{
+  const list=document.getElementById("friendList");
+  list.innerHTML="";
 
-onSnapshot(collection(db,"users",myCode,"friends"), (snap)=>{
-  const list = document.getElementById("friendList");
-  list.innerHTML = "";
+  snap.forEach(docSnap=>{
+    const code=docSnap.id;
 
-  // 既存のRTDBリスナを解除してから再作成（重複防止）
-  for(const k in friendUnsubs){ try { friendUnsubs[k](); } catch(e){} }
-  friendUnsubs = {};
-
-  snap.forEach(docSnap => {
-    const code = docSnap.id;
-    const name = docSnap.data().name || ("園名:"+randomNumber(12));
-
-    const div = document.createElement("div");
-    div.className = "friend";
-    div.innerHTML = `
-      <strong id="friend-name-${code}">${name}</strong><br>
-      Code: ${code}<br>
+    const div=document.createElement("div");
+    div.className="friend";
+    div.innerHTML=`
+      <strong>${docSnap.data().name}</strong><br>
+      Code:${code}<br>
       <span id="status-${code}">確認中...</span><br>
-      <button class="invite-btn" onclick="inviteParty('${code}')">パーティー招待</button>
-      <button class="delete-btn" onclick="removeFriend('${code}')">削除</button>
+      <button style="background:#4CAF50;color:white;" onclick="inviteParty('${code}')">招待</button>
+      <button style="background:#f44336;color:white;" onclick="removeFriend('${code}')">削除</button>
     `;
     list.appendChild(div);
 
-    // RTDB の status を監視（すぐに反映する）
-    const rf = ref(rtdb, "status/" + code);
-    const unsub = onValue(rf, (s) => {
-      const el = document.getElementById("status-"+code);
+    onValue(ref(rtdb,"status/"+code),(s)=>{
+      const el=document.getElementById("status-"+code);
       if(!el) return;
-      if(s.exists()){
-        const val = s.val();
-        // lastSeen を使って短時間内ならオンライン扱い（余裕を持たせる）
-        const last = val.lastSeen || 0;
-        const now = Date.now();
-        const ONLINE_WINDOW = 15000; // 15秒以内に更新があればオンラインとみなす
-        if(val.online && (now - last) < ONLINE_WINDOW){
-          el.innerHTML = "<span style='color:green'>オンライン</span>";
-        } else {
-          el.innerHTML = "<span style='color:red'>オフライン</span>";
-        }
-        // 名前が変わっていれば反映
-        if(val.name){
-          const nmEl = document.getElementById("friend-name-"+code);
-          if(nmEl) nmEl.textContent = val.name;
-        }
-      } else {
-        el.innerHTML = "<span style='color:red'>オフライン</span>";
-      }
-    }, { onlyOnce: false });
 
-    // 保存してあとで解除できるようにする
-    friendUnsubs[code] = unsub;
+      if(s.exists()){
+        const data=s.val();
+        const diff=Date.now()-(data.lastSeen||0);
+        if(data.online && diff<15000){
+          el.innerHTML="<span style='color:green'>オンライン</span>";
+        }else{
+          el.innerHTML="<span style='color:red'>オフライン</span>";
+        }
+      }else{
+        el.innerHTML="<span style='color:red'>オフライン</span>";
+      }
+    });
   });
 });
 
-/* ---- 招待を UI (右上トースト) で処理する仕組み ---- */
-const inviteToastMap = new Map(); // inviteId -> element
-
-function ensureInviteToastContainer(){
-  let container = document.getElementById("inviteToastContainer");
-  if(container) return container;
-  container = document.createElement("div");
-  container.id = "inviteToastContainer";
-  // 右上に表示
-  container.style.position = "fixed";
-  container.style.top = "12px";
-  container.style.right = "12px";
-  container.style.zIndex = 9999;
-  document.body.appendChild(container);
-  return container;
-}
-
-function showInviteToast(inviteId, fromCode, fromName){
-  const container = ensureInviteToastContainer();
-  // 既にあるなら無視
-  if(inviteToastMap.has(inviteId)) return;
-  const box = document.createElement("div");
-  box.style.background = "#fff";
-  box.style.color = "#000";
-  box.style.padding = "10px";
-  box.style.marginTop = "8px";
-  box.style.borderRadius = "8px";
-  box.style.boxShadow = "0 6px 18px rgba(0,0,0,0.2)";
-  box.innerHTML = `
-    <div><strong>${fromName}</strong> からパーティー招待</div>
-    <div style="margin-top:8px; display:flex; gap:8px;">
-      <button id="accept-${inviteId}">参加</button>
-      <button id="reject-${inviteId}">拒否</button>
-    </div>
-  `;
-  container.appendChild(box);
-  inviteToastMap.set(inviteId, box);
-
-  document.getElementById(`accept-${inviteId}`).onclick = async ()=>{
-    try{
-      await joinParty(fromCode);
-    }catch(e){
-      console.error(e);
-      alert("参加に失敗しました");
-    }
-    // 招待ドキュメントを削除
-    await deleteDoc(doc(db,"users",myCode,"invites",inviteId));
-    // トースト削除
-    const el = inviteToastMap.get(inviteId);
-    if(el) el.remove();
-    inviteToastMap.delete(inviteId);
-  };
-
-  document.getElementById(`reject-${inviteId}`).onclick = async ()=>{
-    // 招待ドキュメントを削除
-    await deleteDoc(doc(db,"users",myCode,"invites",inviteId));
-    const el = inviteToastMap.get(inviteId);
-    if(el) el.remove();
-    inviteToastMap.delete(inviteId);
-  };
-}
-
-/* 招待送信（既存の inviteParty を上書き） */
-window.inviteParty = async function(target){
-  if(target === myCode) return alert("自分には送れません");
-  // doc id を送信元コードにしてつくる（受け取り側は doc.id を inviteId とする）
+/* ===== 招待（左上・大きめUI） ===== */
+window.inviteParty=async function(target){
   await setDoc(doc(db,"users",target,"invites",myCode),{
-    from: myCode,
-    fromName: myName,
-    created: Date.now()
+    from:myCode,
+    fromName:myName
   });
-  alert("招待を送信しました！");
 };
 
-/* 招待受信を監視（サブコレクション users/{me}/invites） */
-onSnapshot(collection(db,"users",myCode,"invites"), (snapshot) => {
-  snapshot.docChanges().forEach(async change => {
-    if(change.type === "added"){
-      const inviteId = change.doc.id; // 送信元のコードを使っている
-      const data = change.doc.data();
-      // UIで処理（トースト）
-      showInviteToast(inviteId, data.from, data.fromName || "不明");
+/* 招待受信 */
+onSnapshot(collection(db,"users",myCode,"invites"),(snapshot)=>{
+  snapshot.docChanges().forEach(change=>{
+    if(change.type==="added"){
+      const data=change.doc.data();
+      showInviteUI(change.doc.id,data.from,data.fromName);
     }
-    // "removed" は UI 側が自ら削除するので追加処理不要
   });
 });
 
-/* ---- パーティー参加処理 ---- */
-async function joinParty(leaderCode){
-  // leaderCode の parties/{leader}/members/{me} を作成
-  await setDoc(doc(db,"parties",leaderCode), { leader: leaderCode }, { merge: true });
-  await setDoc(doc(db,"parties",leaderCode,"members",myCode), { name: myName });
+function showInviteUI(id,leader,name){
+
+  const box=document.createElement("div");
+  box.id="invite-"+id;
+  box.style.position="fixed";
+  box.style.top="20px";
+  box.style.left="20px";
+  box.style.background="white";
+  box.style.color="black";
+  box.style.padding="20px";
+  box.style.borderRadius="15px";
+  box.style.boxShadow="0 10px 25px rgba(0,0,0,0.4)";
+  box.style.fontSize="18px";
+  box.style.zIndex="9999";
+
+  box.innerHTML=`
+    <div style="margin-bottom:10px;">
+      <strong>${name}</strong> からパーティー招待！
+    </div>
+    <button id="ok-${id}" style="background:#4CAF50;color:white;padding:10px 15px;border:none;border-radius:8px;margin-right:10px;">参加</button>
+    <button id="ng-${id}" style="background:#f44336;color:white;padding:10px 15px;border:none;border-radius:8px;">拒否</button>
+  `;
+
+  document.body.appendChild(box);
+
+  document.getElementById("ok-"+id).onclick=async()=>{
+    await joinParty(leader);
+    await deleteDoc(doc(db,"users",myCode,"invites",id));
+    box.remove();
+  };
+
+  document.getElementById("ng-"+id).onclick=async()=>{
+    await deleteDoc(doc(db,"users",myCode,"invites",id));
+    box.remove();
+  };
 }
 
-/* ---- パーティー UI 監視（増殖しない安定版） ---- */
-onSnapshot(collection(db,"parties"), async (snapshot) => {
-  const partyArea = document.getElementById("partyArea");
-  if(!partyArea) return;
-  // まずクリア
-  partyArea.innerHTML = "";
+/* ===== パーティー参加 ===== */
+async function joinParty(leader){
+  await setDoc(doc(db,"parties",leader),{leader:leader},{merge:true});
+  await setDoc(doc(db,"parties",leader,"members",leader),{name:"リーダー"},{merge:true});
+  await setDoc(doc(db,"parties",leader,"members",myCode),{name:myName});
+}
 
-  // ひとつずつチェックして、自分がメンバーのパーティーだけ表示
-  for(const partyDoc of snapshot.docs){
-    const leader = partyDoc.id;
-    const membersSnap = await getDocs(collection(db,"parties",leader,"members"));
-    const isMember = membersSnap.docs.some(m => m.id === myCode);
+/* ===== パーティーUI ===== */
+onSnapshot(collection(db,"parties"),async(snapshot)=>{
+  const area=document.getElementById("partyArea");
+  if(!area) return;
+  area.innerHTML="";
+
+  for(const party of snapshot.docs){
+    const leader=party.id;
+    const members=await getDocs(collection(db,"parties",leader,"members"));
+
+    const isMember=members.docs.some(m=>m.id===myCode);
     if(!isMember) continue;
 
-    // パーティーボックスを組み立て
-    const box = document.createElement("div");
-    box.className = "party-box";
-    box.innerHTML = `<h3>パーティー</h3>`;
-    box.innerHTML += `人数: ${membersSnap.size}<br>`;
+    const box=document.createElement("div");
+    box.className="party-box";
+    box.innerHTML="<h3>パーティー</h3>";
+    box.innerHTML+="人数:"+members.size+"<br>";
 
-    membersSnap.forEach(mem => {
-      box.innerHTML += `<div class="party-member" id="pm-${leader}-${mem.id}">
-        ${mem.data().name}
-        ${leader === myCode && mem.id !== myCode ? `<button onclick="kick('${leader}','${mem.id}')">キック</button>` : ''}
-      </div>`;
+    members.forEach(m=>{
+      box.innerHTML+=`
+        <div class="party-member">
+          ${m.data().name}
+        </div>
+      `;
     });
 
-    if(leader === myCode){
-      box.innerHTML += `<div style="margin-top:8px;"><button class="delete-btn" onclick="disband('${leader}')">解散</button></div>`;
-    } else {
-      box.innerHTML += `<div style="margin-top:8px;"><button onclick="leave('${leader}')">離脱</button></div>`;
+    if(leader===myCode){
+      box.innerHTML+=`<button style="background:#f44336;color:white;" onclick="disband('${leader}')">解散</button>`;
+    }else{
+      box.innerHTML+=`<button style="background:#ff9800;color:white;" onclick="leave('${leader}')">離脱</button>`;
     }
 
-    partyArea.appendChild(box);
+    area.appendChild(box);
   }
 });
 
-/* ---- 操作: kick / leave / disband ---- */
-window.kick = async function(leader, member){
-  if(!confirm("本当にキックしますか？")) return;
-  await deleteDoc(doc(db,"parties",leader,"members",member));
-};
-
-window.leave = async function(leader){
+window.leave=async function(leader){
   await deleteDoc(doc(db,"parties",leader,"members",myCode));
 };
 
-window.disband = async function(leader){
-  if(!confirm("本当にパーティーを解散しますか？")) return;
-  const members = await getDocs(collection(db,"parties",leader,"members"));
+window.disband=async function(leader){
+  const members=await getDocs(collection(db,"parties",leader,"members"));
   for(const m of members.docs){
     await deleteDoc(doc(db,"parties",leader,"members",m.id));
   }
   await deleteDoc(doc(db,"parties",leader));
 };
-
-/* ---- unload 時の後片付け ---- */
-window.addEventListener("beforeunload", async () => {
-  try {
-    // 最終更新してオフラインにする
-    await set(statusRef, { online: false, name: myName, lastSeen: Date.now() });
-  } catch(e){}
-  // heartbeat を止める
-  clearInterval(heartbeatId);
-});
 </script>
+
 
 </body>
 </html>
