@@ -116,15 +116,15 @@ input{
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { 
-  getFirestore, doc, setDoc, getDoc, collection, 
-  onSnapshot, deleteDoc, getDocs 
+  getFirestore, doc, setDoc, getDoc, collection,
+  onSnapshot, deleteDoc, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { 
   getDatabase, ref, set, onValue, onDisconnect 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
+  apiKey: "YOUR_API_KEY",
   authDomain: "typing-game-28ed0.firebaseapp.com",
   projectId: "typing-game-28ed0",
   databaseURL: "https://typing-game-28ed0-default-rtdb.firebaseio.com"
@@ -144,9 +144,8 @@ if(!localStorage.friendCode){localStorage.friendCode=randomNumber(8);}
 const myCode=localStorage.friendCode;
 const myName=localStorage.playerName;
 
-/* ===== オンライン管理（完全版）===== */
+/* ===== オンライン ===== */
 const statusRef=ref(rtdb,"status/"+myCode);
-
 set(statusRef,{online:true,name:myName});
 onDisconnect(statusRef).set({online:false,name:myName});
 
@@ -159,7 +158,6 @@ document.getElementById("profileArea").innerHTML=`
 フレンドコード:<br>
 <strong>${myCode}</strong>
 `;
-
 window.changeName=function(){
   localStorage.playerName=document.getElementById("nameInput").value;
   location.reload();
@@ -182,7 +180,7 @@ window.removeFriend=async function(code){
   await deleteDoc(doc(db,"users",code,"friends",myCode));
 };
 
-/* ===== フレンド表示 + オンライン安定版 ===== */
+/* ===== フレンド表示 ===== */
 onSnapshot(collection(db,"users",myCode,"friends"),(snap)=>{
   const list=document.getElementById("friendList");
   list.innerHTML="";
@@ -233,72 +231,66 @@ onSnapshot(collection(db,"users",myCode,"invites"),(snapshot)=>{
   });
 });
 
-/* ===== パーティー ===== */
+/* ===== パーティー参加 ===== */
 async function joinParty(leader){
   await setDoc(doc(db,"parties",leader),{leader:leader},{merge:true});
   await setDoc(doc(db,"parties",leader,"members",myCode),{name:myName});
 }
 
-/* 🔥 パーティーUI完全監視 */
+/* ===== パーティーUI（増殖完全防止版）===== */
 onSnapshot(collection(db,"parties"),async(snapshot)=>{
-  const list=document.getElementById("friendList");
+  const partyArea=document.getElementById("partyArea");
+  if(!partyArea) return;
 
-  snapshot.forEach(async partyDoc=>{
+  partyArea.innerHTML="";
+
+  for(const partyDoc of snapshot.docs){
     const leader=partyDoc.id;
     const membersSnap=await getDocs(collection(db,"parties",leader,"members"));
 
-    membersSnap.forEach(m=>{
-      if(m.id===myCode){
+    const isMember=membersSnap.docs.some(m=>m.id===myCode);
+    if(!isMember) continue;
 
-        const box=document.createElement("div");
-        box.className="party-box";
-        box.innerHTML="<h3>パーティー</h3>";
-        box.innerHTML+="人数:"+membersSnap.size+"<br>";
+    const box=document.createElement("div");
+    box.className="party-box";
+    box.innerHTML="<h3>パーティー</h3>";
+    box.innerHTML+="人数:"+membersSnap.size+"<br>";
 
-        membersSnap.forEach(mem=>{
-          box.innerHTML+=`
-            <div class="party-member">
-              ${mem.data().name}
-              ${leader===myCode && mem.id!==myCode ?
-                `<button onclick="kick('${leader}','${mem.id}')">キック</button>`:""}
-            </div>
-          `;
-        });
-
-        if(leader===myCode){
-          box.innerHTML+=`<button onclick="disband('${leader}')">解散</button>`;
-        }else{
-          box.innerHTML+=`<button onclick="leave('${leader}')">離脱</button>`;
-        }
-
-        list.appendChild(box);
-      }
+    membersSnap.forEach(mem=>{
+      box.innerHTML+=`
+        <div class="party-member">
+          ${mem.data().name}
+          ${leader===myCode && mem.id!==myCode ?
+            `<button onclick="kick('${leader}','${mem.id}')">キック</button>`:""}
+        </div>
+      `;
     });
-  });
+
+    if(leader===myCode){
+      box.innerHTML+=`<button class="delete-btn" onclick="disband('${leader}')">解散</button>`;
+    }else{
+      box.innerHTML+=`<button onclick="leave('${leader}')">離脱</button>`;
+    }
+
+    partyArea.appendChild(box);
+  }
 });
 
-/* キック */
+/* ===== 操作 ===== */
 window.kick=async function(leader,member){
   await deleteDoc(doc(db,"parties",leader,"members",member));
 };
-
-/* 離脱 */
 window.leave=async function(leader){
   await deleteDoc(doc(db,"parties",leader,"members",myCode));
 };
-
-/* 解散 */
 window.disband=async function(leader){
   const members=await getDocs(collection(db,"parties",leader,"members"));
-  members.forEach(async m=>{
+  for(const m of members.docs){
     await deleteDoc(doc(db,"parties",leader,"members",m.id));
-  });
+  }
   await deleteDoc(doc(db,"parties",leader));
 };
 </script>
-
-
-
 
 </body>
 </html>
