@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, update, onValue, onDisconnect, remove } from "firebase/database";
+import { getDatabase, ref, set, get, update, onValue, onDisconnect, remove, off } from "firebase/database";
 
 // --- Firebase 設定 ---
 const firebaseConfig = {
@@ -30,8 +30,20 @@ document.getElementById("display-name").innerText = myName;
 // --- サウンド再生制御 ---
 const playSfx = (id) => { 
     const el = document.getElementById(id); 
-    if(el){ el.currentTime = 0; el.play().catch(()=>{}); } 
+    if(el){ 
+        el.currentTime = 0; 
+        el.play().catch(()=>{}); 
+        
+        // 【修正】「じゅー」という音（sound-sizzle）は3秒で強制ストップ
+        if(id === 'sound-sizzle') {
+            setTimeout(() => {
+                el.pause();
+                el.currentTime = 0;
+            }, 3000);
+        }
+    } 
 };
+
 const bgmBox = {
     lobby: document.getElementById("bgm-lobby"),
     battle: document.getElementById("bgm-battle"),
@@ -146,7 +158,11 @@ const screens = {
     setup: document.getElementById("battle-setup"),
     wait: document.getElementById("battle-waiting"),
     game: document.getElementById("game-play-area"),
-    result: document.getElementById("result-screen")
+    result: document.getElementById("result-screen"),
+    // 追加画面
+    online: document.getElementById("online-selection"),
+    onlinewait: document.getElementById("online-waiting"),
+    editor: document.getElementById("custom-editor")
 };
 
 window.showScreen = (key) => {
@@ -161,22 +177,24 @@ window.showScreen = (key) => {
     }
     
     // BGM管理
-    if (key === 'mode' || key === 'diff' || key === 'setup' || key === 'wait' || key === 'result') {
+    if (['mode', 'diff', 'setup', 'wait', 'result', 'online', 'onlinewait', 'editor'].includes(key)) {
         bgmBox.play('lobby');
     }
 };
 
-// 一人プレイ用
+// 一人プレイ
 document.getElementById("single-play-btn").onclick = () => { playSfx('sound-click'); showScreen("diff"); };
 document.getElementById("back-to-mode").onclick = () => { playSfx('sound-click'); showScreen("mode"); };
 
 document.querySelectorAll(".diff-btn").forEach(b => {
-    b.onclick = () => {
-        playSfx('sound-click');
-        currentLevel = b.dataset.level;
-        isBattleMode = false;
-        startGame();
-    };
+    if(b.hasAttribute('data-level')) {
+        b.onclick = () => {
+            playSfx('sound-click');
+            currentLevel = b.dataset.level;
+            isBattleMode = false;
+            startGame();
+        };
+    }
 });
 
 document.getElementById("end-game-btn").onclick = () => { 
@@ -185,7 +203,6 @@ document.getElementById("end-game-btn").onclick = () => {
     clearInterval(battleTimer);
     saveHighScore();
     
-    // バトル中に抜ける場合はスコアを0で送信（諦め）
     if(isBattleMode && curParty) {
         set(ref(db, `parties/${curParty}/battle/scores/${myCode}`), { name: myName, score: 0 });
     }
@@ -193,7 +210,7 @@ document.getElementById("end-game-btn").onclick = () => {
 };
 
 function saveHighScore() {
-    if(isBattleMode) return; // バトル中はハイスコア記録しない
+    if(isBattleMode || currentLevel === "custom") return;
     let best = parseInt(localStorage.getItem(STORAGE_BEST + currentLevel)) || 0;
     if (score > best) localStorage.setItem(STORAGE_BEST + currentLevel, score);
 }
@@ -216,18 +233,16 @@ function startGame(time = 0) {
             timeLeft--;
             updateTimerDisplay();
             
-            // 残り半分で霧演出
             const lanes = document.getElementById("rival-lanes");
             if(timeLeft < totalTime / 2) { lanes.classList.add("fog"); }
             else { lanes.classList.remove("fog"); }
 
             if(timeLeft <= 0) endBattle();
             
-            // スコアをFirebaseへ同期
             set(ref(db, `parties/${curParty}/battle/scores/${myCode}`), { name: myName, score: score });
         }, 1000);
     } else {
-        bgmBox.play('lobby'); // 一人プレイはロビーBGMのまま
+        bgmBox.play('lobby');
         document.getElementById("battle-header").classList.add("hidden");
         document.getElementById("rival-lanes").classList.add("hidden");
         document.getElementById("end-game-btn").innerText = "中断してメインメニューへ";
@@ -241,7 +256,14 @@ function updateTimerDisplay() {
 }
 
 function nextWord() {
-    const pool = words.filter(w => w.lv === currentLevel);
+    let pool;
+    if (currentLevel === "custom") {
+        // 自作モードの場合はカスタムデータを使う
+        pool = customTypingData.map(w => ({ k: w, kana: w, lv: "custom" }));
+    } else {
+        pool = words.filter(w => w.lv === currentLevel);
+    }
+
     let target = pool[Math.floor(Math.random() * pool.length)];
     
     tState.nodes = parseKana(target.kana);
@@ -254,12 +276,11 @@ function nextWord() {
     updateDisplay();
 }
 
-// バグ修正: sort() を破壊的に使わないように配列をコピー
 function getHintString() {
     let hint = "";
     for (let i = 0; i < tState.nodes.length; i++) {
         if (i < tState.cIdx) {
-            // 完了部分は無視
+            // done
         } else if (i === tState.cIdx) {
             let bestOpt = [...tState.validOpts].sort((a,b) => a.length - b.length)[0] || tState.nodes[i].opts[0];
             hint += bestOpt.substring(tState.typedInNode.length);
@@ -303,6 +324,7 @@ window.addEventListener("keydown", (e) => {
                 tState.validOpts = [...tState.nodes[tState.cIdx].opts];
             } else {
                 playSfx('sound-success');
+                playSfx('sound-sizzle'); // ★クリア時に「じゅー」を鳴らす（3秒で止まる設定済み）
                 setTimeout(nextWord, 100);
             }
         }
@@ -314,10 +336,95 @@ window.addEventListener("keydown", (e) => {
 });
 
 
-// --- Firebase (フレンド・パーティー・バトル機能) ---
+// ==========================================================
+// カスタムタイピングエディター (タイピングを作る・遊ぶ)
+// ==========================================================
+let customTypingData = JSON.parse(localStorage.getItem("CUSTOM_TYPING_LIST")) || [
+    "あいうえお", "かきくけこ", "さしすせそ", "たちつてと", "なにぬねの"
+];
+
+document.getElementById("open-editor-btn").onclick = () => {
+    playSfx('sound-click');
+    if (curParty) {
+        alert("パーティーに入っているときは利用できません。");
+        return;
+    }
+    showScreen("editor");
+    renderEditor();
+};
+
+document.getElementById("custom-play-btn").onclick = () => {
+    playSfx('sound-click');
+    if(customTypingData.length < 5) {
+        alert("自作データが足りません。エディターで作ってください。");
+        return;
+    }
+    currentLevel = "custom";
+    isBattleMode = false;
+    startGame();
+};
+
+function renderEditor() {
+    const list = document.getElementById("custom-word-list");
+    list.innerHTML = "";
+    customTypingData.forEach((word, i) => {
+        const div = document.createElement("div");
+        div.className = "editor-row";
+        div.innerHTML = `
+            <input type="text" value="${word}" onchange="updateCustomWord(${i}, this.value)" placeholder="ひらがなで入力">
+            <button class="danger-btn" onclick="removeCustomWord(${i})">削除</button>
+        `;
+        list.appendChild(div);
+    });
+    document.getElementById("custom-count").innerText = customTypingData.length;
+}
+
+window.updateCustomWord = (i, val) => {
+    customTypingData[i] = val.trim();
+};
+
+window.addCustomWord = () => {
+    playSfx('sound-click');
+    if(customTypingData.length < 20) {
+        customTypingData.push("あたらしいもじ");
+        renderEditor();
+    } else {
+        alert("最高20個までです。");
+    }
+};
+
+window.removeCustomWord = (i) => {
+    playSfx('sound-click');
+    if(customTypingData.length > 5) {
+        customTypingData.splice(i, 1);
+        renderEditor();
+    } else {
+        alert("最低5つは必要です。");
+    }
+};
+
+window.saveCustomWords = () => {
+    playSfx('sound-click');
+    if(customTypingData.length < 5 || customTypingData.length > 20) {
+        return alert("条件を満たしていません（5〜20個必要です）");
+    }
+    for(let i=0; i<customTypingData.length; i++) {
+        let w = customTypingData[i];
+        if(w.length < 2 || w.length > 15) {
+            return alert(`${i+1}番目の内容が条件（2〜15文字）を満たしていません。`);
+        }
+    }
+    localStorage.setItem("CUSTOM_TYPING_LIST", JSON.stringify(customTypingData));
+    alert("保存しました！「作ったものを遊ぶ」から一人プレイで遊べます。");
+    showScreen("mode");
+};
+
+// ==========================================================
+// Firebase (フレンド・パーティー・バトル機能・オンラインマッチ)
+// ==========================================================
 let curParty = null;
 let isLeader = false;
-let partyMembersMemory = {}; // 切断検知用
+let partyMembersMemory = {}; 
 
 const myRef = ref(db, `users/${myCode}`);
 onValue(ref(db, ".info/connected"), (s) => {
@@ -337,7 +444,6 @@ document.getElementById("update-name-btn").onclick = () => {
     }
 };
 
-// --- フレンド機能バグ修正: リスナー増殖防止 ---
 document.getElementById("send-request-btn").onclick = async () => {
     playSfx('sound-click');
     const t = document.getElementById("target-code-input").value.trim();
@@ -354,32 +460,29 @@ document.getElementById("send-request-btn").onclick = async () => {
     }
 };
 
-let friendListeners = {}; // 各フレンドのonValueを管理
+// --- フレンド機能 ---
+let friendListeners = {}; 
 onValue(ref(db, `friends/${myCode}`), (s) => {
     const list = document.getElementById("friend-list");
-    let count = 0;
     
-    // 現在のフレンドリストに含まれないリスナーを解除＆要素削除
     const currentFriends = s.val() || {};
     Object.keys(friendListeners).forEach(fid => {
         if(!currentFriends[fid]) {
-            // 削除されたフレンド
             const li = document.getElementById(`li-${fid}`);
             if(li) li.remove();
-            friendListeners[fid](); // unsubscribe
+            friendListeners[fid](); 
             delete friendListeners[fid];
         }
     });
 
     s.forEach(child => {
-        count++;
         const fid = child.key;
         if(!friendListeners[fid]) {
-            // 新規フレンドのリスナー登録
             let li = document.createElement("li");
             li.id = `li-${fid}`; li.className = "friend-item";
             list.appendChild(li);
 
+            // 前回途切れていた部分の修復完了
             const unsub = onValue(ref(db, `users/${fid}`), (fs) => {
                 const fd = fs.val(); if(!fd) return;
                 li.innerHTML = `
@@ -388,214 +491,293 @@ onValue(ref(db, `friends/${myCode}`), (s) => {
                         <span class="dot ${fd.status==='online'?'online':'offline'}"></span>
                     </div>
                     <div class="friend-btns">
-                        <button class="invite-btn" onclick="invite('${fid}')">招待</button>
-                        <button class="del-btn" onclick="delF('${fid}')">削除</button>
-                    </div>`;
+                        <button class="invite-btn" onclick="inviteFriend('${fid}')">招待</button>
+                        <button class="del-btn" onclick="removeFriend('${fid}')">削除</button>
+                    </div>
+                `;
             });
             friendListeners[fid] = unsub;
         }
     });
-    document.getElementById("friend-count-badge").innerText = count;
 });
 
-window.delF = (fid) => { 
-    playSfx('sound-click');
-    if(confirm("削除しますか？")){
-        remove(ref(db, `friends/${myCode}/${fid}`)); 
-        remove(ref(db, `friends/${fid}/${myCode}`)); 
-    }
-};
-
-// --- パーティー機能 ---
-window.invite = async (fid) => {
-    playSfx('sound-click');
-    if(!curParty){
-        curParty = myCode;
-        await set(ref(db, `parties/${curParty}`), { leader: myCode, members: {[myCode]: myName} });
-        update(myRef, { partyId: curParty });
-    }
-    set(ref(db, `invites/${fid}`), { from: myName, pid: curParty });
+window.inviteFriend = (targetCode) => {
+    if(!curParty) createParty();
+    set(ref(db, `invites/${targetCode}/${myCode}`), { name: myName, time: Date.now() });
     alert("招待を送信しました！");
 };
 
+window.removeFriend = (targetCode) => {
+    if(confirm("フレンドを削除しますか？")) {
+        remove(ref(db, `friends/${myCode}/${targetCode}`));
+        remove(ref(db, `friends/${targetCode}/${myCode}`));
+    }
+};
+
+// 招待受け取り
 onValue(ref(db, `invites/${myCode}`), (s) => {
-    const v = s.val();
-    const ui = document.getElementById("invite-notification");
-    if(v){
-        playSfx('sound-join');
-        document.getElementById("inviter-name").innerText = v.from;
-        ui.classList.remove("hidden");
-        document.getElementById("accept-invite-btn").onclick = async () => {
-            playSfx('sound-click');
-            await update(ref(db, `parties/${v.pid}/members`), {[myCode]: myName});
-            update(myRef, { partyId: v.pid });
+    const data = s.val();
+    if(data) {
+        const inviterCode = Object.keys(data)[0];
+        const inviterName = data[inviterCode].name;
+        document.getElementById("inviter-name").innerText = inviterName;
+        document.getElementById("invite-notification").classList.remove("hidden");
+        
+        document.getElementById("accept-invite-btn").onclick = () => {
             remove(ref(db, `invites/${myCode}`));
-            ui.classList.add("hidden");
+            joinParty(inviterCode);
+            document.getElementById("invite-notification").classList.add("hidden");
         };
         document.getElementById("decline-invite-btn").onclick = () => {
-            playSfx('sound-click');
             remove(ref(db, `invites/${myCode}`));
-            ui.classList.add("hidden");
+            document.getElementById("invite-notification").classList.add("hidden");
         };
-    } else { ui.classList.add("hidden"); }
-});
-
-onValue(myRef, (s) => {
-    const pid = s.val()?.partyId;
-    const info = document.getElementById("party-info");
-    const msg = document.getElementById("no-party-msg");
-    const list = document.getElementById("party-member-list");
-    const ctrl = document.getElementById("party-controls");
-
-    if(pid){
-        curParty = pid; msg.classList.add("hidden"); info.classList.remove("hidden");
-        onValue(ref(db, `parties/${pid}`), (ps) => {
-            const pd = ps.val();
-            if(!pd){ update(myRef, {partyId: null}); curParty=null; isLeader=false; showScreen("mode"); return; }
-            
-            isLeader = (pd.leader === myCode);
-            list.innerHTML = "";
-            Object.entries(pd.members).forEach(([mid, mname]) => {
-                const d = document.createElement("div"); d.className = "party-member";
-                d.innerHTML = `<span>${mid===pd.leader?'<span class="leader-tag">LEADER</span>':''}${mname}</span>
-                ${isLeader && mid!==myCode ? `<button class="del-btn" style="padding:2px 5px;" onclick="kick('${mid}')">KICK</button>` : ''}`;
-                list.appendChild(d);
-            });
-            ctrl.innerHTML = isLeader ? `<button class="end-btn" style="width:100%" onclick="disband()">パーティー解散</button>` : `<button class="end-btn" style="width:100%" onclick="leave()">パーティー脱退</button>`;
-
-            // バトル中の切断検知ロジック
-            if(isPlaying && isBattleMode) {
-                Object.keys(partyMembersMemory).forEach(oldMid => {
-                    if(!pd.members[oldMid]) {
-                        showBattleToast(`${partyMembersMemory[oldMid]}さんが切断されました。`);
-                    }
-                });
-            }
-            partyMembersMemory = pd.members;
-
-        });
-        
-        // バトル状況の同期リスナー
-        onValue(ref(db, `parties/${pid}/battle`), (snap) => {
-            const b = snap.val();
-            if(!b) return;
-            if(b.status === "start" && currentScreen !== "game" && currentScreen !== "result") {
-                currentLevel = b.config.diff;
-                isBattleMode = true;
-                startGame(b.config.time);
-            }
-            if(b.status === "start" && isPlaying && isBattleMode) {
-                updateRivals(b.scores || {});
-            }
-        });
-
-    } else { 
-        info.classList.add("hidden"); msg.classList.remove("hidden");
-        curParty = null; isLeader = false; partyMembersMemory = {};
     }
 });
 
-// パーティー操作
-window.disband = () => { playSfx('sound-click'); if(confirm("解散しますか？")) remove(ref(db, `parties/${curParty}`)); };
-window.leave = () => { playSfx('sound-click'); remove(ref(db, `parties/${curParty}/members/${myCode}`)); update(myRef, {partyId: null}); };
-window.kick = (mid) => { playSfx('sound-click'); remove(ref(db, `parties/${curParty}/members/${mid}`)); update(ref(db, `users/${mid}`), {partyId: null}); };
+// パーティー管理
+function createParty() {
+    curParty = myCode;
+    isLeader = true;
+    set(ref(db, `parties/${myCode}`), { leader: myCode, status: "waiting", members: { [myCode]: myName } });
+    onDisconnect(ref(db, `parties/${myCode}`)).remove();
+    listenToParty(myCode);
+}
 
-// --- バトル・フレンド対戦ボタン処理 ---
+function joinParty(leaderCode) {
+    if(curParty) return;
+    curParty = leaderCode;
+    isLeader = false;
+    update(ref(db, `parties/${leaderCode}/members`), { [myCode]: myName });
+    onDisconnect(ref(db, `parties/${leaderCode}/members/${myCode}`)).remove();
+    listenToParty(leaderCode);
+}
+
+function listenToParty(partyId) {
+    onValue(ref(db, `parties/${partyId}`), (s) => {
+        const p = s.val();
+        if(!p) {
+            // 解散
+            curParty = null;
+            isLeader = false;
+            document.getElementById("no-party-msg").classList.remove("hidden");
+            document.getElementById("party-info").classList.add("hidden");
+            if(isPlaying) showScreen("mode");
+            return;
+        }
+
+        document.getElementById("no-party-msg").classList.add("hidden");
+        document.getElementById("party-info").classList.remove("hidden");
+        
+        // メンバーリスト更新
+        let mHtml = "";
+        Object.keys(p.members).forEach(uid => {
+            mHtml += `<div class="party-member">
+                        <span>${uid === p.leader ? '<span class="leader-tag">LEADER</span>' : ''}${p.members[uid]}</span>
+                        ${isLeader && uid !== myCode ? `<button class="del-btn" onclick="kickMember('${uid}')">キック</button>` : ''}
+                      </div>`;
+        });
+        document.getElementById("party-member-list").innerHTML = mHtml;
+
+        // コントロールボタン
+        if(isLeader) {
+            document.getElementById("party-controls").innerHTML = `<button class="danger-btn" onclick="leaveParty()" style="width:100%">パーティー解散</button>`;
+        } else {
+            document.getElementById("party-controls").innerHTML = `<button class="danger-btn" onclick="leaveParty()" style="width:100%">パーティーを抜ける</button>`;
+        }
+
+        // 状態検知
+        if(p.status === "setup" && !isLeader && currentScreen !== "wait") {
+            showScreen("wait");
+        } else if(p.status === "playing" && !isPlaying) {
+            isBattleMode = true;
+            startGame(p.battle.time || 30);
+        }
+
+        // バトル中のスコア同期
+        if(p.status === "playing" && p.battle && p.battle.scores) {
+            updateBattleLanes(p.battle.scores);
+        }
+    });
+}
+
+window.leaveParty = () => {
+    if(isLeader) {
+        remove(ref(db, `parties/${myCode}`));
+    } else {
+        remove(ref(db, `parties/${curParty}/members/${myCode}`));
+    }
+    curParty = null;
+};
+
+window.kickMember = (uid) => {
+    remove(ref(db, `parties/${curParty}/members/${uid}`));
+};
+
 document.getElementById("friend-play-btn").onclick = () => {
     playSfx('sound-click');
-    const err = document.getElementById("mode-error-msg");
-    err.classList.add("hidden");
-
     if(!curParty) {
-        err.innerText = "パーティーに入る必要があります。";
-        err.classList.remove("hidden");
-        playSfx('sound-error');
+        alert("パーティーを作成するか、招待を受けてください。");
         return;
     }
-
     if(!isLeader) {
-        err.innerText = "パーティーのリーダー限定です。";
-        err.classList.remove("hidden");
-        playSfx('sound-error');
+        alert("リーダーのみが設定できます。");
         return;
     }
-
+    update(ref(db, `parties/${curParty}`), { status: "setup" });
     showScreen("setup");
 };
 
-// リーダーが時間を設定
-document.getElementById("battle-time-range").oninput = (e) => {
-    document.getElementById("time-val").innerText = e.target.value;
-};
-
-// リーダーがバトル開始
+// バトルスタート
 document.getElementById("start-battle-trigger").onclick = () => {
     playSfx('sound-start');
-    const diff = document.getElementById("battle-diff-select").value;
-    const time = parseInt(document.getElementById("battle-time-range").value);
-    set(ref(db, `parties/${curParty}/battle`), {
-        status: "start",
-        config: { diff, time },
-        timestamp: Date.now()
+    const t = parseInt(document.getElementById("battle-time-range").value);
+    const d = document.getElementById("battle-diff-select").value;
+    currentLevel = d;
+    update(ref(db, `parties/${curParty}`), { 
+        status: "playing",
+        battle: { time: t, scores: {} }
+    });
+    isBattleMode = true;
+    startGame(t);
+};
+
+// リアルタイムレーン更新
+function updateBattleLanes(scores) {
+    const lanes = document.getElementById("rival-lanes");
+    let html = "";
+    
+    // 最大スコアを計算（バーの長さの基準）
+    let maxS = 100;
+    Object.values(scores).forEach(s => { if(s.score > maxS) maxS = s.score; });
+
+    Object.keys(scores).forEach(uid => {
+        const d = scores[uid];
+        const pct = Math.min(100, (d.score / maxS) * 100);
+        html += `
+            <div class="lane">
+                <div class="lane-name">${d.name}</div>
+                <div class="lane-bar-bg">
+                    <div class="lane-bar-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="lane-score">${d.score}</div>
+            </div>
+        `;
+    });
+    lanes.innerHTML = html;
+}
+
+// バトル終了時
+function endBattle() {
+    isPlaying = false;
+    clearInterval(battleTimer);
+    playSfx('sound-success');
+    
+    // リーダーが状態を終了に
+    if(isLeader) {
+        update(ref(db, `parties/${curParty}`), { status: "waiting" });
+    }
+    
+    // スコアを集計してリザルト画面へ
+    get(ref(db, `parties/${curParty}/battle/scores`)).then(s => {
+        const scores = s.val() || {};
+        const arr = Object.values(scores).sort((a,b) => b.score - a.score);
+        
+        let rHtml = "";
+        arr.forEach((d, i) => {
+            rHtml += `<div class="rank-item rank-${i+1}">
+                        <span>${i+1}位: ${d.name}</span>
+                        <span>${d.score} pt</span>
+                      </div>`;
+        });
+        document.getElementById("ranking-list").innerHTML = rHtml;
+        showScreen("result");
+    });
+}
+
+// ==========================================================
+// オンライン対戦（マッチメイキング機能）
+// ==========================================================
+document.getElementById("online-play-btn").onclick = () => {
+    playSfx('sound-click');
+    if (curParty) {
+        alert("パーティーに参加している状態ではオンライン対戦はできません。パーティーを抜けてください。");
+        return;
+    }
+    showScreen("online");
+};
+
+let matchQueueRef = null;
+
+window.joinMatchmaking = (playerCount) => {
+    playSfx('sound-click');
+    showScreen("onlinewait");
+    
+    // キューに参加
+    const qPath = `matchmaking/${playerCount}/${myCode}`;
+    set(ref(db, qPath), { name: myName, time: Date.now() });
+    matchQueueRef = ref(db, `matchmaking/${playerCount}`);
+
+    // 人数が揃うのを監視
+    onValue(matchQueueRef, (snap) => {
+        if(!snap.exists()) return;
+        const players = snap.val();
+        const keys = Object.keys(players).sort((a,b) => players[a].time - players[b].time);
+        
+        document.getElementById("online-wait-count").innerText = `${keys.length} / ${playerCount}`;
+
+        // 人数が満たし、かつ自分がそのマッチに含まれている場合
+        if (keys.length >= playerCount && keys.slice(0, playerCount).includes(myCode)) {
+            off(matchQueueRef); // 監視停止
+            remove(ref(db, qPath)); // キューから自分を消す
+            
+            const leader = keys[0];
+            curParty = leader;
+            isLeader = (myCode === leader);
+
+            if (isLeader) {
+                // リーダーが強制的に試合部屋（パーティー）を作成しスタート状態にする
+                let members = {};
+                keys.slice(0, playerCount).forEach(k => members[k] = players[k].name);
+                set(ref(db, `parties/${leader}`), {
+                    leader: leader,
+                    status: "playing",
+                    members: members,
+                    battle: { time: 40, scores: {} } // 40秒で固定
+                });
+                
+                // リーダー自身はすぐにゲーム開始
+                setTimeout(() => {
+                    currentLevel = "normal"; // オンラインはノーマル固定
+                    isBattleMode = true;
+                    startGame(40);
+                }, 1500);
+            } else {
+                // リーダー以外は部屋ができて「playing」になるのを待つ
+                const pRef = ref(db, `parties/${leader}`);
+                onValue(pRef, (pSnap) => {
+                    const pData = pSnap.val();
+                    if(pData && pData.status === "playing") {
+                        off(pRef);
+                        currentLevel = "normal";
+                        isBattleMode = true;
+                        startGame(pData.battle.time || 40);
+                        listenToParty(leader); // 通常のパーティー監視も付与
+                    }
+                });
+            }
+        }
     });
 };
 
-function updateRivals(scores) {
-    const container = document.getElementById("rival-lanes");
-    container.innerHTML = "";
-    Object.entries(scores).forEach(([uid, data]) => {
-        if(uid === myCode) return;
-        
-        // スコアによるプログレス計算（最大値を仮に time * 30 pts と想定）
-        let maxExpected = totalTime * 30;
-        let percentage = Math.min((data.score / maxExpected) * 100, 100);
-
-        const div = document.createElement("div");
-        div.className = "lane";
-        div.innerHTML = `
-            <div class="lane-name">${data.name}</div>
-            <div class="lane-bar-bg"><div class="lane-bar-fill" style="width: ${percentage}%"></div></div>
-            <div class="lane-score">${data.score}</div>
-        `;
-        container.appendChild(div);
-    });
-}
-
-function showBattleToast(msg) {
-    const toast = document.getElementById("battle-toast");
-    toast.innerText = msg;
-    toast.classList.remove("hidden");
-    setTimeout(() => { toast.classList.add("hidden"); }, 3000);
-}
-
-async function endBattle() {
-    isPlaying = false;
-    clearInterval(battleTimer);
-    bgmBox.stopAll();
-    
-    // スコア集計
-    const snap = await get(ref(db, `parties/${curParty}/battle/scores`));
-    const allScores = Object.values(snap.val() || {}).sort((a,b) => b.score - a.score);
-    
-    showScreen("result");
-    playSfx('sound-success'); // リザルト音代わり
-    
-    const list = document.getElementById("ranking-list");
-    list.innerHTML = "";
-    allScores.slice(0,3).forEach((s, i) => {
-        const d = document.createElement("div");
-        d.className = `rank-item rank-${i+1}`;
-        d.innerHTML = `<span>${i+1}位: ${s.name}</span> <span>${s.score} pts</span>`;
-        list.appendChild(d);
-    });
-
-    if(isLeader) {
-        // 数秒後にバトルステータスをリセット
-        setTimeout(() => {
-            set(ref(db, `parties/${curParty}/battle`), null);
-        }, 5000);
+window.cancelMatchmaking = () => {
+    playSfx('sound-click');
+    if (matchQueueRef) {
+        off(matchQueueRef);
+        // 全人数用のキューから自分を削除
+        remove(ref(db, `matchmaking/2/${myCode}`));
+        remove(ref(db, `matchmaking/3/${myCode}`));
+        remove(ref(db, `matchmaking/4/${myCode}`));
     }
-}
-
-// 初期画面表示
-showScreen("mode");
+    showScreen("mode");
+};
