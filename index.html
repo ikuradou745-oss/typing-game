@@ -94,10 +94,9 @@ input{
   <div id="friendList"></div>
 </div>
 
-<!-- 🔥 Firebase 本体 -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
@@ -116,7 +115,6 @@ function randomNumber(length){
   return r;
 }
 
-/* 初期データ */
 if(!localStorage.playerName){
   localStorage.playerName="園名:"+randomNumber(12);
 }
@@ -127,7 +125,6 @@ if(!localStorage.friendCode){
 const myCode = localStorage.friendCode;
 const myName = localStorage.playerName;
 
-/* プロフィール表示 */
 function renderProfile(){
   document.getElementById("profileArea").innerHTML=`
     名前:<br>
@@ -144,12 +141,20 @@ window.changeName = function(){
   location.reload();
 };
 
-/* Firestoreに自分を登録 */
+/* 🔥 自分をオンラインにする */
 await setDoc(doc(db,"users",myCode),{
-  name: myName
+  name: myName,
+  online: true
 },{merge:true});
 
-/* 🔥 フレンド追加（両方向） */
+/* ページ閉じたらオフライン */
+window.addEventListener("beforeunload", async ()=>{
+  await updateDoc(doc(db,"users",myCode),{
+    online: false
+  });
+});
+
+/* フレンド追加（両方向） */
 window.requestFriend = async function(){
   const code=document.getElementById("friendCodeInput").value;
   if(code.length!==8) return alert("8桁入力！");
@@ -170,24 +175,40 @@ window.requestFriend = async function(){
   });
 };
 
-/* リアルタイム表示 */
-onSnapshot(collection(db,"users",myCode,"friends"),(snapshot)=>{
+/* 🔥 リアルタイム表示 */
+onSnapshot(collection(db,"users",myCode,"friends"), async (snapshot)=>{
   const list=document.getElementById("friendList");
   list.innerHTML="";
-  snapshot.forEach(docSnap=>{
+
+  for(const docSnap of snapshot.docs){
+    const friendCode = docSnap.id;
+    const friendRef = doc(db,"users",friendCode);
+    const friendSnap = await getDoc(friendRef);
+
+    let statusText="オフライン";
+    let statusColor="red";
+
+    if(friendSnap.exists() && friendSnap.data().online){
+      statusText="オンライン";
+      statusColor="green";
+    }
+
     const div=document.createElement("div");
     div.className="friend";
     div.innerHTML=`
       <strong>${docSnap.data().name}</strong><br>
-      Code:${docSnap.id}<br>
-      <span class="status">オンライン同期中</span>
+      Code:${friendCode}<br>
+      <span class="status" style="color:${statusColor}">
+        ${statusText}
+      </span>
     `;
     list.appendChild(div);
-  });
+  }
 });
 
 renderProfile();
 </script>
+
 
 </body>
 </html>
