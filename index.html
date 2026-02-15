@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Typing Game - Friend System</title>
+    <title>Typing Game - Professional Friend System</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="game-container">
-        <aside id="sidebar">
+        <aside id="left-sidebar">
             <section id="profile-section">
                 <h2>プロフィール</h2>
                 <div class="profile-card">
@@ -19,28 +19,42 @@
                 </div>
                 
                 <div class="id-card">
-                    <p><strong>あなたのフレンドコード:</strong></p>
+                    <p><strong>あなたのフレンドコード</strong></p>
                     <code id="friend-code">--------</code>
+                    <p class="small-info">※端末ごとに固有です</p>
                 </div>
             </section>
-
-            <hr>
-
-            <section id="friend-section">
-                <h2>フレンド機能</h2>
-                <div class="add-friend">
-                    <input type="text" id="friend-input" placeholder="フレンドコードを入力">
-                    <button id="add-friend-btn">フレンド追加</button>
+            
+            <section id="status-section">
+                <div id="my-status-display">
+                    状態: <span id="my-status-indicator" class="status-offline"></span> <span id="my-status-text">オフライン</span>
                 </div>
-                <ul id="friend-list">
-                    </ul>
             </section>
         </aside>
 
         <main id="main-content">
             <h1>タイピングゲーム</h1>
-            <p>ここにゲーム画面が入ります。</p>
+            <div id="typing-area">
+                <p>ゲーム画面（開発中）</p>
+            </div>
         </main>
+
+        <aside id="right-sidebar">
+            <section id="friend-section">
+                <h2>フレンド機能</h2>
+                <div class="add-friend">
+                    <p>フレンド申請</p>
+                    <input type="text" id="friend-input" placeholder="8桁の数字を入力" maxlength="8">
+                    <button id="add-friend-btn">申請を送る</button>
+                </div>
+                
+                <div id="friend-list-container">
+                    <p>フレンドリスト (<span id="friend-count">0</span>)</p>
+                    <ul id="friend-list">
+                        </ul>
+                </div>
+            </section>
+        </aside>
     </div>
 
     <script type="importmap">
