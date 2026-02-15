@@ -5,70 +5,6 @@
 <title>タイピング（対戦あり）</title>
 
 <style>
-
-<!-- Firebase追加 -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
-  authDomain: "typing-game-28ed0.firebaseapp.com",
-  projectId: "typing-game-28ed0",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-const myCode = localStorage.friendCode;
-const myName = localStorage.playerName;
-
-/* Firestoreに自分を登録 */
-await setDoc(doc(db,"users",myCode),{
-  name: myName
-},{merge:true});
-
-/* 🔥 既存のrequestFriendを上書き */
-window.requestFriend = async function(){
-  const code=document.getElementById("friendCodeInput").value;
-  if(code.length!==8) return alert("8桁入力！");
-
-  const targetRef = doc(db,"users",code);
-  const targetSnap = await getDoc(targetRef);
-
-  if(!targetSnap.exists()){
-    return alert("そのユーザーはいません");
-  }
-
-  // 自分側
-  await setDoc(doc(db,"users",myCode,"friends",code),{
-    name: targetSnap.data().name
-  });
-
-  // 相手側（両方向）
-  await setDoc(doc(db,"users",code,"friends",myCode),{
-    name: myName
-  });
-};
-
-/* リアルタイム表示 */
-onSnapshot(collection(db,"users",myCode,"friends"),(snapshot)=>{
-  const list=document.getElementById("friendList");
-  list.innerHTML="";
-  snapshot.forEach(docSnap=>{
-    const div=document.createElement("div");
-    div.className="friend";
-    div.innerHTML=`
-      <strong>${docSnap.data().name}</strong><br>
-      Code:${docSnap.id}<br>
-      <span class="status">オンライン連携中</span>
-    `;
-    list.appendChild(div);
-  });
-});
-</script>
-
-  
 body{
   margin:0;
   font-family:Arial, sans-serif;
@@ -77,15 +13,12 @@ body{
   height:100vh;
   color:white;
 }
-
-/* 左：ロビー */
 .main{
   flex:1;
   display:flex;
   justify-content:center;
   align-items:center;
 }
-
 .lobby{
   background:white;
   color:black;
@@ -94,7 +27,6 @@ body{
   text-align:center;
   box-shadow:0 10px 25px rgba(0,0,0,0.3);
 }
-
 .btn{
   display:block;
   width:200px;
@@ -105,18 +37,14 @@ body{
   cursor:pointer;
   font-size:16px;
 }
-
 .solo{background:#4CAF50;color:white;}
 .multi{background:#ff9800;color:white;}
-
-/* 右：フレンド */
 .sidebar{
   width:330px;
   background:rgba(0,0,0,0.35);
   padding:20px;
   overflow-y:auto;
 }
-
 .friend{
   background:white;
   color:black;
@@ -124,7 +52,6 @@ body{
   margin-bottom:10px;
   border-radius:10px;
 }
-
 button{
   padding:6px;
   border-radius:8px;
@@ -132,10 +59,7 @@ button{
   cursor:pointer;
   margin-top:5px;
 }
-
 .add-btn{background:#4CAF50;color:white;}
-.remove-btn{background:#f44336;color:white;}
-
 input{
   width:100%;
   padding:5px;
@@ -150,17 +74,14 @@ input{
 
 <body>
 
-<!-- 左ロビー -->
 <div class="main">
   <div class="lobby">
     <h1>タイピング（対戦あり）</h1>
-
     <button class="btn solo">一人でプレイ</button>
     <button class="btn multi">みんなでプレイ</button>
   </div>
 </div>
 
-<!-- 右フレンド -->
 <div class="sidebar">
   <h2>プロフィール</h2>
   <div id="profileArea"></div>
@@ -173,7 +94,20 @@ input{
   <div id="friendList"></div>
 </div>
 
-<script>
+<!-- 🔥 Firebase 本体 -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
+  authDomain: "typing-game-28ed0.firebaseapp.com",
+  projectId: "typing-game-28ed0",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 function randomNumber(length){
   let r="";
   for(let i=0;i<length;i++){
@@ -189,9 +123,9 @@ if(!localStorage.playerName){
 if(!localStorage.friendCode){
   localStorage.friendCode=randomNumber(8);
 }
-if(!localStorage.friends){
-  localStorage.friends=JSON.stringify([]);
-}
+
+const myCode = localStorage.friendCode;
+const myName = localStorage.playerName;
 
 /* プロフィール表示 */
 function renderProfile(){
@@ -204,63 +138,55 @@ function renderProfile(){
     <strong>${localStorage.friendCode}</strong>
   `;
 }
-
-function changeName(){
+window.changeName = function(){
   const newName=document.getElementById("nameInput").value;
   localStorage.playerName=newName;
-  renderProfile();
-}
+  location.reload();
+};
 
-/* フレンド申請（疑似両成立方式） */
-function requestFriend(){
+/* Firestoreに自分を登録 */
+await setDoc(doc(db,"users",myCode),{
+  name: myName
+},{merge:true});
+
+/* 🔥 フレンド追加（両方向） */
+window.requestFriend = async function(){
   const code=document.getElementById("friendCodeInput").value;
   if(code.length!==8) return alert("8桁入力！");
 
-  let friends=JSON.parse(localStorage.friends);
+  const targetRef = doc(db,"users",code);
+  const targetSnap = await getDoc(targetRef);
 
-  // 既にあるかチェック
-  if(friends.some(f=>f.code===code)){
-    return alert("すでにフレンド！");
+  if(!targetSnap.exists()){
+    return alert("そのユーザーはいません");
   }
 
-  friends.push({
-    name:"園名:"+randomNumber(12),
-    code:code,
-    status:"フレンド成立"
+  await setDoc(doc(db,"users",myCode,"friends",code),{
+    name: targetSnap.data().name
   });
 
-  localStorage.friends=JSON.stringify(friends);
-  renderFriends();
-}
+  await setDoc(doc(db,"users",code,"friends",myCode),{
+    name: myName
+  });
+};
 
-/* 削除 */
-function removeFriend(i){
-  let friends=JSON.parse(localStorage.friends);
-  friends.splice(i,1);
-  localStorage.friends=JSON.stringify(friends);
-  renderFriends();
-}
-
-function renderFriends(){
+/* リアルタイム表示 */
+onSnapshot(collection(db,"users",myCode,"friends"),(snapshot)=>{
   const list=document.getElementById("friendList");
   list.innerHTML="";
-  let friends=JSON.parse(localStorage.friends);
-
-  friends.forEach((f,i)=>{
+  snapshot.forEach(docSnap=>{
     const div=document.createElement("div");
     div.className="friend";
     div.innerHTML=`
-      <strong>${f.name}</strong><br>
-      Code:${f.code}<br>
-      <span class="status">${f.status}</span><br>
-      <button class="remove-btn" onclick="removeFriend(${i})">フレンドを切る</button>
+      <strong>${docSnap.data().name}</strong><br>
+      Code:${docSnap.id}<br>
+      <span class="status">オンライン同期中</span>
     `;
     list.appendChild(div);
   });
-}
+});
 
 renderProfile();
-renderFriends();
 </script>
 
 </body>
