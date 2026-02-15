@@ -96,17 +96,21 @@ input{
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDatabase, ref, set, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
   authDomain: "typing-game-28ed0.firebaseapp.com",
   projectId: "typing-game-28ed0",
+  databaseURL: "https://typing-game-28ed0-default-rtdb.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 
+/* 初期設定 */
 function randomNumber(length){
   let r="";
   for(let i=0;i<length;i++){
@@ -125,6 +129,12 @@ if(!localStorage.friendCode){
 const myCode = localStorage.friendCode;
 const myName = localStorage.playerName;
 
+/* 🔥 オンライン管理（常時監視） */
+const statusRef = ref(rtdb, "status/" + myCode);
+set(statusRef, { online:true, name:myName });
+onDisconnect(statusRef).set({ online:false, name:myName });
+
+/* プロフィール */
 function renderProfile(){
   document.getElementById("profileArea").innerHTML=`
     名前:<br>
@@ -136,78 +146,104 @@ function renderProfile(){
   `;
 }
 window.changeName = function(){
-  const newName=document.getElementById("nameInput").value;
-  localStorage.playerName=newName;
+  localStorage.playerName=document.getElementById("nameInput").value;
   location.reload();
 };
 
-/* 🔥 自分をオンラインにする */
-await setDoc(doc(db,"users",myCode),{
-  name: myName,
-  online: true
-},{merge:true});
-
-/* ページ閉じたらオフライン */
-window.addEventListener("beforeunload", async ()=>{
-  await updateDoc(doc(db,"users",myCode),{
-    online: false
-  });
-});
-
-/* フレンド追加（両方向） */
+/* フレンド追加 */
 window.requestFriend = async function(){
   const code=document.getElementById("friendCodeInput").value;
   if(code.length!==8) return alert("8桁入力！");
 
-  const targetRef = doc(db,"users",code);
-  const targetSnap = await getDoc(targetRef);
+  const targetSnap = await getDoc(doc(db,"users",code));
+  if(!targetSnap.exists()) return alert("存在しません");
 
-  if(!targetSnap.exists()){
-    return alert("そのユーザーはいません");
-  }
-
-  await setDoc(doc(db,"users",myCode,"friends",code),{
-    name: targetSnap.data().name
-  });
-
-  await setDoc(doc(db,"users",code,"friends",myCode),{
-    name: myName
-  });
+  await setDoc(doc(db,"users",myCode,"friends",code),{name:targetSnap.data().name});
+  await setDoc(doc(db,"users",code,"friends",myCode),{name:myName});
 };
 
-/* 🔥 リアルタイム表示 */
-onSnapshot(collection(db,"users",myCode,"friends"), async (snapshot)=>{
+/* フレンド削除 */
+window.removeFriend = async function(code){
+  await deleteDoc(doc(db,"users",myCode,"friends",code));
+  await deleteDoc(doc(db,"users",code,"friends",myCode));
+};
+
+/* フレンド表示 */
+onSnapshot(collection(db,"users",myCode,"friends"),(snapshot)=>{
   const list=document.getElementById("friendList");
   list.innerHTML="";
 
-  for(const docSnap of snapshot.docs){
-    const friendCode = docSnap.id;
-    const friendRef = doc(db,"users",friendCode);
-    const friendSnap = await getDoc(friendRef);
-
-    let statusText="オフライン";
-    let statusColor="red";
-
-    if(friendSnap.exists() && friendSnap.data().online){
-      statusText="オンライン";
-      statusColor="green";
-    }
-
+  snapshot.forEach(docSnap=>{
+    const friendCode=docSnap.id;
     const div=document.createElement("div");
     div.className="friend";
     div.innerHTML=`
       <strong>${docSnap.data().name}</strong><br>
       Code:${friendCode}<br>
-      <span class="status" style="color:${statusColor}">
-        ${statusText}
-      </span>
+      <span id="status-${friendCode}">確認中...</span><br>
+      <button onclick="inviteParty('${friendCode}')">パーティー招待</button>
+      <button onclick="removeFriend('${friendCode}')">削除</button>
     `;
     list.appendChild(div);
+
+    /* オンライン監視 */
+    onValue(ref(rtdb,"status/"+friendCode),(snap)=>{
+      const el=document.getElementById("status-"+friendCode);
+      if(!snap.exists() || !snap.val().online){
+        el.innerHTML="<span style='color:red'>オフライン</span>";
+      }else{
+        el.innerHTML="<span style='color:green'>オンライン</span>";
+      }
+    });
+  });
+});
+
+/* ===== パーティー機能 ===== */
+
+window.inviteParty = async function(targetCode){
+  await setDoc(doc(db,"partyInvites",targetCode),{
+    from:myCode,
+    fromName:myName
+  });
+};
+
+/* 招待受信 */
+onSnapshot(doc(db,"partyInvites",myCode),(snap)=>{
+  if(!snap.exists()) return;
+  const data=snap.data();
+  alert(data.fromName+" からパーティー招待が届いています！");
+  if(confirm("参加しますか？")){
+    joinParty(data.from);
   }
+});
+
+/* パーティー参加 */
+async function joinParty(leaderCode){
+  await setDoc(doc(db,"parties",leaderCode,"members",myCode),{
+    name:myName
+  });
+  await setDoc(doc(db,"parties",leaderCode),{
+    leader:leaderCode
+  },{merge:true});
+}
+
+/* パーティー監視 */
+onSnapshot(collection(db,"parties",myCode,"members"),(snap)=>{
+  if(snap.empty) return;
+
+  let html="<hr><h3>パーティー</h3>";
+  html+="人数:"+snap.size+"<br>";
+
+  snap.forEach(m=>{
+    html+=m.data().name+"<br>";
+  });
+
+  document.getElementById("friendList").innerHTML+=html;
 });
 
 renderProfile();
 </script>
+
 
 
 </body>
