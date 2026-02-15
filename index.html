@@ -1,68 +1,159 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>タイピング（対戦あり）</title>
+<meta charset="UTF-8">
+<title>タイピング（対戦あり）</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  display: flex;
+  height: 100vh;
+  color: white;
+}
 
-    .lobby {
-      background: white;
-      padding: 40px;
-      border-radius: 20px;
-      text-align: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    }
+/* 左側メイン */
+.main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-    h1 {
-      margin-bottom: 30px;
-    }
+.lobby {
+  background: white;
+  color: black;
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
 
-    .btn {
-      display: block;
-      width: 220px;
-      margin: 15px auto;
-      padding: 15px;
-      font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: 0.3s;
-    }
+/* 右側フレンド */
+.sidebar {
+  width: 320px;
+  background: rgba(0,0,0,0.3);
+  padding: 20px;
+  overflow-y: auto;
+}
 
-    .solo {
-      background-color: #4CAF50;
-      color: white;
-    }
+.friend {
+  background: white;
+  color: black;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+}
 
-    .multi {
-      background-color: #ff9800;
-      color: white;
-    }
+button {
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  margin-top: 5px;
+}
 
-    .btn:hover {
-      transform: scale(1.05);
-      opacity: 0.9;
-    }
-  </style>
+.add-btn { background: #4CAF50; color: white; }
+.remove-btn { background: #f44336; color: white; }
 
+.status {
+  font-size: 12px;
+  color: gray;
+}
+input {
+  padding: 5px;
+  margin-top: 5px;
+}
+</style>
 </head>
+
 <body>
 
+<div class="main">
   <div class="lobby">
     <h1>タイピング（対戦あり）</h1>
-    <button class="btn solo">一人でプレイ</button>
-    <button class="btn multi">みんなでプレイ</button>
+    <p id="playerName"></p>
+    <p>あなたのフレンドコード:</p>
+    <h2 id="myCode"></h2>
+    <input id="friendCodeInput" placeholder="フレンドコード入力">
+    <br>
+    <button class="add-btn" onclick="addFriend()">フレンドを作る</button>
   </div>
+</div>
+
+<div class="sidebar">
+  <h2>フレンドリスト</h2>
+  <div id="friendList"></div>
+</div>
+
+<script>
+function randomNumber(length){
+  let result = "";
+  for(let i=0;i<length;i++){
+    result += Math.floor(Math.random()*10);
+  }
+  return result;
+}
+
+/* 端末データ保存 */
+if(!localStorage.playerName){
+  localStorage.playerName = "園名:" + randomNumber(12);
+}
+if(!localStorage.friendCode){
+  localStorage.friendCode = randomNumber(8);
+}
+if(!localStorage.friends){
+  localStorage.friends = JSON.stringify([]);
+}
+
+document.getElementById("playerName").textContent = localStorage.playerName;
+document.getElementById("myCode").textContent = localStorage.friendCode;
+
+function addFriend(){
+  const code = document.getElementById("friendCodeInput").value;
+  if(code.length !== 8) return alert("8桁の数字を入力！");
+
+  let friends = JSON.parse(localStorage.friends);
+
+  friends.push({
+    name: "園名:" + randomNumber(12),
+    code: code,
+    status: "ロビー中"
+  });
+
+  localStorage.friends = JSON.stringify(friends);
+  renderFriends();
+}
+
+function removeFriend(index){
+  let friends = JSON.parse(localStorage.friends);
+  friends.splice(index,1);
+  localStorage.friends = JSON.stringify(friends);
+  renderFriends();
+}
+
+function renderFriends(){
+  const list = document.getElementById("friendList");
+  list.innerHTML = "";
+  let friends = JSON.parse(localStorage.friends);
+
+  friends.forEach((f,i)=>{
+    const div = document.createElement("div");
+    div.className = "friend";
+    div.innerHTML = `
+      <strong>${f.name}</strong><br>
+      Code: ${f.code}<br>
+      <span class="status">${f.status}</span><br>
+      <button class="remove-btn" onclick="removeFriend(${i})">フレンドを切る</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+renderFriends();
+</script>
 
 </body>
 </html>
