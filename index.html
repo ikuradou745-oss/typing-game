@@ -5,146 +5,189 @@
 <title>タイピング（対戦あり）</title>
 
 <style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #1e3c72, #2a5298);
-  display: flex;
-  height: 100vh;
-  color: white;
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:linear-gradient(135deg,#1e3c72,#2a5298);
+  display:flex;
+  height:100vh;
+  color:white;
 }
 
-/* 左側メイン */
-.main {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+/* 左：ロビー */
+.main{
+  flex:1;
+  display:flex;
+  justify-content:center;
+  align-items:center;
 }
 
-.lobby {
-  background: white;
-  color: black;
-  padding: 40px;
-  border-radius: 20px;
-  text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+.lobby{
+  background:white;
+  color:black;
+  padding:40px;
+  border-radius:20px;
+  text-align:center;
+  box-shadow:0 10px 25px rgba(0,0,0,0.3);
 }
 
-/* 右側フレンド */
-.sidebar {
-  width: 320px;
-  background: rgba(0,0,0,0.3);
-  padding: 20px;
-  overflow-y: auto;
+.btn{
+  display:block;
+  width:200px;
+  margin:15px auto;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:16px;
 }
 
-.friend {
-  background: white;
-  color: black;
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 10px;
+.solo{background:#4CAF50;color:white;}
+.multi{background:#ff9800;color:white;}
+
+/* 右：フレンド */
+.sidebar{
+  width:330px;
+  background:rgba(0,0,0,0.35);
+  padding:20px;
+  overflow-y:auto;
 }
 
-button {
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  margin-top: 5px;
+.friend{
+  background:white;
+  color:black;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:10px;
 }
 
-.add-btn { background: #4CAF50; color: white; }
-.remove-btn { background: #f44336; color: white; }
-
-.status {
-  font-size: 12px;
-  color: gray;
+button{
+  padding:6px;
+  border-radius:8px;
+  border:none;
+  cursor:pointer;
+  margin-top:5px;
 }
-input {
-  padding: 5px;
-  margin-top: 5px;
+
+.add-btn{background:#4CAF50;color:white;}
+.remove-btn{background:#f44336;color:white;}
+
+input{
+  width:100%;
+  padding:5px;
+  margin-top:5px;
+}
+.status{
+  font-size:12px;
+  color:gray;
 }
 </style>
 </head>
 
 <body>
 
+<!-- 左ロビー -->
 <div class="main">
   <div class="lobby">
     <h1>タイピング（対戦あり）</h1>
-    <p id="playerName"></p>
-    <p>あなたのフレンドコード:</p>
-    <h2 id="myCode"></h2>
-    <input id="friendCodeInput" placeholder="フレンドコード入力">
-    <br>
-    <button class="add-btn" onclick="addFriend()">フレンドを作る</button>
+
+    <button class="btn solo">一人でプレイ</button>
+    <button class="btn multi">みんなでプレイ</button>
   </div>
 </div>
 
+<!-- 右フレンド -->
 <div class="sidebar">
+  <h2>プロフィール</h2>
+  <div id="profileArea"></div>
+
+  <h2>フレンド追加</h2>
+  <input id="friendCodeInput" placeholder="フレンドコード8桁">
+  <button class="add-btn" onclick="requestFriend()">フレンド申請</button>
+
   <h2>フレンドリスト</h2>
   <div id="friendList"></div>
 </div>
 
 <script>
 function randomNumber(length){
-  let result = "";
+  let r="";
   for(let i=0;i<length;i++){
-    result += Math.floor(Math.random()*10);
+    r+=Math.floor(Math.random()*10);
   }
-  return result;
+  return r;
 }
 
-/* 端末データ保存 */
+/* 初期データ */
 if(!localStorage.playerName){
-  localStorage.playerName = "園名:" + randomNumber(12);
+  localStorage.playerName="園名:"+randomNumber(12);
 }
 if(!localStorage.friendCode){
-  localStorage.friendCode = randomNumber(8);
+  localStorage.friendCode=randomNumber(8);
 }
 if(!localStorage.friends){
-  localStorage.friends = JSON.stringify([]);
+  localStorage.friends=JSON.stringify([]);
 }
 
-document.getElementById("playerName").textContent = localStorage.playerName;
-document.getElementById("myCode").textContent = localStorage.friendCode;
+/* プロフィール表示 */
+function renderProfile(){
+  document.getElementById("profileArea").innerHTML=`
+    名前:<br>
+    <input id="nameInput" value="${localStorage.playerName}">
+    <button onclick="changeName()">変更</button>
+    <hr>
+    フレンドコード:<br>
+    <strong>${localStorage.friendCode}</strong>
+  `;
+}
 
-function addFriend(){
-  const code = document.getElementById("friendCodeInput").value;
-  if(code.length !== 8) return alert("8桁の数字を入力！");
+function changeName(){
+  const newName=document.getElementById("nameInput").value;
+  localStorage.playerName=newName;
+  renderProfile();
+}
 
-  let friends = JSON.parse(localStorage.friends);
+/* フレンド申請（疑似両成立方式） */
+function requestFriend(){
+  const code=document.getElementById("friendCodeInput").value;
+  if(code.length!==8) return alert("8桁入力！");
+
+  let friends=JSON.parse(localStorage.friends);
+
+  // 既にあるかチェック
+  if(friends.some(f=>f.code===code)){
+    return alert("すでにフレンド！");
+  }
 
   friends.push({
-    name: "園名:" + randomNumber(12),
-    code: code,
-    status: "ロビー中"
+    name:"園名:"+randomNumber(12),
+    code:code,
+    status:"フレンド成立"
   });
 
-  localStorage.friends = JSON.stringify(friends);
+  localStorage.friends=JSON.stringify(friends);
   renderFriends();
 }
 
-function removeFriend(index){
-  let friends = JSON.parse(localStorage.friends);
-  friends.splice(index,1);
-  localStorage.friends = JSON.stringify(friends);
+/* 削除 */
+function removeFriend(i){
+  let friends=JSON.parse(localStorage.friends);
+  friends.splice(i,1);
+  localStorage.friends=JSON.stringify(friends);
   renderFriends();
 }
 
 function renderFriends(){
-  const list = document.getElementById("friendList");
-  list.innerHTML = "";
-  let friends = JSON.parse(localStorage.friends);
+  const list=document.getElementById("friendList");
+  list.innerHTML="";
+  let friends=JSON.parse(localStorage.friends);
 
   friends.forEach((f,i)=>{
-    const div = document.createElement("div");
-    div.className = "friend";
-    div.innerHTML = `
+    const div=document.createElement("div");
+    div.className="friend";
+    div.innerHTML=`
       <strong>${f.name}</strong><br>
-      Code: ${f.code}<br>
+      Code:${f.code}<br>
       <span class="status">${f.status}</span><br>
       <button class="remove-btn" onclick="removeFriend(${i})">フレンドを切る</button>
     `;
@@ -152,6 +195,7 @@ function renderFriends(){
   });
 }
 
+renderProfile();
 renderFriends();
 </script>
 
