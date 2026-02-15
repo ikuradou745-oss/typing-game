@@ -14,124 +14,154 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- 初期設定 ---
-let myCode = localStorage.getItem("user_friend_code") || Math.floor(10000000 + Math.random() * 90000000).toString();
-localStorage.setItem("user_friend_code", myCode);
-let myName = localStorage.getItem("user_display_name") || "園名：" + Math.floor(100000000000 + Math.random() * 900000000000).toString();
-localStorage.setItem("user_display_name", myName);
+// --- データのキーを完全に固定 ---
+const STORAGE_KEY_ID = "TYPING_GAME_USER_ID_8DIGITS";
+const STORAGE_KEY_NAME = "TYPING_GAME_USER_NAME_PERSISTENT";
 
+let myCode = localStorage.getItem(STORAGE_KEY_ID);
+let myName = localStorage.getItem(STORAGE_KEY_NAME);
+
+// なければ新規作成
+if (!myCode) {
+    myCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+    localStorage.setItem(STORAGE_KEY_ID, myCode);
+}
+if (!myName) {
+    const rand12 = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+    myName = "園名：" + rand12;
+    localStorage.setItem(STORAGE_KEY_NAME, myName);
+}
+
+// UI初期表示
 document.getElementById("my-friend-code").innerText = myCode;
 document.getElementById("display-name").innerText = myName;
 
 let currentPartyId = null;
 
-// --- オンライン・基本更新 ---
+// --- 1. ユーザー登録とオンライン監視 ---
 const myStatusRef = ref(db, `users/${myCode}`);
 onValue(ref(db, ".info/connected"), (snap) => {
     if (snap.val() === true) {
-        update(myStatusRef, { name: myName, status: "online", lastSeen: Date.now() });
-        onDisconnect(myStatusRef).update({ status: "offline", lastSeen: Date.now() });
+        // ここで自分の情報を必ず登録する（これでフレンド追加バグを防ぐ）
+        update(myStatusRef, {
+            name: myName,
+            status: "online",
+            lastSeen: Date.now()
+        });
+        onDisconnect(myStatusRef).update({
+            status: "offline",
+            lastSeen: Date.now()
+        });
     }
 });
 
-// --- 名前更新 ---
+// 名前変更
 document.getElementById("update-name-btn").onclick = () => {
     const input = document.getElementById("name-input");
     if (input.value.trim()) {
         myName = input.value.trim();
-        localStorage.setItem("user_display_name", myName);
+        localStorage.setItem(STORAGE_KEY_NAME, myName);
         document.getElementById("display-name").innerText = myName;
         update(myStatusRef, { name: myName });
         input.value = "";
     }
 };
 
-// --- フレンド申請 ---
+// --- 2. フレンド機能 (リアルタイム) ---
 document.getElementById("send-request-btn").onclick = async () => {
     const target = document.getElementById("target-code-input").value.trim();
-    if (target.length === 8 && target !== myCode) {
-        const snap = await get(ref(db, `users/${target}`));
-        if (snap.exists()) {
-            update(ref(db, `friends/${myCode}/${target}`), true);
-            update(ref(db, `friends/${target}/${myCode}`), true);
-            document.getElementById("target-code-input").value = "";
-        }
+    if (target.length !== 8 || target === myCode) {
+        alert("無効なコードです");
+        return;
+    }
+
+    const snap = await get(ref(db, `users/${target}`));
+    if (snap.exists()) {
+        const updates = {};
+        updates[`friends/${myCode}/${target}`] = true;
+        updates[`friends/${target}/${myCode}`] = true;
+        await update(ref(db), updates);
+        alert(`${snap.val().name} さんをフレンドに追加しました！`);
+        document.getElementById("target-code-input").value = "";
+    } else {
+        alert("ユーザーが見つかりませんでした。相手が一度もこのサイトを開いていない可能性があります。");
     }
 };
 
-// --- フレンドリスト表示 ---
+// フレンドリスト監視
 onValue(ref(db, `friends/${myCode}`), (snapshot) => {
     const listUI = document.getElementById("friend-list");
     listUI.innerHTML = "";
     let count = 0;
+    
     snapshot.forEach((child) => {
         count++;
         const fid = child.key;
+        // フレンドの情報を取得
         onValue(ref(db, `users/${fid}`), (fSnap) => {
             const fData = fSnap.val();
             if (!fData) return;
-            let li = document.getElementById(`li-${fid}`) || document.createElement("li");
-            li.id = `li-${fid}`;
-            li.className = "friend-item";
+            
+            let li = document.getElementById(`li-${fid}`);
+            if (!li) {
+                li = document.createElement("li");
+                li.id = `li-${fid}`;
+                li.className = "friend-item";
+                listUI.appendChild(li);
+            }
+            
             li.innerHTML = `
                 <div class="friend-info">
-                    <strong>${fData.name}</strong> 
-                    <span class="dot ${fData.status === 'online' ? 'online' : 'offline'}"></span>
+                    <strong>${fData.name}</strong>
+                    <span><span class="dot ${fData.status === 'online' ? 'online' : 'offline'}"></span>${fData.status === 'online' ? 'オンライン' : 'オフライン'}</span>
                 </div>
                 <div class="friend-btns">
                     <button class="invite-btn" onclick="inviteToParty('${fid}', '${fData.name}')">パーティー招待</button>
-                    <button class="small-del-btn" onclick="deleteFriend('${fid}')">削除</button>
+                    <button class="del-btn" onclick="deleteFriend('${fid}')">削除</button>
                 </div>
             `;
-            listUI.appendChild(li);
         });
     });
     document.getElementById("friend-count-badge").innerText = count;
 });
 
 window.deleteFriend = (fid) => {
-    remove(ref(db, `friends/${myCode}/${fid}`));
-    remove(ref(db, `friends/${fid}/${myCode}`));
+    if (confirm("削除しますか？")) {
+        remove(ref(db, `friends/${myCode}/${fid}`));
+        remove(ref(db, `friends/${fid}/${myCode}`));
+    }
 };
 
-// --- パーティー招待・通知ロジック ---
-
-// 招待を送る
+// --- 3. パーティー招待ロジック ---
 window.inviteToParty = async (fid, fname) => {
-    // パーティー未作成なら自分がリーダーで作成
     if (!currentPartyId) {
-        currentPartyId = myCode; // 自分のIDをパーティーIDにする
+        currentPartyId = myCode; 
         await set(ref(db, `parties/${currentPartyId}`), {
             leader: myCode,
             members: { [myCode]: myName }
         });
         update(myStatusRef, { partyId: currentPartyId });
     }
-    // 相手に招待を送る
     set(ref(db, `invites/${fid}`), {
-        fromId: myCode,
-        fromName: myName,
-        partyId: currentPartyId
+        fromId: myCode, fromName: myName, partyId: currentPartyId
     });
-    alert(`${fname}さんに招待を送りました`);
+    alert(`${fname} さんに招待を送りました`);
 };
 
-// 招待の監視
+// 招待通知の監視
 onValue(ref(db, `invites/${myCode}`), (snap) => {
     const invite = snap.val();
     const notifyUI = document.getElementById("invite-notification");
     if (invite) {
         document.getElementById("inviter-name").innerText = invite.fromName;
         notifyUI.classList.remove("hidden");
-
+        
         document.getElementById("accept-invite-btn").onclick = async () => {
-            // パーティーに参加
             await update(ref(db, `parties/${invite.partyId}/members`), { [myCode]: myName });
             update(myStatusRef, { partyId: invite.partyId });
             remove(ref(db, `invites/${myCode}`));
             notifyUI.classList.add("hidden");
         };
-
         document.getElementById("decline-invite-btn").onclick = () => {
             remove(ref(db, `invites/${myCode}`));
             notifyUI.classList.add("hidden");
@@ -141,55 +171,49 @@ onValue(ref(db, `invites/${myCode}`), (snap) => {
     }
 });
 
-// --- パーティーUIのリアルタイム更新 ---
+// パーティー状態の監視
 onValue(myStatusRef, (snap) => {
-    const data = snap.val();
-    const partyInfoUI = document.getElementById("party-info");
-    const noPartyUI = document.getElementById("no-party-msg");
+    const pId = snap.val()?.partyId;
+    const infoUI = document.getElementById("party-info");
+    const msgUI = document.getElementById("no-party-msg");
     const memberListUI = document.getElementById("party-member-list");
     const controlsUI = document.getElementById("party-controls");
 
-    if (data && data.partyId) {
-        currentPartyId = data.partyId;
-        noPartyUI.classList.add("hidden");
-        partyInfoUI.classList.remove("hidden");
+    if (pId) {
+        currentPartyId = pId;
+        msgUI.classList.add("hidden");
+        infoUI.classList.remove("hidden");
 
-        onValue(ref(db, `parties/${currentPartyId}`), (pSnap) => {
+        onValue(ref(db, `parties/${pId}`), (pSnap) => {
             const pData = pSnap.val();
             if (!pData) {
-                // パーティー解散時の処理
                 update(myStatusRef, { partyId: null });
                 currentPartyId = null;
                 return;
             }
-            
             memberListUI.innerHTML = "";
             const isLeader = pData.leader === myCode;
-
             Object.entries(pData.members).forEach(([mid, mname]) => {
                 const div = document.createElement("div");
                 div.className = "party-member";
                 div.innerHTML = `
-                    <span>${mid === pData.leader ? '<span class="leader-tag">L</span>' : ''}${mname}</span>
-                    ${isLeader && mid !== myCode ? `<button class="danger-btn" style="padding:2px 5px; font-size:0.6rem" onclick="kickMember('${mid}')">キック</button>` : ''}
+                    <span>${mid === pData.leader ? '<span class="leader-tag">LEADER</span>' : ''}${mname}</span>
+                    ${isLeader && mid !== myCode ? `<button class="danger-btn" style="padding:4px 8px; font-size:0.7rem;" onclick="kickMember('${mid}')">KICK</button>` : ''}
                 `;
                 memberListUI.appendChild(div);
             });
-
             controlsUI.innerHTML = isLeader 
                 ? `<button class="danger-btn" style="width:100%" onclick="disbandParty()">パーティー解散</button>`
-                : `<button class="danger-btn" style="width:100%" onclick="leaveParty()">パーティー脱退</button>`;
+                : `<button class="danger-btn" style="width:100%" onclick="leaveParty()">パーティーを抜ける</button>`;
         });
     } else {
-        partyInfoUI.classList.add("hidden");
-        noPartyUI.classList.remove("hidden");
+        infoUI.classList.add("hidden");
+        msgUI.classList.remove("hidden");
     }
 });
 
-// パーティー操作関数
 window.disbandParty = () => {
     if (confirm("パーティーを解散しますか？")) {
-        // 全メンバーのpartyIdを消す（今回は簡易的にパーティーデータ削除で対応）
         remove(ref(db, `parties/${currentPartyId}`));
     }
 };
