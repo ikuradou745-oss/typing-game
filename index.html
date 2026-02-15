@@ -5,6 +5,70 @@
 <title>タイピング（対戦あり）</title>
 
 <style>
+
+<!-- Firebase追加 -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
+  authDomain: "typing-game-28ed0.firebaseapp.com",
+  projectId: "typing-game-28ed0",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const myCode = localStorage.friendCode;
+const myName = localStorage.playerName;
+
+/* Firestoreに自分を登録 */
+await setDoc(doc(db,"users",myCode),{
+  name: myName
+},{merge:true});
+
+/* 🔥 既存のrequestFriendを上書き */
+window.requestFriend = async function(){
+  const code=document.getElementById("friendCodeInput").value;
+  if(code.length!==8) return alert("8桁入力！");
+
+  const targetRef = doc(db,"users",code);
+  const targetSnap = await getDoc(targetRef);
+
+  if(!targetSnap.exists()){
+    return alert("そのユーザーはいません");
+  }
+
+  // 自分側
+  await setDoc(doc(db,"users",myCode,"friends",code),{
+    name: targetSnap.data().name
+  });
+
+  // 相手側（両方向）
+  await setDoc(doc(db,"users",code,"friends",myCode),{
+    name: myName
+  });
+};
+
+/* リアルタイム表示 */
+onSnapshot(collection(db,"users",myCode,"friends"),(snapshot)=>{
+  const list=document.getElementById("friendList");
+  list.innerHTML="";
+  snapshot.forEach(docSnap=>{
+    const div=document.createElement("div");
+    div.className="friend";
+    div.innerHTML=`
+      <strong>${docSnap.data().name}</strong><br>
+      Code:${docSnap.id}<br>
+      <span class="status">オンライン連携中</span>
+    `;
+    list.appendChild(div);
+  });
+});
+</script>
+
+  
 body{
   margin:0;
   font-family:Arial, sans-serif;
