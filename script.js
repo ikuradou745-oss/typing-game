@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, child, onValue, onDisconnect, remove, update } from "firebase/database";
+import { getDatabase, ref, set, get, update, onValue, onDisconnect, remove } from "firebase/database";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
@@ -14,165 +14,144 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- 変数管理 ---
-let myFriendCode = localStorage.getItem("myFriendCode");
-let myName = localStorage.getItem("myName");
+// --- データの初期化 ---
+let myCode = localStorage.getItem("typing_friend_code");
+let myName = localStorage.getItem("typing_user_name");
 
-// --- ページ読み込み時の処理 ---
-window.onload = async () => {
-    // 1. フレンドコード(数字8桁)生成
-    if (!myFriendCode) {
-        myFriendCode = Math.floor(10000000 + Math.random() * 90000000).toString();
-        localStorage.setItem("myFriendCode", myFriendCode);
+if (!myCode) {
+    // 8桁の数字コードを生成
+    myCode = Math.floor(10000000 + Math.random() * 90000000).toString();
+    localStorage.setItem("typing_friend_code", myCode);
+}
+
+if (!myName) {
+    // 園名：数字12桁
+    const randomSuffix = Math.floor(Math.random() * 900000000000 + 100000000000).toString();
+    myName = "園名：" + randomSuffix;
+    localStorage.setItem("typing_user_name", myName);
+}
+
+// UIの反映
+document.getElementById("my-friend-code").innerText = myCode;
+document.getElementById("display-name").innerText = myName;
+
+// --- オンライン状態管理 ---
+const myStatusRef = ref(db, `users/${myCode}`);
+const connectedRef = ref(db, ".info/connected");
+
+onValue(connectedRef, (snap) => {
+    if (snap.val() === true) {
+        // 接続中：オンラインに設定
+        update(myStatusRef, {
+            name: myName,
+            status: "online",
+            lastSeen: Date.now()
+        });
+        // 切断時：オフラインに自動切り替え
+        onDisconnect(myStatusRef).update({
+            status: "offline",
+            lastSeen: Date.now()
+        });
     }
-    
-    // 2. 名前初期値(12桁数字)
-    if (!myName) {
-        const randomNum = Math.floor(Math.random() * 1000000000000).toString().padStart(12, '0');
-        myName = "園名：" + randomNum;
-        localStorage.setItem("myName", myName);
+});
+
+// --- 名前変更機能 ---
+document.getElementById("update-name-btn").onclick = () => {
+    const input = document.getElementById("name-input");
+    const newName = input.value.trim();
+    if (newName) {
+        myName = newName;
+        localStorage.setItem("typing_user_name", myName);
+        document.getElementById("display-name").innerText = myName;
+        update(myStatusRef, { name: myName });
+        input.value = "";
     }
-
-    document.getElementById("friend-code").innerText = myFriendCode;
-    document.getElementById("display-name").innerText = myName;
-
-    // 3. オンライン状態の管理
-    setupPresence();
-
-    // 4. フレンドリストのリアルタイム監視
-    listenToFriends();
 };
 
-// オンライン状態システムのセットアップ
-function setupPresence() {
-    const myStatusRef = ref(db, 'users/' + myFriendCode);
-    const connectedRef = ref(db, '.info/connected');
-
-    onValue(connectedRef, (snap) => {
-        if (snap.val() === true) {
-            // 接続されたらオンラインに
-            update(myStatusRef, {
-                username: myName,
-                status: "online",
-                lastChanged: Date.now()
-            });
-
-            // 切断時の処理を予約
-            onDisconnect(myStatusRef).update({
-                status: "offline",
-                lastChanged: Date.now()
-            });
-
-            // UI更新
-            document.getElementById("my-status-indicator").className = "status-dot status-online";
-            document.getElementById("my-status-text").innerText = "オンライン";
-        }
-    });
-}
-
-// 名前の更新
-document.getElementById("update-name-btn").addEventListener("click", () => {
-    const newName = document.getElementById("name-input").value.trim();
-    if (newName === "") return;
-
-    myName = newName;
-    localStorage.setItem("myName", myName);
-    document.getElementById("display-name").innerText = myName;
-    
-    update(ref(db, 'users/' + myFriendCode), { username: myName });
-    document.getElementById("name-input").value = "";
-    alert("名前を変更しました。");
-});
-
-// フレンド申請（即承認システム）
-document.getElementById("add-friend-btn").addEventListener("click", async () => {
-    const targetCode = document.getElementById("friend-input").value.trim();
+// --- フレンド申請（即承認システム） ---
+document.getElementById("send-request-btn").onclick = async () => {
+    const targetCode = document.getElementById("target-code-input").value.trim();
     
     if (targetCode.length !== 8 || isNaN(targetCode)) {
-        alert("8桁の数字を入力してください");
+        alert("有効な8桁の数字コードを入力してください。");
         return;
     }
-    if (targetCode === myFriendCode) {
-        alert("自分自身は追加できません");
+    if (targetCode === myCode) {
+        alert("自分自身は追加できません。");
         return;
     }
 
-    // 相手が存在するかチェック
-    const targetRef = ref(db, 'users/' + targetCode);
-    const snapshot = await get(targetRef);
+    const targetUserRef = ref(db, `users/${targetCode}`);
+    const snapshot = await get(targetUserRef);
 
     if (snapshot.exists()) {
-        // 相互にフレンド登録を行う
+        // 相互に記録する（どちらかから申請があれば即フレンド）
         const updates = {};
-        updates[`friends/${myFriendCode}/${targetCode}`] = true;
-        updates[`friends/${targetCode}/${myFriendCode}`] = true;
+        updates[`friends/${myCode}/${targetCode}`] = true;
+        updates[`friends/${targetCode}/${myCode}`] = true;
         
-        update(ref(db), updates);
-        alert(`${snapshot.val().username} とフレンドになりました！`);
-        document.getElementById("friend-input").value = "";
+        await update(ref(db), updates);
+        alert(`${snapshot.val().name} さんとフレンドになりました！`);
+        document.getElementById("target-code-input").value = "";
     } else {
-        alert("そのコードのユーザーは存在しません");
+        alert("相手が見つかりませんでした。コードを確認してください。");
     }
+};
+
+// --- フレンドリストの監視 ---
+const friendsRef = ref(db, `friends/${myCode}`);
+onValue(friendsRef, (snapshot) => {
+    const listUI = document.getElementById("friend-list");
+    listUI.innerHTML = "";
+    let count = 0;
+
+    snapshot.forEach((child) => {
+        count++;
+        const friendId = child.key;
+        renderFriendItem(friendId);
+    });
+    document.getElementById("friend-count").innerText = count;
 });
 
-// フレンドリストの監視と表示
-function listenToFriends() {
-    const myFriendsRef = ref(db, `friends/${myFriendCode}`);
-    
-    onValue(myFriendsRef, (snapshot) => {
-        const listElement = document.getElementById("friend-list");
-        listElement.innerHTML = "";
-        let count = 0;
+// 個別のフレンド情報を描画
+function renderFriendItem(friendId) {
+    const friendInfoRef = ref(db, `users/${friendId}`);
+    onValue(friendInfoRef, (snap) => {
+        const data = snap.val();
+        if (!data) return;
 
-        snapshot.forEach((childSnapshot) => {
-            count++;
-            const friendId = childSnapshot.key;
-            const friendDataRef = ref(db, `users/${friendId}`);
+        let item = document.getElementById(`friend-item-${friendId}`);
+        if (!item) {
+            item = document.createElement("li");
+            item.id = `friend-item-${friendId}`;
+            item.className = "friend-item";
+            document.getElementById("friend-list").appendChild(item);
+        }
 
-            // フレンドの情報を取得
-            onValue(friendDataRef, (uSnap) => {
-                if (uSnap.exists()) {
-                    const data = uSnap.val();
-                    updateFriendUI(friendId, data);
-                }
-            });
-        });
-        document.getElementById("friend-count").innerText = count;
+        const isOnline = data.status === "online";
+        const statusClass = isOnline ? "online-dot" : "offline-dot";
+        const statusText = isOnline ? "オンライン" : "オフライン";
+
+        item.innerHTML = `
+            <div class="friend-top">
+                <strong>${data.name}</strong>
+                <button class="delete-btn" onclick="deleteFriend('${friendId}')">削除</button>
+            </div>
+            <div class="status-indicator">
+                <span class="dot ${statusClass}"></span>
+                <span>${statusText}</span>
+            </div>
+            <div style="font-size:0.7rem; color:#64748b;">ID: ${friendId}</div>
+        `;
     });
 }
 
-// フレンドUIの作成/更新
-function updateFriendUI(id, data) {
-    let li = document.getElementById(`friend-${id}`);
-    if (!li) {
-        li = document.createElement("li");
-        li.id = `friend-${id}`;
-        li.className = "friend-item";
-        document.getElementById("friend-list").appendChild(li);
-    }
-
-    const statusClass = data.status === "online" ? "status-online" : "status-offline";
-    const statusText = data.status === "online" ? "オンライン" : "オフライン";
-
-    li.innerHTML = `
-        <div class="friend-item-header">
-            <strong>${data.username}</strong>
-            <button class="remove-btn" onclick="removeFriend('${id}')">削除</button>
-        </div>
-        <div>
-            <span class="status-dot ${statusClass}"></span>
-            <small>${statusText}</small>
-        </div>
-        <div style="font-size:0.6rem; color:#666; margin-top:5px;">ID: ${id}</div>
-    `;
-}
-
-// フレンド削除
-window.removeFriend = (targetId) => {
-    if (confirm("本当にフレンドを削除しますか？")) {
+// --- フレンド削除機能 ---
+window.deleteFriend = async (targetId) => {
+    if (confirm("このフレンドを削除しますか？")) {
         const updates = {};
-        updates[`friends/${myFriendCode}/${targetId}`] = null;
-        updates[`friends/${targetId}/${myFriendCode}`] = null;
-        update(ref(db), updates);
+        updates[`friends/${myCode}/${targetId}`] = null;
+        updates[`friends/${targetId}/${myCode}`] = null;
+        await update(ref(db), updates);
     }
 };
