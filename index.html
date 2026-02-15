@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Typing Game - Party System</title>
+    <title>Typing Game - Solo & Party System</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="invite-notification" class="hidden">
-        <p><span id="inviter-name">---</span> さんから招待が届きました！</p>
-        <div class="invite-btns">
-            <button id="accept-invite-btn" class="success-btn">入る</button>
-            <button id="decline-invite-btn" class="danger-btn">拒否</button>
+        <div class="notify-content">
+            <p><span id="inviter-name">---</span> さんから招待！</p>
+            <div class="invite-btns">
+                <button id="accept-invite-btn" class="success-btn">入る</button>
+                <button id="decline-invite-btn" class="danger-btn">拒否</button>
+            </div>
         </div>
     </div>
 
@@ -23,9 +25,35 @@
             </header>
             
             <div id="typing-screen">
-                <div id="mode-selection">
+                <div id="mode-selection" class="menu-screen">
                     <button class="mode-btn" id="single-play-btn">一人でプレイ</button>
                     <button class="mode-btn" id="friend-play-btn">フレンドとプレイ</button>
+                </div>
+
+                <div id="difficulty-selection" class="menu-screen hidden">
+                    <h2 class="menu-title">難易度を選んでください</h2>
+                    <div class="diff-btns">
+                        <button class="diff-btn easy" data-level="easy">かんたん (1-6文字)</button>
+                        <button class="diff-btn normal" data-level="normal">ちゅうきゅう (6-12文字)</button>
+                        <button class="diff-btn hard" data-level="hard">むずかしい (12-24文字)</button>
+                    </div>
+                    <button class="back-btn" id="back-to-mode">一番最初に戻る</button>
+                </div>
+
+                <div id="game-play-area" class="menu-screen hidden">
+                    <div id="word-display">
+                        <span id="char-done" class="text-done"></span><span id="char-todo" class="text-todo">READY...</span>
+                    </div>
+                    <div class="game-info">
+                        <p>タイプ数: <span id="score-count">0</span></p>
+                    </div>
+                    <button class="end-btn" id="end-game-btn">終了して難易度選択へ</button>
+                </div>
+
+                <div id="multi-play-area" class="menu-screen hidden">
+                    <h2 class="menu-title">フレンドとプレイ</h2>
+                    <p>パーティーメンバーを待っています...</p>
+                    <button class="back-btn" id="back-to-mode-from-multi">戻る</button>
                 </div>
             </div>
         </main>
@@ -34,12 +62,13 @@
             <section class="sidebar-section">
                 <h2>プロフィール</h2>
                 <div class="card">
-                    <p><strong>名前:</strong> <span id="display-name">---</span></p>
+                    <p><strong>名前:</strong> <span id="display-name">読み込み中...</span></p>
                     <div class="input-group">
                         <input type="text" id="name-input" placeholder="名前を変更">
                         <button id="update-name-btn">更新</button>
                     </div>
                     <div class="code-box">
+                        <p>フレンドコード</p>
                         <code id="my-friend-code">--------</code>
                     </div>
                 </div>
@@ -51,7 +80,7 @@
                     <span id="friend-count-badge">0</span>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="target-code-input" placeholder="8桁コードで追加" maxlength="8">
+                    <input type="text" id="target-code-input" placeholder="8桁コード" maxlength="8">
                     <button id="send-request-btn">追加</button>
                 </div>
                 <ul id="friend-list"></ul>
@@ -60,12 +89,10 @@
             <section class="sidebar-section" id="party-section">
                 <h2>パーティー</h2>
                 <div id="party-container" class="card">
-                    <div id="no-party-msg">パーティーに参加していません</div>
+                    <div id="no-party-msg">未参加</div>
                     <div id="party-info" class="hidden">
-                        <div id="party-member-list">
-                            </div>
-                        <div id="party-controls" class="margin-top">
-                            </div>
+                        <div id="party-member-list"></div>
+                        <div id="party-controls" class="margin-top"></div>
                     </div>
                 </div>
             </section>
