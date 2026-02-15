@@ -1,0 +1,95 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+}
+
+#game-container {
+    display: flex;
+    width: 100%;
+    max-width: 1200px;
+    height: 100vh;
+    background-color: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+/* サイドバー設定 */
+#sidebar {
+    width: 300px;
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid #1a252f;
+}
+
+#sidebar h2 {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    color: #3498db;
+}
+
+.profile-card, .id-card, .add-friend {
+    background-color: #34495e;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    border: none;
+    box-sizing: border-box;
+}
+
+button {
+    width: 100%;
+    padding: 8px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+#friend-code {
+    display: block;
+    background: #1a252f;
+    padding: 5px;
+    text-align: center;
+    font-weight: bold;
+    color: #e74c3c;
+    letter-spacing: 1px;
+}
+
+/* メインコンテンツ */
+#main-content {
+    flex-grow: 1;
+    padding: 40px;
+    text-align: center;
+}
+
+#friend-list {
+    list-style: none;
+    padding: 0;
+}
+
+.friend-item {
+    background: #3e5871;
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+}
