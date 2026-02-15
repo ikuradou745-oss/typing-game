@@ -115,8 +115,13 @@ input{
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { 
+  getFirestore, doc, setDoc, getDoc, collection, 
+  onSnapshot, deleteDoc, getDocs 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { 
+  getDatabase, ref, set, onValue, onDisconnect 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
@@ -129,20 +134,23 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
 
-/* 初期 */
-function randomNumber(l){let r="";for(let i=0;i<l;i++){r+=Math.floor(Math.random()*10);}return r;}
+/* ===== 初期 ===== */
+function randomNumber(l){
+  let r="";for(let i=0;i<l;i++){r+=Math.floor(Math.random()*10);}return r;
+}
 if(!localStorage.playerName){localStorage.playerName="園名:"+randomNumber(12);}
 if(!localStorage.friendCode){localStorage.friendCode=randomNumber(8);}
 
 const myCode=localStorage.friendCode;
 const myName=localStorage.playerName;
 
-/* オンライン監視 */
+/* ===== オンライン管理（完全版）===== */
 const statusRef=ref(rtdb,"status/"+myCode);
+
 set(statusRef,{online:true,name:myName});
 onDisconnect(statusRef).set({online:false,name:myName});
 
-/* プロフィール */
+/* ===== プロフィール ===== */
 document.getElementById("profileArea").innerHTML=`
 名前:<br>
 <input id="nameInput" value="${myName}">
@@ -151,42 +159,43 @@ document.getElementById("profileArea").innerHTML=`
 フレンドコード:<br>
 <strong>${myCode}</strong>
 `;
+
 window.changeName=function(){
   localStorage.playerName=document.getElementById("nameInput").value;
   location.reload();
 };
 
-/* 自分をusers登録 */
 await setDoc(doc(db,"users",myCode),{name:myName},{merge:true});
 
-/* フレンド追加 */
+/* ===== フレンド ===== */
 window.requestFriend=async function(){
   const code=document.getElementById("friendCodeInput").value;
   const snap=await getDoc(doc(db,"users",code));
   if(!snap.exists()) return alert("存在しません");
+
   await setDoc(doc(db,"users",myCode,"friends",code),{name:snap.data().name});
   await setDoc(doc(db,"users",code,"friends",myCode),{name:myName});
 };
 
-/* フレンド削除 */
 window.removeFriend=async function(code){
   await deleteDoc(doc(db,"users",myCode,"friends",code));
   await deleteDoc(doc(db,"users",code,"friends",myCode));
 };
 
-/* フレンド表示 */
+/* ===== フレンド表示 + オンライン安定版 ===== */
 onSnapshot(collection(db,"users",myCode,"friends"),(snap)=>{
   const list=document.getElementById("friendList");
   list.innerHTML="";
 
   snap.forEach(docSnap=>{
     const code=docSnap.id;
+
     const div=document.createElement("div");
     div.className="friend";
     div.innerHTML=`
       <strong>${docSnap.data().name}</strong><br>
       Code:${code}<br>
-      <span id="status-${code}">確認中</span><br>
+      <span id="status-${code}">オフライン</span><br>
       <button class="invite-btn" onclick="inviteParty('${code}')">パーティー招待</button>
       <button class="delete-btn" onclick="removeFriend('${code}')">削除</button>
     `;
@@ -194,112 +203,79 @@ onSnapshot(collection(db,"users",myCode,"friends"),(snap)=>{
 
     onValue(ref(rtdb,"status/"+code),(s)=>{
       const el=document.getElementById("status-"+code);
-      if(!s.exists()||!s.val().online){
-        el.innerHTML="<span style='color:red'>オフライン</span>";
-      }else{
+      if(s.exists() && s.val().online){
         el.innerHTML="<span style='color:green'>オンライン</span>";
+      }else{
+        el.innerHTML="<span style='color:red'>オフライン</span>";
       }
     });
   });
-
-  renderPartyUI();
 });
 
-/* ===== パーティー ===== */
-
-window.inviteParty=async function(target){
-  await setDoc(doc(db,"partyInvites",target),{
+/* ===== 招待 ===== */
+window.inviteParty = async function(target){
+  await setDoc(doc(db,"users",target,"invites",myCode),{
     from:myCode,
     fromName:myName
   });
+  alert("招待送信！");
 };
 
-/* ===== パーティー招待 ===== */
-
-/* 招待送信 */
-window.inviteParty = async function(target){
-  await setDoc(doc(db,"users",target,"invites",myCode),{
-    from: myCode,
-    fromName: myName,
-    created: Date.now()
-  });
-  alert("招待を送りました！");
-};
-
-/* 招待受信（リアルタイム） */
 onSnapshot(collection(db,"users",myCode,"invites"),(snapshot)=>{
   snapshot.docChanges().forEach(async change=>{
     if(change.type==="added"){
-      const data = change.doc.data();
-
-      const ok = confirm(
-        data.fromName + " からパーティー招待！参加しますか？"
-      );
-
-      if(ok){
+      const data=change.doc.data();
+      if(confirm(data.fromName+" から招待！参加する？")){
         await joinParty(data.from);
       }
-
-      // 🔥 受け取ったら必ず削除（超重要）
       await deleteDoc(doc(db,"users",myCode,"invites",change.doc.id));
     }
   });
 });
 
-/* パーティー参加 */
+/* ===== パーティー ===== */
 async function joinParty(leader){
-  await setDoc(doc(db,"parties",leader,"members",myCode),{
-    name: myName
-  });
-
-  await setDoc(doc(db,"parties",leader),{
-    leader: leader
-  },{merge:true});
+  await setDoc(doc(db,"parties",leader),{leader:leader},{merge:true});
+  await setDoc(doc(db,"parties",leader,"members",myCode),{name:myName});
 }
 
+/* 🔥 パーティーUI完全監視 */
+onSnapshot(collection(db,"parties"),async(snapshot)=>{
+  const list=document.getElementById("friendList");
 
-/* UI表示（全員見える） */
-function renderPartyUI(){
-  onSnapshot(collection(db,"parties"),(snapshot)=>{
-    snapshot.forEach(async partyDoc=>{
-      const leader=partyDoc.id;
-      const membersSnap=await getDocs(collection(db,"parties",leader,"members"));
+  snapshot.forEach(async partyDoc=>{
+    const leader=partyDoc.id;
+    const membersSnap=await getDocs(collection(db,"parties",leader,"members"));
 
-      membersSnap.forEach(m=>{
-        if(m.id===myCode){
-          showParty(leader);
+    membersSnap.forEach(m=>{
+      if(m.id===myCode){
+
+        const box=document.createElement("div");
+        box.className="party-box";
+        box.innerHTML="<h3>パーティー</h3>";
+        box.innerHTML+="人数:"+membersSnap.size+"<br>";
+
+        membersSnap.forEach(mem=>{
+          box.innerHTML+=`
+            <div class="party-member">
+              ${mem.data().name}
+              ${leader===myCode && mem.id!==myCode ?
+                `<button onclick="kick('${leader}','${mem.id}')">キック</button>`:""}
+            </div>
+          `;
+        });
+
+        if(leader===myCode){
+          box.innerHTML+=`<button onclick="disband('${leader}')">解散</button>`;
+        }else{
+          box.innerHTML+=`<button onclick="leave('${leader}')">離脱</button>`;
         }
-      });
+
+        list.appendChild(box);
+      }
     });
   });
-}
-
-async function showParty(leader){
-  const box=document.createElement("div");
-  box.className="party-box";
-  box.innerHTML="<h3>パーティー</h3>";
-
-  const membersSnap=await getDocs(collection(db,"parties",leader,"members"));
-
-  box.innerHTML+="人数:"+membersSnap.size+"<br>";
-  membersSnap.forEach(m=>{
-    box.innerHTML+=`
-      <div class="party-member">
-        ${m.data().name}
-        ${leader===myCode && m.id!==myCode ? 
-          `<button onclick="kick('${leader}','${m.id}')">キック</button>`:""}
-      </div>
-    `;
-  });
-
-  if(leader===myCode){
-    box.innerHTML+=`<button onclick="disband('${leader}')">解散</button>`;
-  }else{
-    box.innerHTML+=`<button onclick="leave('${leader}')">離脱</button>`;
-  }
-
-  document.getElementById("friendList").appendChild(box);
-}
+});
 
 /* キック */
 window.kick=async function(leader,member){
