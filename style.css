@@ -100,8 +100,34 @@ input[type="text"] { background: #000; border: 1px solid var(--accent-blue); col
 .btn-kick { background: var(--accent-red); color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
 .stat-val { color: var(--accent-green); font-family: 'JetBrains Mono'; }
-.footer-credit { position: absolute; bottom: 20px; left: 20px; font-size: 0.9rem; color: #555; }
+
+/* フッター＆コイン表示 */
+.footer-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.footer-credit { font-size: 0.9rem; color: #555; }
 .footer-credit span { color: var(--accent-blue); font-weight: 900; }
+
+.coin-display {
+    font-size: 1.2rem;
+    font-family: 'JetBrains Mono', 'M PLUS 1p', sans-serif;
+    font-weight: 900;
+    color: #FFD700;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid #FFD700;
+    padding: 5px 15px;
+    border-radius: 20px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 
 .ranking-panel { background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; margin-bottom: 20px; }
 .ranking-row { display: flex; justify-content: space-between; font-size: 1.5rem; padding: 10px 0; border-bottom: 1px solid var(--glass); }
