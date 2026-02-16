@@ -13,7 +13,7 @@
 
     <div id="invite-toast" class="hidden">
         <p id="invite-msg"></p>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:10px; margin-top:10px;">
             <button class="btn-invite btn-s" onclick="window.acceptInvite()">参加する</button>
             <button class="btn-kick btn-s" onclick="window.declineInvite()">拒否</button>
         </div>
@@ -68,7 +68,7 @@
                             <option value="hard">むずかしい</option>
                         </select>
                     </p>
-                    <div class="setup-buttons">
+                    <div class="setup-buttons" style="display:flex; gap:10px; margin-top:20px;">
                         <button class="action-btn" onclick="window.launchBattle()">プレイ開始</button>
                         <button class="action-btn" onclick="window.goHome()" style="border-color:#555;">戻る</button>
                     </div>
@@ -95,7 +95,7 @@
                         <div>COMBO: <span id="stat-combo" class="stat-val">0</span></div>
                     </div>
                     <div id="rival-scores" class="hidden">
-                        <div class="section-title">RIVALS (相手の状況)</div>
+                        <div class="section-title">RIVALS</div>
                         <div id="rival-list"></div>
                     </div>
                 </div>
@@ -112,8 +112,8 @@
                 <div id="editor-container" class="editor-container"></div>
                 <div class="editor-footer">
                     <button class="btn-invite btn-s" onclick="window.addEditorRow()">行を追加</button>
-                    <button class="btn-invite btn-s" style="background:var(--accent-purple);" onclick="window.saveEditor()">保存して完了</button>
-                    <button class="btn-kick btn-s" onclick="window.goHome()">破棄して戻る</button>
+                    <button class="btn-invite btn-s" style="background:var(--accent-purple);" onclick="window.saveEditor()">完成</button>
+                    <button class="btn-kick btn-s" onclick="window.goHome()">戻る</button>
                 </div>
             </div>
 
