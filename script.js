@@ -1,25 +1,29 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
 // FIREBASE & GAME ENGINE SCRIPT
-// 一切の省略なし完全版コード
+// 一切の省略なし完全版コード (バグ修正済)
 // =========================================
 
+// Webブラウザで直接動かすため、CDNリンクからFirebaseをインポートします
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
 import { getDatabase, ref, set, onValue, update, push, remove, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// === Firebase 初期設定 ===
-// ※実際に稼働させる場合はご自身のFirebase Configに書き換えてください。
+// === Firebase 初期設定 (いただいた本物の設定データ) ===
 const firebaseConfig = {
-    apiKey: "AIzaSyD-Your-Actual-Key",
-    authDomain: "your-project.firebaseapp.com",
-    databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-    projectId: "your-project",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "12345678",
-    appId: "1:12345678:web:abcde"
+    apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
+    authDomain: "typing-game-28ed0.firebaseapp.com",
+    databaseURL: "https://typing-game-28ed0-default-rtdb.firebaseio.com",
+    projectId: "typing-game-28ed0",
+    storageBucket: "typing-game-28ed0.firebasestorage.app",
+    messagingSenderId: "963797267101",
+    appId: "1:963797267101:web:0d5d700458fb1991021a74",
+    measurementId: "G-CL4B6ZK0SC"
 };
 
+// Firebaseの初期化
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const db = getDatabase(app);
 
 // === グローバル状態変数 ===
@@ -60,8 +64,7 @@ const sounds = {
 // ユーティリティ関数
 const el = (id) => document.getElementById(id);
 
-// === ローマ字認識エンジン (複数パターン対応) ===
-// syo/sho, ti/chi などの打ち方を全て網羅してデータ化
+// === ローマ字認識エンジン (複数パターン・伸ばし棒対応) ===
 const KANA_MAP = {
     'あ':'a','い':'i','う':'u','え':'e','お':'o',
     'か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
@@ -89,7 +92,8 @@ const KANA_MAP = {
     'じゃ':['zya','ja'],'じゅ':['zyu','ju'],'じょ':['zyo','jo'],
     'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
     'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
-    'っ':['xtu','ltu'] // 促音は特殊処理
+    'っ':['xtu','ltu'], // 促音は特殊処理
+    'ー':['-'] // 伸ばし棒（マイナスキー）の完全対応
 };
 
 function getRomaPatterns(kanaStr) {
@@ -136,7 +140,8 @@ const WORD_DB = {
         "りんご","すいか","みかん","いちご","ばなな","とまと","きゅうり","はくさい",
         "えんぴつ","とけい","ほん","つくえ","いす","かばん","くつ","ぼうし",
         "さかな","とり","かめ","くま","ぞう","きりん","らいおん","いるか",
-        "ごはん","ぱん","にく","やさい","おかし","けーき","あいす","じゅーす"
+        "ごはん","ぱん","にく","やさい","おかし","けーき","あいす","じゅーす",
+        "らーめん","かれー","すーぷ","のーと","ぺん","まーかー","てーぶる"
     ],
     normal: [
         "ぷろぐらみんぐ","すまーとふぉん","いんたーねっと","たいぴんぐげーむ",
@@ -146,7 +151,8 @@ const WORD_DB = {
         "じどうはんばいき","せんたくき","れいぞうこ","そうじき","でんしれんじ",
         "じてんしゃ","おーとばい","ひこうき","へりこぷたー","ゆうえんち",
         "すいぞくかん","はくぶつかん","としょかん","しょうがっこう",
-        "ちゅうがっこう","こうとうがっこう","だいがくせい","かいしゃいん"
+        "ちゅうがっこう","こうとうがっこう","だいがくせい","かいしゃいん",
+        "すーぱーまーけっと","ほーむせんたー","ぱーそなるこんぴゅーたー"
     ],
     hard: [
         "じょうほうしょりぎじゅつしゃ","にほんごにゅうりょくそうち","しんらばんしょう",
@@ -178,16 +184,17 @@ window.goHome = () => {
 
 // --- フレンド機能 ---
 window.addFriendPrompt = async () => {
-    const code = prompt("フレンドコードを入力してください (8桁の数字)");
+    const code = prompt("フレンドになりたい人のフレンドコードを入力してください (8桁の数字)");
     if(!code || code === myId) return;
     
+    // 相手がデータベースに存在するか確認してフレンド登録
     const userSnap = await get(ref(db, `users/${code}`));
     if(userSnap.exists()) {
         await update(ref(db, `users/${myId}/friends/${code}`), { added: true });
         await update(ref(db, `users/${code}/friends/${myId}`), { added: true });
-        alert("リアルタイムでフレンドになりました！");
+        alert("リアルタイムでフレンドになりました！パーティーに招待できます。");
     } else {
-        alert("そのコードのユーザーは見つかりません。");
+        alert("そのコードのユーザーは見つかりません。相手が一度もゲームを開いていないか、コードが間違っています。");
     }
 };
 
@@ -208,12 +215,13 @@ window.inviteToParty = (targetId) => {
         });
         update(ref(db, `users/${myId}`), { partyId: myPartyId });
     }
-    // 左上にメッセージを送る処理
+    // 相手の左上にメッセージを送る処理
     update(ref(db, `users/${targetId}/invites/${myId}`), { 
         fromName: myName, 
         fromId: myId,
         timestamp: serverTimestamp() 
     });
+    alert("招待を送信しました！");
 };
 
 window.acceptInvite = () => {
@@ -269,7 +277,7 @@ window.startSingle = (diff) => {
 // --- フレンドと遊ぶ (パーティー対戦) ---
 window.openFriendBattle = () => {
     if(!myPartyId) return alert("パーティーに参加していません！");
-    if(!isLeader) return alert("リーダー限定です！");
+    if(!isLeader) return alert("リーダー限定です！メンバーはリーダーの開始を待ってください。");
     document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
     el("screen-battle-setup").classList.remove("hidden");
 };
@@ -295,9 +303,9 @@ window.openOnlineMatch = async () => {
 
     const matchRef = ref(db, `matchmaking/${count}`);
     update(matchRef, { [myId]: { name: myName, time: serverTimestamp() } });
-    alert(`${count}人対戦のマッチング待機中です...`);
+    alert(`${count}人対戦のマッチング待機中です...（他の人が来るのをお待ちください）`);
     
-    // 待機列を監視して人数が揃ったらゲーム開始
+    // 待機列を監視して指定人数が揃ったらゲーム開始
     onValue(matchRef, snap => {
         const waitList = snap.val();
         if(waitList && Object.keys(waitList).length >= count) {
@@ -357,7 +365,7 @@ window.removeEditorRow = (i) => {
 };
 
 window.updateCustomWord = (i, val) => {
-    // ひらがなのみに制限
+    // ひらがな・伸ばし棒のみに制限
     customWords[i] = val.replace(/[^ぁ-んー]/g, ''); 
 };
 
@@ -392,7 +400,7 @@ function renderRoma() {
     el("q-todo").innerText = currentRoma.substring(romaIndex);
 }
 
-// キーボード入力監視
+// キーボード入力監視 (伸ばし棒対応済)
 window.addEventListener("keydown", (e) => {
     if(!gameActive) return;
     if(e.key === "Shift" || e.key === "Control" || e.key === "Alt") return;
