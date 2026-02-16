@@ -2,208 +2,191 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultimate Typing - Full Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Game Professional</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-
-    <audio id="bgm-lobby" src="https://assets.mixkit.co/active_storage/sfx/123/123-preview.mp3" loop></audio>
-    <audio id="bgm-battle" src="https://assets.mixkit.co/active_storage/sfx/2068/2068-preview.mp3" loop></audio>
-    <audio id="sound-type" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
-    <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"></audio>
-    <audio id="sound-success" src="https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"></audio>
-    <audio id="sound-click" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
-    <audio id="sound-start" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
-    <audio id="sound-join" src="https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"></audio>
-    <audio id="sound-sizzle" src="https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"></audio>
-
-    <div id="invite-notification" class="hidden">
-        <div class="notify-content">
-            <p><span id="inviter-name">---</span> さんからパーティー招待！</p>
-            <div class="invite-btns">
-                <button id="accept-invite-btn" class="success-btn">参加</button>
-                <button id="decline-invite-btn" class="danger-btn">拒否</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="battle-toast" class="hidden"></div>
+    <audio id="sound-click" src="click.mp3"></audio>
+    <audio id="sound-type" src="type.mp3"></audio>
+    <audio id="sound-success" src="success.mp3"></audio>
+    <audio id="sound-finish" src="finish.mp3"></audio>
+    <audio id="bgm-lobby" src="lobby.mp3" loop></audio>
+    <audio id="bgm-battle" src="battle.mp3" loop></audio>
 
     <div id="app-container">
-        <main id="game-main">
-            <header>
-                <h1>TYPING ONLINE</h1>
-            </header>
-            
-            <div id="typing-screen">
-                
-                <div id="mode-selection" class="menu-screen">
-                    <button class="mode-btn" id="single-play-btn">一人でプレイ</button>
-                    <button class="mode-btn" id="custom-play-btn">作ったものを遊ぶ</button>
-                    <button class="mode-btn" id="friend-play-btn">フレンドと対戦</button>
-                    <button class="mode-btn" id="online-play-btn">オンライン対戦</button>
-                    <button class="mode-btn" id="open-editor-btn" style="margin-top: 20px; font-size: 1rem; padding: 15px 30px;">タイピングを作る</button>
-                    <p id="mode-error-msg" class="error-text hidden"></p>
-                </div>
-
-                <div id="online-selection" class="menu-screen hidden">
-                    <h2 class="menu-title">オンライン対戦</h2>
-                    <p>人数を選んでください</p>
-                    <div class="diff-btns">
-                        <button class="diff-btn easy" onclick="joinMatchmaking(2)">
-                            <span class="diff-name">2人対戦</span>
-                        </button>
-                        <button class="diff-btn normal" onclick="joinMatchmaking(3)">
-                            <span class="diff-name">3人対戦</span>
-                        </button>
-                        <button class="diff-btn hard" onclick="joinMatchmaking(4)">
-                            <span class="diff-name">4人対戦</span>
-                        </button>
-                    </div>
-                    <button class="back-btn" onclick="showScreen('mode')">メインメニューへ</button>
-                </div>
-
-                <div id="online-waiting" class="menu-screen hidden">
-                    <h2 class="menu-title">マッチング待機中...</h2>
-                    <p>他のプレイヤーを待っています</p>
-                    <h1 id="online-wait-count" style="color: #00d4ff;">1 / ?</h1>
-                    <button class="back-btn" onclick="cancelMatchmaking()">キャンセル</button>
-                </div>
-
-                <div id="custom-editor" class="menu-screen hidden">
-                    <h2 class="menu-title">タイピングを作る</h2>
-                    <p>※ひらがなで入力（2〜15文字） / 現在: <span id="custom-count">0</span>個（最低5、最高20）</p>
-                    <div id="custom-word-list" style="max-height: 250px; overflow-y: auto; width: 80%; background: #111; padding: 10px; border-radius: 10px;">
-                        </div>
-                    <div class="btn-row">
-                        <button class="success-btn" onclick="addCustomWord()" style="padding: 10px 20px;">+ 増やす</button>
-                        <button class="mode-btn" onclick="saveCustomWords()" style="padding: 10px 20px;">完成！</button>
-                        <button class="back-btn" onclick="showScreen('mode')" style="margin-top: 0;">メインメニューへ</button>
-                    </div>
-                </div>
-
-                <div id="difficulty-selection" class="menu-screen hidden">
-                    <h2 class="menu-title">難易度を選択</h2>
-                    <div class="diff-btns">
-                        <button class="diff-btn easy" data-level="easy">
-                            <span class="diff-name">かんたん</span>
-                            <small class="best-score">Best: <span id="best-easy">0</span></small>
-                        </button>
-                        <button class="diff-btn normal" data-level="normal">
-                            <span class="diff-name">ちゅうきゅう</span>
-                            <small class="best-score">Best: <span id="best-normal">0</span></small>
-                        </button>
-                        <button class="diff-btn hard" data-level="hard">
-                            <span class="diff-name">むずかしい</span>
-                            <small class="best-score">Best: <span id="best-hard">0</span></small>
-                        </button>
-                    </div>
-                    <button class="back-btn" id="back-to-mode">メインメニューへ</button>
-                </div>
-
-                <div id="battle-setup" class="menu-screen hidden">
-                    <h2 class="menu-title">バトル設定 (リーダー)</h2>
-                    <div class="setup-group">
-                        <label>難易度:</label>
-                        <select id="battle-diff-select">
-                            <option value="easy">かんたん</option>
-                            <option value="normal" selected>ちゅうきゅう</option>
-                            <option value="hard">むずかしい</option>
-                        </select>
-                    </div>
-                    <div class="setup-group">
-                        <label>制限時間: <span id="time-val">30</span>秒</label>
-                        <input type="range" id="battle-time-range" min="10" max="60" step="10" value="30">
-                    </div>
-                    <div class="btn-row">
-                        <button id="start-battle-trigger" class="mode-btn success-btn" style="padding: 15px 30px; font-size: 1.2rem;">スタート！</button>
-                        <button class="back-btn" onclick="showScreen('mode')">メインメニューへ</button>
-                    </div>
-                </div>
-
-                <div id="battle-waiting" class="menu-screen hidden">
-                    <h2 class="menu-title">待機中...</h2>
-                    <p>リーダーが設定を完了するのを待っています。</p>
-                </div>
-
-                <div id="game-play-area" class="menu-screen hidden">
-                    <div id="battle-header" class="hidden">
-                        <div id="timer-display">TIME: --</div>
-                    </div>
-                    
-                    <div id="rival-lanes" class="hidden"></div>
-
-                    <div id="combo-display">0 COMBO</div>
-                    <div id="japanese-word">読み込み中</div>
-                    <div id="roma-display">
-                        <span id="char-done" class="text-done"></span><span id="char-todo" class="text-todo"></span>
-                    </div>
-                    
-                    <div class="game-info">
-                        SCORE: <span id="score-count">0</span>
-                    </div>
-                    <button class="end-btn" id="end-game-btn">中断してメインメニューへ</button>
-                </div>
-
-                <div id="result-screen" class="menu-screen hidden">
-                    <h1 class="timeout-text">Timeout!</h1>
-                    <div id="ranking-list"></div>
-                    <button class="mode-btn" onclick="showScreen('mode')" style="padding: 15px 30px; font-size: 1.2rem; margin-top: 20px;">メインメニューに戻る</button>
-                </div>
-
+        <header class="global-header">
+            <div class="user-profile">
+                <div class="profile-item">名前: <span id="display-name" class="highlight-text"></span></div>
+                <div class="profile-item">フレンドコード: <span id="my-friend-code" class="highlight-text"></span></div>
             </div>
-        </main>
+        </header>
 
-        <aside id="right-sidebar">
-            <section class="sidebar-section">
-                <h2>プロフィール</h2>
-                <div class="card">
-                    <p>NAME: <strong id="display-name">---</strong></p>
-                    <div class="input-group">
-                        <input type="text" id="name-input" placeholder="名前変更" maxlength="12">
-                        <button id="update-name-btn">更新</button>
-                    </div>
-                    <div class="code-box">
-                        <small>マイコード</small>
-                        <code id="my-friend-code">--------</code>
-                    </div>
-                </div>
-            </section>
+        <section id="mode-selection" class="screen-section">
+            <h1 class="game-title">TYPING BATTLE ONLINE</h1>
+            <div class="menu-grid">
+                <button id="single-play-btn" class="main-btn">一人プレイ</button>
+                <button id="online-play-btn" class="main-btn online-btn">オンラインマッチ</button>
+                <button id="open-editor-btn" class="main-btn editor-btn">自作タイピングを作る</button>
+            </div>
 
-            <section class="sidebar-section">
-                <div class="header-flex">
-                    <h2>フレンド</h2>
-                    <span id="friend-count-badge" class="badge">0</span>
-                </div>
+            <div class="settings-panel">
+                <h2>名前変更</h2>
                 <div class="input-group">
-                    <input type="text" id="target-code-input" placeholder="8桁コードで追加" maxlength="8">
-                    <button id="send-request-btn">追加</button>
+                    <input type="text" id="name-input" placeholder="新しい名前を入力">
+                    <button id="update-name-btn" class="sub-btn">更新</button>
                 </div>
-                <ul id="friend-list"></ul>
-            </section>
+            </div>
 
-            <section class="sidebar-section">
-                <h2>パーティー</h2>
-                <div id="party-container" class="card">
-                    <div id="no-party-msg">パーティー未参加</div>
-                    <div id="party-info" class="hidden">
-                        <div id="party-member-list"></div>
-                        <div id="party-controls" class="margin-top"></div>
+            <div class="social-panel">
+                <div class="friend-add-section">
+                    <h2>フレンド追加</h2>
+                    <div class="input-group">
+                        <input type="text" id="target-code-input" placeholder="フレンドコード(8桁)">
+                        <button id="send-request-btn" class="sub-btn">申請</button>
                     </div>
                 </div>
-            </section>
-        </aside>
-    </div>
 
-    <script type="importmap">
-        {
-          "imports": {
-            "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-            "firebase/database": "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
-          }
-        }
-    </script>
-    <script type="module" src="script.js"></script>
+                <div class="friend-list-section">
+                    <h2>フレンドリスト</h2>
+                    <ul id="friend-list" class="styled-list"></ul>
+                </div>
+
+                <div id="invite-notification" class="notification-box hidden">
+                    <p><span id="inviter-name" class="highlight-text"></span> からパーティー招待が届きました！</p>
+                    <div class="button-group">
+                        <button id="accept-invite-btn" class="action-btn success-btn">参加する</button>
+                        <button id="decline-invite-btn" class="action-btn danger-btn">拒否する</button>
+                    </div>
+                </div>
+
+                <div class="party-section">
+                    <h2>現在のパーティー</h2>
+                    <p id="no-party-msg" class="info-text">パーティーに参加していません</p>
+                    <div id="party-info" class="hidden">
+                        <div id="party-member-list" class="party-members"></div>
+                        <div class="button-group mt-15">
+                            <button id="friend-play-btn" class="action-btn battle-btn">パーティーで対戦する</button>
+                        </div>
+                        <div id="party-controls" class="mt-15"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="difficulty-selection" class="screen-section hidden">
+            <h2 class="screen-title">難易度を選択</h2>
+            <div class="difficulty-grid">
+                <div class="diff-card">
+                    <button class="diff-btn easy" data-level="easy">EASY</button>
+                    <p class="best-score-text">BEST: <span id="best-easy">0</span></p>
+                </div>
+                <div class="diff-card">
+                    <button class="diff-btn normal" data-level="normal">NORMAL</button>
+                    <p class="best-score-text">BEST: <span id="best-normal">0</span></p>
+                </div>
+                <div class="diff-card">
+                    <button class="diff-btn hard" data-level="hard">HARD</button>
+                    <p class="best-score-text">BEST: <span id="best-hard">0</span></p>
+                </div>
+            </div>
+            <div class="button-group center mt-30">
+                <button id="custom-play-btn" class="main-btn custom-btn">作ったものを遊ぶ</button>
+                <button id="back-to-mode" class="sub-btn back-btn">戻る</button>
+            </div>
+        </section>
+
+        <section id="custom-editor" class="screen-section hidden">
+            <h2 class="screen-title">自作タイピングエディター</h2>
+            <p class="info-text">登録数: <span id="custom-count">0</span> / 20</p>
+            <div id="custom-word-list" class="editor-list"></div>
+            <div class="button-group center mt-15">
+                <button onclick="window.addCustomWord()" class="action-btn success-btn">追加</button>
+                <button onclick="window.saveCustomWords()" class="action-btn primary-btn">保存して戻る</button>
+                <button onclick="window.showScreen('mode')" class="action-btn danger-btn">キャンセル</button>
+            </div>
+        </section>
+
+        <section id="online-selection" class="screen-section hidden">
+            <h2 class="screen-title">オンラインマッチ</h2>
+            <div class="menu-grid">
+                <button onclick="window.joinMatchmaking(2)" class="main-btn battle-btn">1 vs 1 (2人対戦)</button>
+                <button onclick="window.joinMatchmaking(3)" class="main-btn battle-btn">3人対戦</button>
+                <button onclick="window.joinMatchmaking(4)" class="main-btn battle-btn">4人対戦</button>
+            </div>
+            <div class="button-group center mt-30">
+                <button onclick="window.showScreen('mode')" class="sub-btn back-btn">戻る</button>
+            </div>
+        </section>
+
+        <section id="online-waiting" class="screen-section hidden">
+            <h2 class="screen-title">対戦相手を探しています...</h2>
+            <div class="loader-spinner"></div>
+            <p class="info-text mt-15">集まった人数: <span id="online-wait-count" class="highlight-text">1 / ?</span></p>
+            <div class="button-group center mt-30">
+                <button onclick="window.cancelMatchmaking()" class="action-btn danger-btn">キャンセル</button>
+            </div>
+        </section>
+
+        <section id="battle-setup" class="screen-section hidden">
+            <h2 class="screen-title">バトル設定</h2>
+            <div class="settings-panel">
+                <div class="setting-item">
+                    <label>制限時間 (秒)</label>
+                    <input type="range" id="battle-time-range" min="10" max="120" value="30" oninput="document.getElementById('time-val').innerText=this.value">
+                    <span id="time-val" class="highlight-text">30</span>
+                </div>
+                <div class="setting-item mt-15">
+                    <label>難易度</label>
+                    <select id="battle-diff-select" class="styled-select">
+                        <option value="easy">EASY</option>
+                        <option value="normal" selected>NORMAL</option>
+                        <option value="hard">HARD</option>
+                    </select>
+                </div>
+            </div>
+            <div class="button-group center mt-30">
+                <button id="start-battle-trigger" class="main-btn primary-btn">バトル開始！</button>
+            </div>
+        </section>
+
+        <section id="battle-waiting" class="screen-section hidden">
+            <h2 class="screen-title">リーダーの開始を待機中...</h2>
+            <div class="loader-spinner"></div>
+        </section>
+
+        <section id="game-play-area" class="screen-section hidden">
+            <div id="battle-header" class="battle-header hidden">
+                <div id="timer-display" class="timer-text">TIME: --</div>
+            </div>
+            <div id="rival-lanes" class="rival-lanes-container hidden"></div>
+            
+            <div class="typing-container mt-30">
+                <div id="japanese-word" class="word-display"></div>
+                <div class="romaji-display">
+                    <span id="char-done" class="text-done"></span><span id="char-todo" class="text-todo"></span>
+                </div>
+            </div>
+
+            <div class="game-stats mt-30">
+                <div class="stat-box">SCORE: <span id="score-count" class="highlight-text">0</span></div>
+                <div id="combo-display" class="combo-box"></div>
+            </div>
+
+            <div class="button-group center mt-30">
+                <button id="end-game-btn" class="action-btn danger-btn">中断する</button>
+            </div>
+        </section>
+
+        <section id="result-screen" class="screen-section hidden">
+            <h2 class="screen-title">BATTLE RESULT</h2>
+            <div id="ranking-list" class="ranking-container"></div>
+            <div class="button-group center mt-30">
+                <button onclick="window.showScreen('mode')" class="main-btn primary-btn">メインメニューへ</button>
+            </div>
+        </section>
+    </div>
+    <script type="module" src="main.js"></script>
 </body>
 </html>
