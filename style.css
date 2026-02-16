@@ -1,7 +1,3 @@
-/* =========================================
-   ULTIMATE CSS DESIGN - MODERN DARK
-   @作った人は「らも。Ωα」
-   ========================================= */
 :root {
     --bg-color: #020205;
     --panel-bg: rgba(15, 15, 25, 0.9);
@@ -12,398 +8,69 @@
     --text-main: #ffffff;
     --text-sub: #b0b0b0;
     --glass: rgba(255, 255, 255, 0.05);
-    --neon-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
 }
 
-* { 
-    box-sizing: border-box; 
-    outline: none; 
-    -webkit-tap-highlight-color: transparent; 
-}
-
+* { box-sizing: border-box; outline: none; }
 body, html { 
-    margin: 0; 
-    padding: 0; 
-    width: 100%; 
-    height: 100%; 
-    background: var(--bg-color); 
-    color: var(--text-main);
-    font-family: 'M PLUS 1p', sans-serif; 
-    overflow: hidden;
+    margin: 0; padding: 0; width: 100%; height: 100%; 
+    background: var(--bg-color); color: var(--text-main);
+    font-family: 'M PLUS 1p', sans-serif; overflow: hidden;
 }
 
-/* 背景アニメーション */
 .bg-grid {
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    height: 100%;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-image: linear-gradient(var(--glass) 1px, transparent 1px), linear-gradient(90deg, var(--glass) 1px, transparent 1px);
-    background-size: 50px 50px; 
-    z-index: -1;
-    transform: perspective(500px) rotateX(60deg);
-    transform-origin: top; 
+    background-size: 50px 50px; z-index: -1;
+    transform: perspective(500px) rotateX(60deg); transform-origin: top; 
     animation: moveGrid 20s linear infinite;
 }
+@keyframes moveGrid { from { background-position: 0 0; } to { background-position: 0 1000px; } }
 
-@keyframes moveGrid { 
-    from { background-position: 0 0; } 
-    to { background-position: 0 1000px; } 
-}
+#app { display: flex; width: 100vw; height: 100vh; }
 
-#app { 
-    display: flex; 
-    width: 100vw; 
-    height: 100vh; 
-    position: relative; 
-}
-
-/* --- メインエリア (左・中央) --- */
-#main-area { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    padding: 30px; 
-    position: relative; 
-}
-
+#main-area { flex: 1; display: flex; flex-direction: column; padding: 30px; position: relative; }
 .header-logo {
-    font-family: 'Exo 2', sans-serif; 
-    font-size: 3.5rem; 
-    font-weight: 900;
+    font-family: 'Exo 2', sans-serif; font-size: 3.5rem; font-weight: 900;
     background: linear-gradient(to right, var(--accent-blue), var(--accent-purple));
-    -webkit-background-clip: text; 
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 10px rgba(0,212,255,0.3)); 
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 20px;
 }
 
-/* 各種スクリーン管理 */
-.screen {
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center;
-    animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn { 
-    from { opacity: 0; transform: scale(0.95); } 
-    to { opacity: 1; transform: scale(1); } 
-}
-
+.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: fadeIn 0.4s ease; }
 .hidden { display: none !important; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* ボタンデザイン */
-.btn-group { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 20px; 
-    width: 80%; 
-    max-width: 800px; 
-}
-
+.btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 80%; max-width: 800px; }
 .action-btn {
-    background: var(--panel-bg); 
-    border: 2px solid var(--accent-blue);
-    color: white; 
-    padding: 25px; 
-    border-radius: 15px; 
-    font-size: 1.5rem; 
-    font-weight: 900;
-    cursor: pointer; 
-    transition: 0.3s; 
-    position: relative; 
-    overflow: hidden;
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    gap: 10px;
+    background: var(--panel-bg); border: 2px solid var(--accent-blue);
+    color: white; padding: 25px; border-radius: 15px; font-size: 1.5rem; font-weight: 900;
+    cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center;
 }
+.action-btn:hover { background: var(--accent-blue); color: #000; box-shadow: 0 0 20px var(--accent-blue); }
+.action-btn small { font-size: 0.8rem; opacity: 0.7; }
 
-.action-btn:hover {
-    background: var(--accent-blue); 
-    color: #000; 
-    transform: translateY(-5px);
-    box-shadow: 0 0 30px var(--accent-blue);
-}
-
-.action-btn small { 
-    font-size: 0.8rem; 
-    opacity: 0.7; 
-}
-
-/* --- タイピングUI --- */
-#game-view { 
-    width: 100%; 
-    text-align: center; 
-}
-
-#timer-display {
-    font-size: 3rem; 
-    font-family: 'JetBrains Mono', monospace; 
-    color: var(--accent-red); 
-    margin-bottom: 20px;
-    text-shadow: 0 0 15px var(--accent-red);
-}
-
-.word-ja { 
-    font-size: 4.5rem; 
-    font-weight: 900; 
-    margin-bottom: 10px; 
-    text-shadow: 0 0 20px var(--accent-blue); 
-}
-
-.word-roma { 
-    font-family: 'JetBrains Mono', monospace; 
-    font-size: 3rem; 
-    background: rgba(0,0,0,0.5); 
-    padding: 15px 40px; 
-    border-radius: 20px; 
-    letter-spacing: 5px; 
-}
-
+#timer-display { font-size: 3rem; color: var(--accent-red); font-family: 'JetBrains Mono'; }
+.word-ja { font-size: 4rem; font-weight: 900; margin: 10px 0; text-shadow: 0 0 10px var(--accent-blue); }
+.word-roma { font-family: 'JetBrains Mono'; font-size: 2.5rem; background: rgba(0,0,0,0.4); padding: 10px 30px; border-radius: 15px; }
 .char-done { color: var(--accent-blue); }
-.char-todo { color: #444; }
+.char-todo { color: #555; }
 
-.game-stats { 
-    display: flex; 
-    gap: 40px; 
-    margin-top: 30px; 
-    font-size: 1.8rem; 
-    font-weight: 900; 
-    justify-content: center;
-}
+#sidebar { width: 380px; background: var(--panel-bg); border-left: 1px solid var(--glass); padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.side-section { background: var(--glass); border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.1); }
+.section-title { color: var(--accent-blue); font-weight: 900; margin-bottom: 10px; display: flex; justify-content: space-between; }
 
-.stat-val { color: var(--accent-green); }
+.name-edit { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 5px; width: 100%; text-align: center; }
+.friend-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(0,0,0,0.2); margin-bottom: 5px; border-radius: 5px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.online { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+.offline { background: var(--accent-red); }
 
-.combo-anim { animation: pulse 0.2s; }
-@keyframes pulse { 
-    0% { transform: scale(1); } 
-    50% { transform: scale(1.2); } 
-    100% { transform: scale(1); } 
-}
-
-/* 対戦レーン (名前: スコア) */
-#rival-scores {
-    width: 100%; 
-    max-width: 600px; 
-    margin: 40px auto 0; 
-    background: rgba(255,255,255,0.05);
-    border-radius: 15px; 
-    padding: 15px;
-}
-
-.rival-item { 
-    display: flex; 
-    justify-content: space-between; 
-    padding: 10px; 
-    border-bottom: 1px solid var(--glass); 
-    font-size: 1.2rem;
-}
-
-/* 残り時間半分のスコア隠蔽用クラス */
-.unknown { 
-    filter: blur(5px); 
-    color: var(--accent-red); 
-    font-weight: 900; 
-    user-select: none;
-}
-
-/* バトルセットアップ UI */
-.setup-box {
-    background: var(--panel-bg); 
-    padding: 30px; 
-    border-radius: 20px; 
-    width: 400px; 
-    text-align: center;
-    border: 1px solid var(--glass);
-}
-
-.custom-select {
-    padding: 10px; 
-    background: #000; 
-    color: #fff; 
-    border: 1px solid var(--accent-blue);
-    border-radius: 5px;
-    font-family: inherit;
-}
-
-.setup-buttons {
-    margin-top: 20px; 
-    display: flex; 
-    gap: 10px; 
-    justify-content: center;
-}
-
-/* --- 右サイドバー (プロフィール・フレンド・パーティー) --- */
-#sidebar {
-    width: 420px; 
-    background: var(--panel-bg); 
-    border-left: 2px solid var(--glass);
-    display: flex; 
-    flex-direction: column; 
-    padding: 20px; 
-    gap: 20px; 
-    overflow-y: auto;
-    backdrop-filter: blur(10px);
-}
-
-.side-section { 
-    background: var(--glass); 
-    border-radius: 15px; 
-    padding: 20px; 
-    border: 1px solid rgba(255,255,255,0.1); 
-}
-
-.section-title { 
-    font-size: 1.1rem; 
-    color: var(--accent-blue); 
-    font-weight: 900; 
-    margin-bottom: 15px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center;
-}
-
-/* プロフィール */
-.profile-card { text-align: center; }
-.name-edit { 
-    background: #000; 
-    border: 1px solid var(--accent-blue); 
-    color: #fff; 
-    padding: 8px; 
-    border-radius: 5px; 
-    width: 80%; 
-    text-align: center; 
-    font-size: 1.2rem; 
-    margin-bottom: 10px;
-}
-.my-code { 
-    font-family: 'JetBrains Mono', monospace; 
-    color: var(--accent-purple); 
-    font-size: 1.2rem; 
-    display: block; 
-}
-
-/* フレンド・パーティーリスト */
-.scroll-list { 
-    max-height: 250px; 
-    overflow-y: auto; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px; 
-}
-
-.friend-item {
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between;
-    background: rgba(0,0,0,0.3); 
-    padding: 10px; 
-    border-radius: 10px; 
-    transition: 0.2s;
-}
-
-/* リアルタイムオンライン状況 */
-.status-dot { 
-    width: 10px; 
-    height: 10px; 
-    border-radius: 50%; 
-    display: inline-block; 
-    margin-right: 8px; 
-}
-.online { 
-    background: var(--accent-green); 
-    box-shadow: 0 0 10px var(--accent-green); 
-}
-.offline { 
-    background: var(--accent-red); 
-}
-
-.btn-s { 
-    padding: 5px 10px; 
-    border-radius: 5px; 
-    border: none; 
-    cursor: pointer; 
-    font-size: 0.8rem; 
-    font-weight: bold; 
-    transition: 0.2s;
-}
-.btn-s:hover { opacity: 0.8; }
+.btn-s { padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: bold; }
 .btn-invite { background: var(--accent-blue); color: #000; }
 .btn-kick { background: var(--accent-red); color: #fff; }
 
-/* 通知ポップアップ（左上） */
-#invite-toast {
-    position: fixed; 
-    top: 20px; 
-    left: 20px; 
-    background: var(--panel-bg);
-    border: 2px solid var(--accent-purple); 
-    padding: 20px; 
-    border-radius: 15px;
-    z-index: 9999; 
-    animation: slideIn 0.5s ease; 
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-}
-#invite-msg {
-    margin-bottom: 15px; 
-    font-weight: 900; 
-    font-size: 1.1rem;
-}
-
-@keyframes slideIn { 
-    from { transform: translateX(-120%); } 
-    to { transform: translateX(0); } 
-}
-
-/* エディター画面用 */
-.editor-container {
-    width: 100%; 
-    max-width: 600px; 
-    max-height: 400px; 
-    overflow-y: auto; 
-    padding: 10px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 10px;
-}
-.editor-row { 
-    display: flex; 
-    gap: 10px; 
-    margin-bottom: 10px; 
-}
-.editor-input { 
-    flex: 1; 
-    background: #000; 
-    border: 1px solid #444; 
-    color: #fff; 
-    padding: 10px; 
-    border-radius: 5px; 
-    font-size: 1.2rem;
-}
-.editor-input:focus {
-    border-color: var(--accent-green);
-}
-
-/* クレジット表示（左下） */
-.credit { 
-    position: absolute; 
-    bottom: 20px; 
-    left: 20px; 
-    font-size: 1.2rem; 
-    color: var(--text-sub); 
-    font-weight: 900; 
-}
+.credit { position: absolute; bottom: 20px; left: 20px; font-size: 1rem; font-weight: 900; color: #777; }
 .credit span { color: var(--accent-blue); }
 
-/* レスポンシブ調整（スマホ・タブレット用） */
-@media (max-width: 1000px) {
-    #app { flex-direction: column; overflow-y: auto; }
-    #sidebar { width: 100%; height: auto; border-left: none; border-top: 2px solid var(--glass); }
-    .action-btn { font-size: 1.2rem; padding: 15px; }
-    .word-ja { font-size: 3rem; }
-    .word-roma { font-size: 2rem; }
-}
+#invite-toast { position: fixed; top: 20px; left: 20px; background: #111; border: 2px solid var(--accent-purple); padding: 20px; border-radius: 10px; z-index: 1000; }
+.unknown { filter: blur(4px); color: var(--accent-red); }
