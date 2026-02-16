@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V5.5 (Random & Coin System)
+// FIREBASE & TYPING ENGINE V5.6 (Fair Play & Winner Bonus)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -50,18 +50,18 @@ let romaIdx = 0;
 let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
 let gameInterval; 
 
-// 【追加】コインの初期化（ローカルストレージから読み込み）
+// 【追加】カスタムモードかどうかを判定するフラグ
+let isCustomGame = false;
+
+// コインの初期化（ローカルストレージから読み込み）
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
 
 // --- コイン保存・表示更新用関数 ---
 function saveAndDisplayCoins() {
-    // ローカルストレージに絶対保存
     localStorage.setItem("ramo_coins", coins);
-    // 画面の表示を更新
     if (el("coin-amount")) {
         el("coin-amount").innerText = coins;
     }
-    // Firebaseにもバックアップ保存（端末を変えても同じIDなら引き継げるように）
     update(ref(db, `users/${myId}`), { coins: coins });
 }
 
@@ -239,6 +239,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             if (p.state === "playing" && !gameActive) {
                 el("ready-overlay").classList.add("hidden");
                 currentWords = WORD_DB[p.diff]; 
+                isCustomGame = false; // パーティー戦はカスタムではない
                 startGame(p.time);
             }
             if (p.state === "lobby" && gameActive) {
@@ -272,11 +273,8 @@ window.goHome = () => {
 
 function nextQuestion() {
     if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
-    
-    // 【変更】配列の順番ではなく、ランダムで出題するように変更
     let randomIdx = Math.floor(Math.random() * currentWords.length);
     let q = currentWords[randomIdx];
-    
     el("q-ja").innerText = q;
     let patterns = getRomaPatterns(q);
     currentRoma = patterns[0]; romaIdx = 0; renderRoma();
@@ -342,36 +340,63 @@ function endGame() {
     sounds.finish.play();
     openScreen("screen-result");
 
-    // 【追加】獲得コインの計算 (スコアの10分の1を獲得)
+    // 基本コイン計算
     let earnedCoins = Math.floor(score / 10);
-    if (earnedCoins > 0) {
-        coins += earnedCoins;
-        saveAndDisplayCoins(); // 絶対保存してUI更新
+    let isWinner = false;
+
+    // 【修正】カスタムモードの場合はコインを0にする
+    if (isCustomGame) {
+        earnedCoins = 0;
     }
 
     if (myPartyId) {
         get(ref(db, `parties/${myPartyId}/members`)).then(s => {
             const val = s.val();
             if(val) {
-                const res = Object.values(val).sort((a,b) => b.score - a.score);
-                el("ranking-box").innerHTML = res.map((m,i) => `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`).join("");
+                // スコア順に並び替え
+                const res = Object.entries(val).sort((a,b) => b[1].score - a[1].score);
                 
-                // 【追加】リザルト画面の下に獲得したコインを表示
+                // 【修正】1位(勝利)なら獲得コインを2倍にする（カスタム時は除く）
+                if (!isCustomGame && res[0][0] === myId && res.length > 1) {
+                    earnedCoins *= 2;
+                    isWinner = true;
+                }
+
+                // コイン加算と保存
+                if (earnedCoins > 0) {
+                    coins += earnedCoins;
+                    saveAndDisplayCoins();
+                }
+
+                // ランキング表示
+                el("ranking-box").innerHTML = res.map((item, i) => {
+                    const m = item[1];
+                    return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
+                }).join("");
+                
+                // リザルトにコイン表示
+                let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
                 el("ranking-box").innerHTML += `
                     <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                        <span>獲得コイン</span><span>+${earnedCoins} 🪙</span>
+                        <span>結果</span><span>${coinText}</span>
                     </div>`;
 
                 if (isLeader) update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
             }
         });
     } else { 
+        // ソロプレイの場合
+        if (earnedCoins > 0) {
+            coins += earnedCoins;
+            saveAndDisplayCoins();
+        }
+
         el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
         
-        // 【追加】リザルト画面の下に獲得したコインを表示
+        let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
         el("ranking-box").innerHTML += `
             <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                <span>獲得コイン</span><span>+${earnedCoins} 🪙</span>
+                <span>結果</span><span>${coinText}</span>
             </div>`;
     }
 }
@@ -385,6 +410,7 @@ window.openSingleSelect = () => {
 window.startSingle = (diff) => { 
     if (myPartyId || isMatchmaking) return; 
     currentWords = WORD_DB[diff]; 
+    isCustomGame = false; // 通常シングルプレイ
     openScreen("screen-play"); 
     startGame(60); 
 };
@@ -396,14 +422,10 @@ window.openFriendBattle = () => {
     openScreen("screen-battle-setup");
 };
 
-// スライダーの値を取得してバトルを開始
 window.launchBattle = () => {
     if (!myPartyId || !isLeader) return;
-    
-    // 値を確実に数値として取得 (10進数指定)
     const selectedTime = parseInt(el("setup-time").value, 10);
     const selectedDiff = el("setup-diff").value;
-
     update(ref(db, `parties/${myPartyId}`), {
         state: "ready_check",
         time: selectedTime,
@@ -494,6 +516,7 @@ window.playCustom = () => {
     }
     customWords = savedWords; 
     currentWords = customWords; 
+    isCustomGame = true; // 【追加】カスタムモードフラグをON
     openScreen("screen-play"); 
     startGame(60); 
 };
@@ -503,22 +526,20 @@ el("my-id-display").innerText = myId;
 el("my-name-input").value = myName;
 const userRef = ref(db, `users/${myId}`);
 
-// 【追加】Firebase上にコインのデータがあれば同期する処理
 get(userRef).then(snap => {
     if(snap.exists() && snap.val().coins !== undefined) {
         let cloudCoins = snap.val().coins;
         if(cloudCoins > coins) {
-            coins = cloudCoins; // サーバーのデータの方が多ければ上書き
+            coins = cloudCoins; 
         }
     }
-    saveAndDisplayCoins(); // 画面にコイン数を反映
+    saveAndDisplayCoins(); 
 });
 
 update(userRef, { name: myName, status: "online", partyId: null });
 onDisconnect(userRef).update({ status: "offline" });
 updateButtonStates();
 
-// スライダーの値を表示するためのリアルタイム反映 (IDをHTMLに合わせて修正)
 const timeSlider = el("setup-time");
 const timeLabel = el("time-val"); 
 if (timeSlider) {
