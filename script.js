@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V5.6 (Fair Play & Winner Bonus)
+// FIREBASE & TYPING ENGINE V5.7 (Auto-Leave Match Bug Fix)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -50,10 +50,7 @@ let romaIdx = 0;
 let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
 let gameInterval; 
 
-// 【追加】カスタムモードかどうかを判定するフラグ
 let isCustomGame = false;
-
-// コインの初期化（ローカルストレージから読み込み）
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
 
 // --- コイン保存・表示更新用関数 ---
@@ -69,7 +66,7 @@ function saveAndDisplayCoins() {
 const WORD_DB = {
     easy: ["ねこ","いぬ","うみ","つき","さかな","たこ","やま","はな","とり","いす","ゆめ","かぜ","あめ","ほし","そら","はし"],
     normal: ["すまーとふぉん","いんたーねっと","ぷろぐらみんぐ","しんかんせん","たいぴんぐ","ふぉん","あにめーしょん","うみのせかい"],
-    hard: ["じぶんだけのものものすごくひろいせかい","るびーちゃんのあいすくりーむ","ばくだいなせかいがまちうけている","ぷろぐらまーのぷろぐらみんぐ","このげーむをつくったひとはらもです","おあそびはここまでだここからがほんばん","ゆーちゅーぶぷれみあむはさいこうである","いしばしをよくたたいてわたる"]
+    hard: ["じぶんだけのものものものすごくひろいせかい","るびーちゃんのあいすくりーむ","ばくだいなせかいがまちうけている","ぷろぐらまーのぷろぐらみんぐ","このげーむをつくったひとはらもです","おあそびはここまでだここからがほんばん","ゆーちゅーぶぷれみあむはさいこうである","いしばしをよくたたいてわたる"]
 };
 
 // --- ボタン状態の制御 ---
@@ -202,13 +199,26 @@ window.acceptInvite = () => {
 };
 window.declineInvite = () => remove(ref(db, `users/${myId}/invite`));
 
+// 【修正】パーティーから抜ける処理を共通化
 window.leaveParty = () => {
-    if (isLeader && myPartyId) remove(ref(db, `parties/${myPartyId}`));
-    else if (myPartyId) remove(ref(db, `parties/${myPartyId}/members/${myId}`));
+    if (!myPartyId) return;
+
+    // オンライン対戦の場合は相手と組んだ状態を完全に解消する
+    if (myPartyId.startsWith("match_")) {
+        // マッチング用パーティーからは常に退出・削除を試みる
+        remove(ref(db, `parties/${myPartyId}/members/${myId}`));
+        // リーダーならパーティー自体を消す
+        if (isLeader) remove(ref(db, `parties/${myPartyId}`));
+    } else {
+        // 通常のフレンドパーティー
+        if (isLeader) remove(ref(db, `parties/${myPartyId}`));
+        else remove(ref(db, `parties/${myPartyId}/members/${myId}`));
+    }
+
     update(ref(db, `users/${myId}`), { partyId: null });
     myPartyId = null;
+    isLeader = false;
     updateButtonStates();
-    window.goHome();
 };
 
 onValue(ref(db, `users/${myId}/partyId`), snap => {
@@ -221,6 +231,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             if (!p) { 
                 update(ref(db, `users/${myId}`), { partyId: null });
                 myPartyId = null; 
+                isLeader = false;
                 updateButtonStates();
                 return; 
             }
@@ -239,7 +250,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             if (p.state === "playing" && !gameActive) {
                 el("ready-overlay").classList.add("hidden");
                 currentWords = WORD_DB[p.diff]; 
-                isCustomGame = false; // パーティー戦はカスタムではない
+                isCustomGame = false;
                 startGame(p.time);
             }
             if (p.state === "lobby" && gameActive) {
@@ -264,9 +275,16 @@ function openScreen(id) {
     if(target) target.classList.remove("hidden");
 }
 
+// 【重要修正】ホームに戻る際にパーティーを確実にリセット
 window.goHome = () => { 
     gameActive = false; 
     clearInterval(gameInterval);
+
+    // オンライン対戦終了後、または対戦中にホームへ戻る場合はパーティーを抜ける
+    if (myPartyId && myPartyId.startsWith("match_")) {
+        window.leaveParty();
+    }
+
     openScreen("screen-home"); 
     updateButtonStates();
 };
@@ -340,11 +358,9 @@ function endGame() {
     sounds.finish.play();
     openScreen("screen-result");
 
-    // 基本コイン計算
     let earnedCoins = Math.floor(score / 10);
     let isWinner = false;
 
-    // 【修正】カスタムモードの場合はコインを0にする
     if (isCustomGame) {
         earnedCoins = 0;
     }
@@ -353,46 +369,41 @@ function endGame() {
         get(ref(db, `parties/${myPartyId}/members`)).then(s => {
             const val = s.val();
             if(val) {
-                // スコア順に並び替え
                 const res = Object.entries(val).sort((a,b) => b[1].score - a[1].score);
                 
-                // 【修正】1位(勝利)なら獲得コインを2倍にする（カスタム時は除く）
                 if (!isCustomGame && res[0][0] === myId && res.length > 1) {
                     earnedCoins *= 2;
                     isWinner = true;
                 }
 
-                // コイン加算と保存
                 if (earnedCoins > 0) {
                     coins += earnedCoins;
                     saveAndDisplayCoins();
                 }
 
-                // ランキング表示
                 el("ranking-box").innerHTML = res.map((item, i) => {
                     const m = item[1];
                     return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
                 }).join("");
                 
-                // リザルトにコイン表示
                 let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
                 el("ranking-box").innerHTML += `
                     <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
                         <span>結果</span><span>${coinText}</span>
                     </div>`;
 
-                if (isLeader) update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
+                // 【重要】オンライン対戦(match_)の場合は、状態をlobbyに戻さず、そのまま終了させる
+                if (isLeader && !myPartyId.startsWith("match_")) {
+                    update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
+                }
             }
         });
     } else { 
-        // ソロプレイの場合
         if (earnedCoins > 0) {
             coins += earnedCoins;
             saveAndDisplayCoins();
         }
-
         el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
-        
         let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
         el("ranking-box").innerHTML += `
             <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
@@ -410,7 +421,7 @@ window.openSingleSelect = () => {
 window.startSingle = (diff) => { 
     if (myPartyId || isMatchmaking) return; 
     currentWords = WORD_DB[diff]; 
-    isCustomGame = false; // 通常シングルプレイ
+    isCustomGame = false;
     openScreen("screen-play"); 
     startGame(60); 
 };
@@ -516,7 +527,7 @@ window.playCustom = () => {
     }
     customWords = savedWords; 
     currentWords = customWords; 
-    isCustomGame = true; // 【追加】カスタムモードフラグをON
+    isCustomGame = true;
     openScreen("screen-play"); 
     startGame(60); 
 };
