@@ -48,7 +48,7 @@
             </div>
 
             <div id="screen-single-select" class="screen hidden">
-                <h2 style="font-size: 2rem; color: var(--accent-blue);">難易度を選択してください</h2>
+                <h2 class="title-glow">難易度を選択してください</h2>
                 <div class="btn-group" style="margin-top:30px;">
                     <button class="action-btn" onclick="window.startSingle('easy')">かんたん<small>2~6文字</small></button>
                     <button class="action-btn" onclick="window.startSingle('normal')">ちゅうきゅう<small>6~12文字</small></button>
@@ -58,9 +58,9 @@
             </div>
 
             <div id="screen-battle-setup" class="screen hidden">
-                <h2 style="font-size: 2rem; color: var(--accent-purple);">BATTLE SETUP</h2>
+                <h2 class="title-glow">BATTLE SETUP</h2>
                 <div class="setup-box">
-                    <p>制限時間: <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="document.getElementById('time-val').innerText=this.value"> <span id="time-val">30</span>秒</p>
+                    <p>制限時間: <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="document.getElementById('time-val').innerText=this.value"> <span id="time-val" class="stat-val">30</span>秒</p>
                     <p>難易度: 
                         <select id="setup-diff" class="custom-select">
                             <option value="easy">かんたん</option>
@@ -76,6 +76,14 @@
             </div>
 
             <div id="screen-play" class="screen hidden">
+                <div id="ready-overlay" class="hidden">
+                    <div class="ready-content">
+                        <h2>全員の準備を待っています...</h2>
+                        <div id="ready-status-list"></div>
+                        <button id="ready-btn" class="action-btn" onclick="window.sendReady()">準備OK！</button>
+                    </div>
+                </div>
+
                 <div id="game-view">
                     <div id="timer-display">00:30</div>
                     <div class="word-ja" id="q-ja">READY...</div>
@@ -87,25 +95,25 @@
                         <div>COMBO: <span id="stat-combo" class="stat-val">0</span></div>
                     </div>
                     <div id="rival-scores" class="hidden">
-                        <div class="section-title">RIVALS (相手のスコア)</div>
+                        <div class="section-title">RIVALS (相手の状況)</div>
                         <div id="rival-list"></div>
                     </div>
                 </div>
             </div>
 
             <div id="screen-result" class="screen hidden">
-                <h1 style="font-size:4rem; color:var(--accent-green);">FINISH!</h1>
-                <div id="ranking-box" style="width:500px; margin:20px 0;"></div>
-                <button class="action-btn" onclick="window.goHome()" style="width:300px;">戻る</button>
+                <h1 class="finish-text">FINISH!</h1>
+                <div id="ranking-box" class="ranking-container"></div>
+                <button class="action-btn" onclick="window.goHome()" style="width:300px;">ホームに戻る</button>
             </div>
 
             <div id="screen-editor" class="screen hidden">
-                <h2 style="font-size:2rem; color:var(--accent-green);">タイピングを作る</h2>
+                <h2 class="title-glow">タイピングを作る</h2>
                 <div id="editor-container" class="editor-container"></div>
-                <div style="margin-top:20px; display:flex; gap:10px;">
-                    <button class="btn-invite btn-s" onclick="window.addEditorRow()">追加 (Max 20)</button>
-                    <button class="btn-invite btn-s" style="background:var(--accent-purple);" onclick="window.saveEditor()">完成</button>
-                    <button class="btn-kick btn-s" onclick="window.goHome()">戻る</button>
+                <div class="editor-footer">
+                    <button class="btn-invite btn-s" onclick="window.addEditorRow()">行を追加</button>
+                    <button class="btn-invite btn-s" style="background:var(--accent-purple);" onclick="window.saveEditor()">保存して完了</button>
+                    <button class="btn-kick btn-s" onclick="window.goHome()">破棄して戻る</button>
                 </div>
             </div>
 
