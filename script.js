@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V5.0
+// FIREBASE & TYPING ENGINE V5.3 (Bug Fixes)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -38,6 +38,7 @@ let myName = localStorage.getItem("ramo_name") || `園名：${generateId()}`;
 let myPartyId = null;
 let isLeader = false;
 let gameActive = false;
+let isMatchmaking = false; // マッチング待機中フラグを追加
 let score = 0;
 let combo = 0;
 let timer = 30;
@@ -47,6 +48,30 @@ let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
 let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
+let gameInterval; // タイマー用変数をグローバルに
+
+// --- 出題データ (らも。Ωα様 指定リスト) ---
+const WORD_DB = {
+   easy: ["ねこ","いぬ","うみ","つき","さかな","たこ","やま","はな","とり","いす","ゆめ","かぜ","あめ","ほし","そら","はし"],
+    normal: ["すまーとふぉん","いんたーねっと","ぷろぐらみんぐ","しんかんせん","たいぴんぐ","ふぉん","あにめーしょん","うみのせかい"],
+    hard: ["じぶんだけのものすごくひろいせかい","るびーちゃんのあいすくりーむ","ばくだいなせかいがまちうけている","ぷろぐらまーのぷろぐらみんぐ","このげーむをつくったひとはらもです","おあそびはここまでだここからがほんばん","ゆーちゅーぶぷれみあむはさいこうである","いしばしをよくたたいてわたる"]
+};
+
+// --- ボタン状態の制御 ---
+function updateButtonStates() {
+    const isBusy = myPartyId !== null || isMatchmaking;
+    const btnSingle = el("btn-single");
+    const btnParty = el("btn-party");
+    const btnMatch = el("btn-match");
+    const btnEditor = el("btn-editor");
+    const btnCustom = el("btn-custom");
+
+    if (btnSingle) btnSingle.disabled = isBusy;
+    if (btnParty) btnParty.disabled = isMatchmaking; // パーティー中は「フレンドと遊ぶ」は押せる(設定画面へ)
+    if (btnMatch) btnMatch.disabled = isBusy;
+    if (btnEditor) btnEditor.disabled = isBusy;
+    if (btnCustom) btnCustom.disabled = isBusy;
+}
 
 // --- リアルタイム名前更新 ---
 window.updateMyName = () => {
@@ -100,17 +125,40 @@ window.addFriend = async () => {
     } else { alert("コードが見つかりません"); }
 };
 
+// バグ修正: フレンドリストの重複増殖を防止
 onValue(ref(db, `users/${myId}/friends`), (snap) => {
-    const ui = el("friend-list-ui"); ui.innerHTML = "";
-    const friends = snap.val(); if (!friends) return;
+    const ui = el("friend-list-ui");
+    const friends = snap.val();
+    
+    if (!friends) {
+        ui.innerHTML = "";
+        return;
+    }
+
+    // 一度リストをクリアしてから再構築する
+    ui.innerHTML = ""; 
+    
     Object.keys(friends).forEach(fid => {
+        // 各フレンドのステータス監視
         onValue(ref(db, `users/${fid}`), fs => {
-            const data = fs.val(); if (!data) return;
-            const row = document.createElement("div"); row.className = "friend-item";
-            row.innerHTML = `<div><span class="status-dot ${data.status}"></span>${data.name}</div>
-                <div><button class="btn-invite" onclick="window.inviteToParty('${fid}')">招待</button>
-                <button class="btn-kick" onclick="window.removeFriend('${fid}')">削除</button></div>`;
-            ui.appendChild(row);
+            const data = fs.val(); 
+            if (!data) return;
+            
+            // 既存の要素があれば更新、なければ作成
+            let row = el(`friend-${fid}`);
+            if (!row) {
+                row = document.createElement("div");
+                row.id = `friend-${fid}`;
+                row.className = "friend-item";
+                ui.appendChild(row);
+            }
+            
+            row.innerHTML = `
+                <div><span class="status-dot ${data.status}"></span>${data.name}</div>
+                <div>
+                    <button class="btn-invite" onclick="window.inviteToParty('${fid}')">招待</button>
+                    <button class="btn-kick" onclick="window.removeFriend('${fid}')">削除</button>
+                </div>`;
         });
     });
 });
@@ -137,6 +185,11 @@ onValue(ref(db, `users/${myId}/invite`), snap => {
 });
 
 window.acceptInvite = () => {
+    if (gameActive || isMatchmaking) {
+        alert("プレイ中・待機中は参加できません。");
+        window.declineInvite();
+        return;
+    }
     get(ref(db, `users/${myId}/invite`)).then(s => {
         const pId = s.val().partyId;
         update(ref(db, `parties/${pId}/members/${myId}`), { name: myName, score: 0, ready: false });
@@ -147,51 +200,83 @@ window.acceptInvite = () => {
 window.declineInvite = () => remove(ref(db, `users/${myId}/invite`));
 
 window.leaveParty = () => {
-    if (isLeader) remove(ref(db, `parties/${myPartyId}`));
-    else remove(ref(db, `parties/${myPartyId}/members/${myId}`));
+    if (isLeader && myPartyId) remove(ref(db, `parties/${myPartyId}`));
+    else if (myPartyId) remove(ref(db, `parties/${myPartyId}/members/${myId}`));
     update(ref(db, `users/${myId}`), { partyId: null });
+    myPartyId = null;
+    updateButtonStates();
     window.goHome();
 };
 
 onValue(ref(db, `users/${myId}/partyId`), snap => {
     myPartyId = snap.val();
+    updateButtonStates();
+
     if (myPartyId) {
         el("party-actions").classList.remove("hidden");
         onValue(ref(db, `parties/${myPartyId}`), ps => {
-            const p = ps.val(); if (!p) { myPartyId = null; return; }
+            const p = ps.val(); 
+            if (!p) { 
+                update(ref(db, `users/${myId}`), { partyId: null });
+                myPartyId = null; 
+                updateButtonStates();
+                return; 
+            }
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
             el("party-list-ui").innerHTML = Object.values(p.members).map(m => `<div class="friend-item">${m.name} ${m.ready?'✅':''}</div>`).join("");
             
             if (p.state === "ready_check" && !gameActive) {
-                openScreen("screen-play"); el("ready-overlay").classList.remove("hidden");
+                openScreen("screen-play"); 
+                el("ready-overlay").classList.remove("hidden");
                 el("ready-list").innerHTML = Object.values(p.members).map(m => `<div>${m.name}: ${m.ready?'準備完了':'待機中...'}</div>`).join("");
-                if (isLeader && Object.values(p.members).every(m => m.ready)) update(ref(db, `parties/${myPartyId}`), { state: "playing" });
+                if (isLeader && Object.values(p.members).every(m => m.ready)) {
+                    update(ref(db, `parties/${myPartyId}`), { state: "playing" });
+                }
             }
             if (p.state === "playing" && !gameActive) {
                 el("ready-overlay").classList.add("hidden");
-                currentWords = WORD_DB[p.diff]; startGame(p.time);
+                currentWords = WORD_DB[p.diff]; 
+                startGame(p.time);
+            }
+            if (p.state === "lobby" && gameActive) {
+                // パーティーがロビーに戻ったらゲームを強制終了
+                endGame();
             }
         });
-    } else { el("party-actions").classList.add("hidden"); el("party-label").innerText = "パーティー (未参加)"; el("party-list-ui").innerHTML = ""; }
+    } else { 
+        el("party-actions").classList.add("hidden"); 
+        el("party-label").innerText = "パーティー (未参加)"; 
+        el("party-list-ui").innerHTML = ""; 
+    }
 });
 
-window.sendReady = () => update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
+window.sendReady = () => {
+    if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
+};
 
 // --- ゲームエンジン ---
 function openScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
-    el(id).classList.remove("hidden");
+    const target = el(id);
+    if(target) target.classList.remove("hidden");
 }
 
-window.goHome = () => { gameActive = false; openScreen("screen-home"); };
+window.goHome = () => { 
+    gameActive = false; 
+    clearInterval(gameInterval);
+    openScreen("screen-home"); 
+    updateButtonStates();
+};
 
 function nextQuestion() {
+    if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
     let q = currentWords[currentWordIdx % currentWords.length];
     el("q-ja").innerText = q;
     let patterns = getRomaPatterns(q);
     currentRoma = patterns[0]; romaIdx = 0; renderRoma();
 }
+
 function renderRoma() {
     el("q-done").innerText = currentRoma.substring(0, romaIdx);
     el("q-todo").innerText = currentRoma.substring(romaIdx);
@@ -212,47 +297,89 @@ window.addEventListener("keydown", e => {
 });
 
 function startGame(sec) {
+    clearInterval(gameInterval);
     gameActive = true; score = 0; combo = 0; timer = sec; duration = sec; currentWordIdx = 0;
-    nextQuestion(); el("stat-score").innerText = "0"; el("stat-combo").innerText = "0";
-    const itv = setInterval(() => {
-        timer--; el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
+    
+    // パーティー戦以外の場合はライバル表示を隠す
+    if (!myPartyId) {
+        el("rival-display").classList.add("hidden");
+    }
+
+    nextQuestion(); 
+    el("stat-score").innerText = "0"; 
+    el("stat-combo").innerText = "0";
+    
+    gameInterval = setInterval(() => {
+        if(!gameActive) { clearInterval(gameInterval); return; }
+        timer--; 
+        el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
+        
         if (myPartyId) syncRivals();
-        if (timer <= 0) { clearInterval(itv); endGame(); }
+        
+        if (timer <= 0) { 
+            clearInterval(gameInterval); 
+            endGame(); 
+        }
     }, 1000);
 }
 
 function syncRivals() {
+    if (!myPartyId) return;
     el("rival-display").classList.remove("hidden");
     const isHidden = timer < (duration / 2);
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-        el("rival-list").innerHTML = Object.values(s.val()).map(m => `
-            <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
-        `).join("");
+        const val = s.val();
+        if(val) {
+            el("rival-list").innerHTML = Object.values(val).map(m => `
+                <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
+            `).join("");
+        }
     });
 }
 
 function endGame() {
-    gameActive = false; sounds.finish.play();
+    gameActive = false; 
+    clearInterval(gameInterval);
+    sounds.finish.play();
     openScreen("screen-result");
+    
     if (myPartyId) {
         get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-            const res = Object.values(s.val()).sort((a,b) => b.score - a.score);
-            el("ranking-box").innerHTML = res.map((m,i) => `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`).join("");
-            if (isLeader) update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
+            const val = s.val();
+            if(val) {
+                const res = Object.values(val).sort((a,b) => b.score - a.score);
+                el("ranking-box").innerHTML = res.map((m,i) => `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`).join("");
+                // リーダーがリザルト画面に遷移したらロビー状態に戻す
+                if (isLeader) update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
+            }
         });
-    } else { el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; }
+    } else { 
+        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
+    }
 }
 
 // --- モード制御 ---
-window.openSingleSelect = () => openScreen("screen-single-select");
-window.startSingle = (diff) => { currentWords = WORD_DB[diff]; openScreen("screen-play"); startGame(60); };
+window.openSingleSelect = () => {
+    if (myPartyId || isMatchmaking) return; // バグ修正: ブロック
+    openScreen("screen-single-select");
+};
+
+window.startSingle = (diff) => { 
+    if (myPartyId || isMatchmaking) return; // バグ修正: ブロック
+    currentWords = WORD_DB[diff]; 
+    openScreen("screen-play"); 
+    startGame(60); 
+};
 
 window.openFriendBattle = () => {
+    if (isMatchmaking) return;
     if (!myPartyId) return alert("パーティーに参加していません！");
     if (!isLeader) return alert("リーダー限定です！");
     openScreen("screen-battle-setup");
 };
+
 window.launchBattle = () => {
+    if (!myPartyId || !isLeader) return;
     update(ref(db, `parties/${myPartyId}`), {
         state: "ready_check",
         time: parseInt(el("setup-time").value),
@@ -262,10 +389,23 @@ window.launchBattle = () => {
 
 window.openOnlineMatch = () => {
     if (myPartyId) return alert("パーティー中は利用できません");
+    if (isMatchmaking) {
+        alert("マッチングをキャンセルします。");
+        // キャンセル処理 (実装次第ですが、ここでは簡易的にフラグのみリセット)
+        isMatchmaking = false;
+        updateButtonStates();
+        return;
+    }
+
     const n = prompt("何人で遊ぶ？ (2-4)");
     if (![2,3,4].includes(Number(n))) return;
+    
+    isMatchmaking = true;
+    updateButtonStates();
+    
     set(ref(db, `matchmaking/${n}/${myId}`), { name: myName });
     alert("マッチング待機中...");
+    
     onValue(ref(db, `matchmaking/${n}`), snap => {
         const players = snap.val();
         if (players && Object.keys(players).length >= n) {
@@ -273,44 +413,83 @@ window.openOnlineMatch = () => {
             if (ids[0] === myId) {
                 const pid = "match_" + myId;
                 const members = {};
-                ids.forEach(id => { members[id] = { name: players[id].name, score: 0, ready: false }; remove(ref(db, `matchmaking/${n}/${id}`)); });
+                ids.forEach(id => { 
+                    members[id] = { name: players[id].name, score: 0, ready: false }; 
+                    remove(ref(db, `matchmaking/${n}/${id}`)); 
+                });
                 set(ref(db, `parties/${pid}`), { leader: myId, state: "ready_check", time: 30, diff: "normal", members });
                 ids.forEach(id => update(ref(db, `users/${id}`), { partyId: pid }));
             }
+            isMatchmaking = false; // マッチング完了したらフラグを下ろす
+            updateButtonStates();
         }
     });
 };
 
 // --- エディター ---
-window.openEditor = () => { openScreen("screen-editor"); renderEditor(); };
+window.openEditor = () => { 
+    if (myPartyId || isMatchmaking) return; // バグ修正: ブロック
+    openScreen("screen-editor"); 
+    renderEditor(); 
+};
+
+// バグ修正: 入力時に配列の値を確実に更新する
+window.updateCustomWord = (index, value) => {
+    customWords[index] = value;
+};
+
+// バグ修正: 削除時も確実に更新
+window.removeCustomWord = (index) => {
+    customWords.splice(index, 1);
+    renderEditor();
+};
+
 function renderEditor() {
     el("editor-list").innerHTML = customWords.map((w, i) => `
         <div class="editor-row">
-            <input type="text" class="editor-input" value="${w}" oninput="customWords[${i}]=this.value" placeholder="2~20文字のひらがな">
-            <button class="btn-kick" onclick="customWords.splice(${i},1);renderEditor()">削除</button>
+            <input type="text" class="editor-input" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="2~20文字のひらがな">
+            <button class="btn-kick" onclick="window.removeCustomWord(${i})">削除</button>
         </div>
     `).join("");
 }
-window.addEditorRow = () => { if (customWords.length < 20) { customWords.push(""); renderEditor(); } };
+
+window.addEditorRow = () => { 
+    if (customWords.length < 20) { 
+        customWords.push(""); 
+        renderEditor(); 
+    } 
+};
+
 window.saveEditor = () => {
-    const valid = customWords.filter(w => w.length >= 2 && w.length <= 20);
-    if (valid.length < 5) return alert("最低5個必要です");
-    customWords = valid; localStorage.setItem("ramo_custom", JSON.stringify(customWords));
-    alert("完成しました！"); window.goHome();
-};
-window.playCustom = () => { if (customWords.length < 5) return alert("まずは5個以上作ってください"); currentWords = customWords; openScreen("screen-play"); startGame(60); };
-
-// --- データ ---
-const WORD_DB = {
-    easy: ["ねこ","いぬ","うみ","つき","さかな","たこ","やま","はな","とり","いす","ゆめ","かぜ","あめ","ほし","そら","はし"],
-    normal: ["すまーとふぉん","いんたーねっと","ぷろぐらみんぐ","しんかんせん","たいぴんぐ","ふぉん","あにめーしょん","うみのせかい"],
-    hard: ["じぶんだけのものすごくひろいせかい","るびーちゃんのあいすくりーむ","ばくだいなせかいがまちうけている","ぷろぐらまーのぷろぐらみんぐ","このげーむをつくったひとはらもです","おあそびはここまでだここからがほんばん","ゆーちゅーぶぷれみあむはさいこうである","いしばしをよくたたいてわたる"]
+    // 空白や短すぎる/長すぎる単語を除外して保存
+    const valid = customWords.filter(w => w && w.length >= 2 && w.length <= 20);
+    if (valid.length < 5) return alert("最低5個必要です (2~20文字で入力してください)");
+    
+    customWords = valid; 
+    localStorage.setItem("ramo_custom", JSON.stringify(customWords));
+    alert("完成しました！"); 
+    window.goHome();
 };
 
-// 初期化
+window.playCustom = () => { 
+    if (myPartyId || isMatchmaking) return; // バグ修正: ブロック
+    
+    const savedWords = JSON.parse(localStorage.getItem("ramo_custom"));
+    if (!savedWords || savedWords.length < 5) {
+        return alert("まずはエディターで5個以上作って保存してください"); 
+    }
+    
+    customWords = savedWords; // 最新のデータを読み込む
+    currentWords = customWords; 
+    openScreen("screen-play"); 
+    startGame(60); 
+};
+
+// --- 初期化 ---
 el("my-id-display").innerText = myId;
 el("my-name-input").value = myName;
 const userRef = ref(db, `users/${myId}`);
-update(userRef, { name: myName, status: "online" });
+update(userRef, { name: myName, status: "online", partyId: null }); // 起動時はパーティー情報をリセット
 onDisconnect(userRef).update({ status: "offline" });
+updateButtonStates();
 window.goHome();
