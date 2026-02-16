@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V5.4 (Slider Fix)
+// FIREBASE & TYPING ENGINE V5.5 (Random & Coin System)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -49,6 +49,21 @@ let currentRoma = "";
 let romaIdx = 0;
 let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
 let gameInterval; 
+
+// 【追加】コインの初期化（ローカルストレージから読み込み）
+let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
+
+// --- コイン保存・表示更新用関数 ---
+function saveAndDisplayCoins() {
+    // ローカルストレージに絶対保存
+    localStorage.setItem("ramo_coins", coins);
+    // 画面の表示を更新
+    if (el("coin-amount")) {
+        el("coin-amount").innerText = coins;
+    }
+    // Firebaseにもバックアップ保存（端末を変えても同じIDなら引き継げるように）
+    update(ref(db, `users/${myId}`), { coins: coins });
+}
 
 // --- 出題データ ---
 const WORD_DB = {
@@ -257,7 +272,11 @@ window.goHome = () => {
 
 function nextQuestion() {
     if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
-    let q = currentWords[currentWordIdx % currentWords.length];
+    
+    // 【変更】配列の順番ではなく、ランダムで出題するように変更
+    let randomIdx = Math.floor(Math.random() * currentWords.length);
+    let q = currentWords[randomIdx];
+    
     el("q-ja").innerText = q;
     let patterns = getRomaPatterns(q);
     currentRoma = patterns[0]; romaIdx = 0; renderRoma();
@@ -322,17 +341,38 @@ function endGame() {
     clearInterval(gameInterval);
     sounds.finish.play();
     openScreen("screen-result");
+
+    // 【追加】獲得コインの計算 (スコアの10分の1を獲得)
+    let earnedCoins = Math.floor(score / 10);
+    if (earnedCoins > 0) {
+        coins += earnedCoins;
+        saveAndDisplayCoins(); // 絶対保存してUI更新
+    }
+
     if (myPartyId) {
         get(ref(db, `parties/${myPartyId}/members`)).then(s => {
             const val = s.val();
             if(val) {
                 const res = Object.values(val).sort((a,b) => b.score - a.score);
                 el("ranking-box").innerHTML = res.map((m,i) => `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`).join("");
+                
+                // 【追加】リザルト画面の下に獲得したコインを表示
+                el("ranking-box").innerHTML += `
+                    <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                        <span>獲得コイン</span><span>+${earnedCoins} 🪙</span>
+                    </div>`;
+
                 if (isLeader) update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
             }
         });
     } else { 
         el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
+        
+        // 【追加】リザルト画面の下に獲得したコインを表示
+        el("ranking-box").innerHTML += `
+            <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                <span>獲得コイン</span><span>+${earnedCoins} 🪙</span>
+            </div>`;
     }
 }
 
@@ -356,7 +396,7 @@ window.openFriendBattle = () => {
     openScreen("screen-battle-setup");
 };
 
-// 【修正箇所】スライダーの値を取得してバトルを開始
+// スライダーの値を取得してバトルを開始
 window.launchBattle = () => {
     if (!myPartyId || !isLeader) return;
     
@@ -462,13 +502,25 @@ window.playCustom = () => {
 el("my-id-display").innerText = myId;
 el("my-name-input").value = myName;
 const userRef = ref(db, `users/${myId}`);
+
+// 【追加】Firebase上にコインのデータがあれば同期する処理
+get(userRef).then(snap => {
+    if(snap.exists() && snap.val().coins !== undefined) {
+        let cloudCoins = snap.val().coins;
+        if(cloudCoins > coins) {
+            coins = cloudCoins; // サーバーのデータの方が多ければ上書き
+        }
+    }
+    saveAndDisplayCoins(); // 画面にコイン数を反映
+});
+
 update(userRef, { name: myName, status: "online", partyId: null });
 onDisconnect(userRef).update({ status: "offline" });
 updateButtonStates();
 
-// 【追加】スライダーの値を表示するためのリアルタイム反映
+// スライダーの値を表示するためのリアルタイム反映 (IDをHTMLに合わせて修正)
 const timeSlider = el("setup-time");
-const timeLabel = el("setup-time-label"); // HTML側に <span id="setup-time-label">30</span>秒 のような要素がある前提
+const timeLabel = el("time-val"); 
 if (timeSlider) {
     timeSlider.addEventListener("input", (e) => {
         if (timeLabel) timeLabel.innerText = e.target.value;
