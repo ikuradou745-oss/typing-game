@@ -1,90 +1,97 @@
 :root {
-    --bg-color: #020205;
-    --panel-bg: rgba(15, 15, 25, 0.95);
-    --accent-blue: #00d4ff;
-    --accent-purple: #a020f0;
-    --accent-green: #00ff88;
-    --accent-red: #ff3e3e;
-    --text-main: #ffffff;
-    --glass: rgba(255, 255, 255, 0.05);
+    --bg-dark: #05050a;
+    --panel-bg: rgba(10, 10, 20, 0.9);
+    --accent-blue: #00f2ff;
+    --accent-purple: #bc00ff;
+    --accent-green: #39ff14;
+    --accent-red: #ff3131;
+    --text-white: #e0e0e0;
+    --glass: rgba(255, 255, 255, 0.03);
 }
 
-* { box-sizing: border-box; outline: none; }
-body, html { 
-    margin: 0; padding: 0; width: 100%; height: 100%; 
-    background: var(--bg-color); color: var(--text-main);
+* { box-sizing: border-box; }
+body, html {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg-dark); color: var(--text-white);
     font-family: 'M PLUS 1p', sans-serif; overflow: hidden;
 }
 
+/* 背景グリッド */
 .bg-grid {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background-image: linear-gradient(var(--glass) 1px, transparent 1px), linear-gradient(90deg, var(--glass) 1px, transparent 1px);
-    background-size: 50px 50px; z-index: -1;
-    transform: perspective(500px) rotateX(60deg); transform-origin: top; 
-    animation: moveGrid 20s linear infinite;
+    position: fixed; width: 200%; height: 200%; top: -50%; left: -50%;
+    background-image: 
+        linear-gradient(var(--glass) 1px, transparent 1px),
+        linear-gradient(90deg, var(--glass) 1px, transparent 1px);
+    background-size: 60px 60px;
+    transform: perspective(1000px) rotateX(60deg);
+    animation: move-bg 20s linear infinite;
+    z-index: -1;
 }
-@keyframes moveGrid { from { background-position: 0 0; } to { background-position: 0 1000px; } }
+@keyframes move-bg { from { transform: perspective(1000px) rotateX(60deg) translateY(0); } to { transform: perspective(1000px) rotateX(60deg) translateY(60px); } }
 
-#app { display: flex; width: 100vw; height: 100vh; }
-#main-area { flex: 1; display: flex; flex-direction: column; padding: 30px; position: relative; }
+#app { display: flex; height: 100vh; width: 100vw; }
+
+/* メインエリア */
+#main-area { flex: 1; display: flex; flex-direction: column; padding: 40px; position: relative; }
 .header-logo {
-    font-family: 'Exo 2', sans-serif; font-size: 3.5rem; font-weight: 900;
-    background: linear-gradient(to right, var(--accent-blue), var(--accent-purple));
+    font-family: 'Exo 2', sans-serif; font-size: 3rem; font-weight: 900;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.4));
     margin-bottom: 20px;
 }
 
-.title-glow { font-size: 2rem; color: var(--accent-blue); text-shadow: 0 0 15px var(--accent-blue); }
-
-.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: fadeIn 0.4s ease; }
+.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
 .hidden { display: none !important; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-.btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 80%; max-width: 800px; }
+/* ボタン */
+.btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 700px; }
 .action-btn {
-    background: var(--panel-bg); border: 2px solid var(--accent-blue);
-    color: white; padding: 20px; border-radius: 12px; font-size: 1.3rem; font-weight: 900;
-    cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center;
+    background: var(--panel-bg); border: 2px solid var(--accent-blue); color: white;
+    padding: 25px; border-radius: 12px; font-size: 1.4rem; font-weight: 900;
+    cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;
 }
 .action-btn:hover { background: var(--accent-blue); color: #000; box-shadow: 0 0 30px var(--accent-blue); }
-
-/* 招待トースト */
-#invite-toast {
-    position: fixed; top: 20px; left: 20px; background: var(--panel-bg);
-    border: 2px solid var(--accent-purple); padding: 20px; border-radius: 15px;
-    z-index: 9999; box-shadow: 0 0 20px var(--accent-purple); animation: slideIn 0.3s ease-out;
-}
-@keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.action-btn small { display: block; font-size: 0.7rem; opacity: 0.7; margin-top: 5px; }
+.full-width { grid-column: span 2; }
+.gray-btn { border-color: #555; }
+.purple-btn { border-color: var(--accent-purple); }
 
 /* プレイ画面 */
-#timer-display { font-size: 4rem; color: var(--accent-red); font-family: 'JetBrains Mono'; }
-.word-ja { font-size: 4rem; font-weight: 900; margin: 15px 0; }
-.word-roma { font-family: 'JetBrains Mono'; font-size: 2.5rem; background: rgba(0,0,0,0.5); padding: 10px 30px; border-radius: 15px; }
+#timer-display { font-size: 4rem; color: var(--accent-red); font-family: 'JetBrains Mono'; text-shadow: 0 0 20px var(--accent-red); }
+.word-ja { font-size: 4.5rem; font-weight: 900; margin: 20px 0; text-shadow: 0 0 30px var(--accent-blue); }
+.word-roma { font-family: 'JetBrains Mono'; font-size: 2.8rem; background: rgba(0,0,0,0.7); padding: 15px 40px; border-radius: 20px; border: 1px solid var(--glass); }
 .char-done { color: var(--accent-blue); }
 .char-todo { color: #444; }
 
-/* エディター */
-.editor-container { max-height: 50vh; overflow-y: auto; width: 100%; max-width: 600px; padding: 20px; }
-.editor-row { 
-    display: flex; gap: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.05); 
-    padding: 10px; border-radius: 10px; border: 1px solid var(--glass);
-}
-.editor-input { 
-    flex: 1; background: #000; border: 1px solid var(--accent-green); 
-    color: #fff; padding: 10px; border-radius: 5px; font-weight: bold;
-}
-
 /* サイドバー */
-#sidebar { width: 350px; background: var(--panel-bg); border-left: 1px solid var(--glass); padding: 20px; }
-.side-section { background: var(--glass); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
-.section-title { color: var(--accent-blue); font-weight: 900; margin-bottom: 10px; display: flex; justify-content: space-between; }
-.name-edit { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 5px; width: 100%; text-align: center; }
+#sidebar { width: 380px; background: var(--panel-bg); border-left: 1px solid var(--glass); padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.side-panel { background: var(--glass); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); }
+.panel-title { font-weight: 900; color: var(--accent-blue); margin-bottom: 15px; border-left: 5px solid var(--accent-blue); padding-left: 10px; }
 
-.friend-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(0,0,0,0.2); margin-bottom: 5px; border-radius: 5px; font-size: 0.9rem; }
-.btn-s { padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
-.btn-invite { background: var(--accent-blue); color: #000; }
-.btn-kick { background: var(--accent-red); color: #fff; }
+input[type="text"] { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 10px; width: 100%; border-radius: 5px; }
+.code-display { margin-top: 10px; font-size: 0.8rem; color: var(--accent-purple); }
+
+.friend-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.3); margin-bottom: 10px; border-radius: 8px; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+.online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+.offline { background: var(--accent-red); }
+
+/* 招待トースト */
+#invite-toast { position: fixed; top: 20px; left: 20px; z-index: 1000; animation: slideIn 0.3s ease; }
+.toast-content { background: var(--panel-bg); border: 2px solid var(--accent-purple); padding: 20px; border-radius: 15px; box-shadow: 0 0 30px var(--accent-purple); }
+@keyframes slideIn { from { transform: translateX(-110%); } to { transform: translateX(0); } }
+
+/* エディター */
+.editor-scroll { height: 400px; overflow-y: auto; width: 100%; max-width: 600px; padding: 10px; }
+.editor-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.btn-full { width: 100%; padding: 10px; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
+.btn-invite { background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+.btn-kick { background: var(--accent-red); color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
 .stat-val { color: var(--accent-green); font-family: 'JetBrains Mono'; }
-.ranking-container { background: var(--glass); padding: 20px; border-radius: 15px; width: 400px; margin-bottom: 20px; }
-.credit { position: absolute; bottom: 20px; left: 20px; color: #555; font-size: 0.8rem; }
+.footer-credit { position: absolute; bottom: 20px; left: 20px; font-size: 0.9rem; color: #555; }
+.footer-credit span { color: var(--accent-blue); font-weight: 900; }
+
+.ranking-panel { background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; margin-bottom: 20px; }
+.ranking-row { display: flex; justify-content: space-between; font-size: 1.5rem; padding: 10px 0; border-bottom: 1px solid var(--glass); }
