@@ -57,6 +57,16 @@ body, html {
 .gray-btn { border-color: #555; }
 .purple-btn { border-color: var(--accent-purple); }
 
+/* 無効化状態のボタン (待機中・パーティー中用に追加) */
+.action-btn:disabled, .action-btn.disabled {
+    background: rgba(30, 30, 30, 0.8);
+    border-color: #444;
+    color: #666;
+    cursor: not-allowed;
+    box-shadow: none;
+    pointer-events: none;
+}
+
 /* プレイ画面 */
 #timer-display { font-size: 4rem; color: var(--accent-red); font-family: 'JetBrains Mono'; text-shadow: 0 0 20px var(--accent-red); }
 .word-ja { font-size: 4.5rem; font-weight: 900; margin: 20px 0; text-shadow: 0 0 30px var(--accent-blue); }
