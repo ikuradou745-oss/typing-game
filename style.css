@@ -79,7 +79,7 @@ body, html {
 .side-panel { background: var(--glass); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); }
 .panel-title { font-weight: 900; color: var(--accent-blue); margin-bottom: 15px; border-left: 5px solid var(--accent-blue); padding-left: 10px; }
 
-input[type="text"] { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 10px; width: 100%; border-radius: 5px; }
+input[type="text"], .cyber-select { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 10px; width: 100%; border-radius: 5px; font-family: inherit; }
 .code-display { margin-top: 10px; font-size: 0.8rem; color: var(--accent-purple); }
 
 .friend-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.3); margin-bottom: 10px; border-radius: 8px; }
@@ -131,3 +131,206 @@ input[type="text"] { background: #000; border: 1px solid var(--accent-blue); col
 
 .ranking-panel { background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; margin-bottom: 20px; }
 .ranking-row { display: flex; justify-content: space-between; font-size: 1.5rem; padding: 10px 0; border-bottom: 1px solid var(--glass); }
+
+/* =========================================
+   ショップシステム用CSS
+   ========================================= */
+.shop-coin-display {
+    font-size: 1.8rem;
+    color: #FFD700;
+    margin-bottom: 20px;
+    font-weight: bold;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.shop-item {
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid var(--accent-purple);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+    transition: 0.3s;
+}
+
+.shop-item:hover {
+    box-shadow: 0 0 20px var(--accent-purple);
+    transform: translateY(-5px);
+}
+
+.shop-item h3 {
+    margin: 0;
+    color: var(--accent-blue);
+    font-size: 1.4rem;
+}
+
+.shop-item p {
+    font-size: 0.9rem;
+    color: #ccc;
+    margin: 0;
+    flex-grow: 1;
+}
+
+.shop-item .cost {
+    color: #FFD700;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.shop-item .cooldown-text {
+    font-size: 0.8rem;
+    color: var(--accent-red);
+}
+
+.shop-btn {
+    background: var(--accent-purple);
+    color: #fff;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.shop-btn:hover {
+    background: #d400ff;
+    box-shadow: 0 0 15px var(--accent-purple);
+}
+
+.shop-btn.equipped {
+    background: var(--accent-green);
+    color: #000;
+    box-shadow: 0 0 15px var(--accent-green);
+}
+
+.shop-btn:disabled {
+    background: #555;
+    color: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* =========================================
+   プレイ画面のスキルシステム用CSS
+   ========================================= */
+#skill-action-box {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+#in-game-skill-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: var(--bg-dark);
+    border: 3px solid var(--accent-purple);
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 20px var(--accent-purple);
+    transition: 0.2s;
+    outline: none;
+}
+
+#in-game-skill-btn:active {
+    transform: scale(0.95);
+}
+
+#in-game-skill-btn.cooldown {
+    border-color: #555;
+    color: #888;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+#skill-cooldown-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: rgba(255, 49, 49, 0.5);
+    transition: height 1s linear;
+    z-index: 0;
+}
+
+#skill-btn-name {
+    position: relative;
+    z-index: 1;
+}
+
+#skill-status-text {
+    font-size: 0.8rem;
+    color: var(--accent-purple);
+    font-weight: bold;
+}
+
+/* アラート・妨害エフェクト */
+#battle-alert {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 20px var(--accent-purple);
+    z-index: 100;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popIn {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+#jamming-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 0, 0, 0.2);
+    z-index: 999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    animation: flashRed 0.5s infinite alternate;
+}
+
+.jamming-text {
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--accent-red);
+    text-shadow: 0 0 30px #000, 0 0 20px var(--accent-red);
+    background: rgba(0,0,0,0.7);
+    padding: 20px 50px;
+    border: 3px solid var(--accent-red);
+    border-radius: 10px;
+}
+
+@keyframes flashRed {
+    from { background: rgba(255, 0, 0, 0.1); }
+    to { background: rgba(255, 0, 0, 0.4); }
+}
