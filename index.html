@@ -43,10 +43,22 @@
                         <span>タイピングを作る</span>
                         <small>CUSTOM EDITOR</small>
                     </button>
+                    <button id="btn-shop" class="action-btn full-width purple-btn" onclick="window.openShop()">
+                        <span>ショップ (スキル)</span>
+                        <small>SKILL SHOP</small>
+                    </button>
                     <button id="btn-custom" class="action-btn full-width" onclick="window.playCustom()">
                         <span>作ったものを遊ぶ</span>
                     </button>
                 </div>
+            </div>
+
+            <div id="screen-shop" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
+                <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
+                <div class="shop-grid" id="shop-list">
+                    </div>
+                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
             </div>
 
             <div id="screen-single-select" class="screen hidden">
@@ -91,8 +103,23 @@
                     </div>
                 </div>
 
+                <div id="jamming-overlay" class="hidden">
+                    <div class="jamming-text">⚠️ 通信妨害を受けています！ ⚠️</div>
+                </div>
+
+                <div id="battle-alert" class="hidden"></div>
+
                 <div id="game-core">
                     <div id="timer-display">00:30</div>
+                    
+                    <div id="skill-action-box" class="hidden">
+                        <button id="in-game-skill-btn" onclick="window.activateSkill()">
+                            <span id="skill-btn-name">スキルなし</span>
+                            <div id="skill-cooldown-bar"></div>
+                        </button>
+                        <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
+                    </div>
+
                     <div class="word-ja" id="q-ja">準備中...</div>
                     <div class="word-roma" id="q-roma">
                         <span class="char-done" id="q-done"></span><span class="char-todo" id="q-todo"></span>
