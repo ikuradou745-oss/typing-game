@@ -73,7 +73,7 @@ const SKILL_DB = {
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
-    timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は10秒爆速自動入力（あいうえおを0.3秒ぐらい）＆5秒コンボ3倍" }
+    timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は10秒爆速自動入力（あいうえおを0.3秒ぐらい）" }
 };
 
 // --- セーブデータ保存・表示更新用関数 ---
@@ -676,7 +676,7 @@ window.activateSkill = () => {
     else if (skill.id === "timeslip") {
         sendAttackToOthers("timeslip", 3000, 0);
         startAutoTypeEngine(10000, 60); // 0.3秒で5文字(60ms間隔)
-        comboMultiplier = 3;
+        comboMultiplier = 1;
         setTimeout(() => { comboMultiplier = 1; }, 5000);
         timeSlipUsed = true;
         
