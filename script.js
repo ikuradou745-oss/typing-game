@@ -53,6 +53,17 @@ let gameInterval;
 let isCustomGame = false;
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
 
+// --- ストーリーモード用グローバル変数 ---
+let isStoryMode = false;
+let currentStoryWorld = parseInt(localStorage.getItem("ramo_story_world")) || 1;
+let currentStoryStage = parseInt(localStorage.getItem("ramo_story_stage")) || 1;
+let cpuTypingSpeed = 1000; // ボスや面によって調整可能にする変数
+
+// --- ネクロマンサー用変数 ---
+let minionCount = 0;
+let isSummoningMinions = false;
+let summonTimer = null;
+
 // --- スキルシステム用グローバル変数 ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
 let equippedSkill = localStorage.getItem("ramo_equipped") || "none";
@@ -72,7 +83,7 @@ let isGodfatherMissionActive = false;
 let hackerTabsActive = 0;
 let attackListenerReference = null;
 
-// スキルのデータ定義 (新スキル追加)
+// スキルのデータ定義 (新スキル・ストーリー報酬追加)
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 10, desc: "3秒間爆速で自動タイピング" },
@@ -85,7 +96,11 @@ const SKILL_DB = {
     fundraiser: { id: "fundraiser", name: "資金稼ぎ", cost: 15000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に2倍になる" },
     godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×5)のコインを直接獲得" },
     hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
-    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" }
+    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
+
+    // --- ストーリーモード報酬スキル ---
+    fireworks: { id: "fireworks", name: "花火", cost: 0, cooldown: 30, desc: "【1-5クリア報酬 / パチパチ】\n相手画面に1秒だけ「避ける」ボタンがでかく出現する。1秒以内に避けられなかった場合、相手を8秒間スタンする。", isStoryReward: true },
+    necromancer: { id: "necromancer", name: "ネクロマンサー", cost: 0, cooldown: 0, desc: "【2-5クリア報酬】\n【子分を出す/キー:1】CT20秒: 8秒間タイピングを打てた回数だけ子分が増える\n【子分アタック/キー:2】CT45秒: (子分の数÷5)秒分、相手をスタンする。その後子分の数はリセットされる。", isStoryReward: true }
 };
 
 // --- セーブデータ保存・表示更新用関数 ---
@@ -93,6 +108,10 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_coins", coins);
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
+    
+    // ストーリー進行度の保存
+    localStorage.setItem("ramo_story_world", currentStoryWorld);
+    localStorage.setItem("ramo_story_stage", currentStoryStage);
     
     if (el("coin-amount")) el("coin-amount").innerText = coins;
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
@@ -120,6 +139,7 @@ function updateButtonStates() {
     const btnEditor = el("btn-editor");
     const btnCustom = el("btn-custom");
     const btnShop = el("btn-shop");
+    const btnStory = el("btn-story"); // 新規追加: ストーリーモードボタン
 
     if (btnSingle) btnSingle.disabled = isBusy;
     if (btnParty) btnParty.disabled = isMatchmaking; 
@@ -127,6 +147,7 @@ function updateButtonStates() {
     if (btnEditor) btnEditor.disabled = isBusy;
     if (btnCustom) btnCustom.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy;
+    if (btnStory) btnStory.disabled = isBusy; // パーティー中は入れない仕様
 }
 
 // --- リアルタイム名前更新 ---
@@ -341,7 +362,11 @@ function renderShop() {
         const isEquipped = equippedSkill === skill.id;
         
         let buttonHtml = "";
-        if (isEquipped) {
+        
+        if (skill.isStoryReward && !isOwned) {
+            // ストーリーモードの報酬で未所持の場合は購入不可にする
+            buttonHtml = `<button class="shop-btn" disabled>ストーリー報酬で獲得</button>`;
+        } else if (isEquipped) {
             buttonHtml = `<button class="shop-btn equipped" disabled>装備中</button>`;
         } else if (isOwned) {
             buttonHtml = `<button class="shop-btn" onclick="window.equipSkill('${skill.id}')">装備する</button>`;
@@ -370,6 +395,7 @@ function openScreen(id) {
 
 window.goHome = () => { 
     gameActive = false; 
+    isStoryMode = false;
     clearInterval(gameInterval);
     resetSkillState();
 
@@ -404,6 +430,14 @@ function processCorrectType() {
     if (isGodfatherMissionActive) {
         coins += (combo > 0 ? combo * 5 : 5);
         el("coin-amount").innerText = coins; // UI即時反映
+    }
+
+    // 【新スキル】ネクロマンサーの子分増加処理
+    if (isSummoningMinions) {
+        minionCount++;
+        if (el("minion-count-ui")) {
+            el("minion-count-ui").innerText = `子分: ${minionCount}体`;
+        }
     }
     
     sounds.type.currentTime = 0; sounds.type.play();
@@ -455,9 +489,9 @@ function startGame(sec) {
     resetSkillState();
     setupSkillUI();
 
-    if (!myPartyId) {
+    if (!myPartyId && !isStoryMode) {
         el("rival-display").classList.add("hidden");
-    } else {
+    } else if (myPartyId) {
         attackListenerReference = ref(db, `parties/${myPartyId}/members/${myId}/attacks`);
         onValue(attackListenerReference, snap => {
             const attacks = snap.val();
@@ -586,7 +620,7 @@ function setupSkillUI() {
         if (equippedSkill === "fundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン2倍";
             el("in-game-skill-btn").classList.add("hidden");
-        } else if (equippedSkill === "hacker" || equippedSkill === "accelerator") {
+        } else if (equippedSkill === "hacker" || equippedSkill === "accelerator" || equippedSkill === "necromancer") {
             el("in-game-skill-btn").classList.add("hidden");
             updateCooldownText();
         } else {
@@ -612,8 +646,12 @@ function updateCooldownText() {
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]特別加熱OK";
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]自爆OK";
         txt = `${k1} | ${k2} | ${k3}`;
+    } else if (skill.id === "necromancer") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]子分を出すOK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]子分アタックOK";
+        txt = `${k1} | ${k2} | 子分:${minionCount}体`;
     } else {
-        txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
+        txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(指定キーで発動)";
     }
     el("skill-status-text").innerText = txt;
 }
@@ -632,6 +670,14 @@ function resetSkillState() {
     timeSlipUsed = false;
     isGodfatherMissionActive = false;
     hackerTabsActive = 0;
+    
+    // ネクロマンサー・花火のリセット処理
+    minionCount = 0;
+    isSummoningMinions = false;
+    clearTimeout(summonTimer);
+    if (el("minion-count-ui")) el("minion-count-ui").innerText = "";
+    const dodgeBtn = el("fireworks-dodge-btn-container");
+    if (dodgeBtn) dodgeBtn.remove();
     
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
@@ -655,7 +701,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "necromancer") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -666,12 +712,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "necromancer") {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "necromancer") {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -735,14 +781,20 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
         }
     });
 }
+// --- グローバル変数追加 (ストーリー用) ---
+let storyStage = { world: 1, level: 1 };
+let subunCount = 0;
+let isSubunCollecting = false;
+let dodgeBtnActive = false;
 
+// ====== SKILL ACTIVATION SYSTEM ======
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
     if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
     
     const skill = SKILL_DB[equippedSkill];
 
-    // ====== SPACE KEY SKILLS ======
+    // ====== SPACE KEY SKILLS (Main Skill) ======
     if (keySlot === "space") {
         if (cooldowns.space > 0) return;
         
@@ -779,18 +831,23 @@ window.activateSkill = (keySlot = "space") => {
             el("in-game-skill-btn").classList.add("cooldown");
             el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
             showBattleAlert("⏳ タイムスリップ！", "#FFD700");
-            return; // 1回のみなのでクールダウン処理スキップ
+            return;
         }
         else if (skill.id === "godfather") {
             isGodfatherMissionActive = true;
             setTimeout(() => { isGodfatherMissionActive = false; }, 10000);
             showBattleAlert("🕴 任務開始！(10秒間)", "#ffd700");
         }
+        // --- ストーリー報酬スキル: 花火 ---
+        else if (skill.id === "fireworks") {
+            sendAttackToOthers("fireworks_dodge", 0, 0);
+            showBattleAlert("🎆 花火発動！パチパチ！", "#ff69b4");
+        }
 
         if (skill.cooldown > 0) startSpecificCooldown("space", skill.cooldown);
     }
 
-    // ====== KEY 1 SKILLS ======
+    // ====== KEY 1 SKILLS (Sub Skill 1) ======
     if (keySlot === "key1") {
         if (cooldowns.key1 > 0) return;
         
@@ -804,9 +861,21 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🔥 熱い温度発動！", "var(--accent-red)");
             startSpecificCooldown("key1", 40);
         }
+        // --- ストーリー報酬スキル: ネクロマンサー(子分出し) ---
+        else if (skill.id === "necromancer") {
+            isSubunCollecting = true;
+            subunCount = 0;
+            updateSubunDisplay();
+            showBattleAlert("💀 子分召喚開始！(8秒間)", "#8b008b");
+            setTimeout(() => {
+                isSubunCollecting = false;
+                showBattleAlert(`✅ 子分が ${subunCount} 人集まった！`, "#8b008b");
+            }, 8000);
+            startSpecificCooldown("key1", 20);
+        }
     }
 
-    // ====== KEY 2 SKILLS ======
+    // ====== KEY 2 SKILLS (Sub Skill 2) ======
     if (keySlot === "key2") {
         if (cooldowns.key2 > 0) return;
         
@@ -820,9 +889,19 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("☄️ 特別加熱！", "var(--accent-red)");
             startSpecificCooldown("key2", 70);
         }
+        // --- ストーリー報酬スキル: ネクロマンサー(子分アタック) ---
+        else if (skill.id === "necromancer") {
+            if (subunCount <= 0) return alert("子分がいません！");
+            const stunSec = Math.floor(subunCount / 5);
+            sendAttackToOthers("jam", stunSec * 1000, 0);
+            showBattleAlert(`💀 子分アタック！ ${stunSec}秒スタン！`, "#8b008b");
+            subunCount = 0;
+            updateSubunDisplay();
+            startSpecificCooldown("key2", 45);
+        }
     }
 
-    // ====== KEY 3 SKILLS ======
+    // ====== KEY 3 SKILLS (Sub Skill 3) ======
     if (keySlot === "key3") {
         if (cooldowns.key3 > 0) return;
         
@@ -838,6 +917,12 @@ window.activateSkill = (keySlot = "space") => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 };
 
+// 子分表示更新
+function updateSubunDisplay() {
+    const display = el("subun-count-display");
+    if (display) display.innerText = `子分: ${subunCount}人`;
+}
+
 function startAutoTypeEngine(durationMs, intervalMs) {
     clearInterval(autoTypeTimer);
     autoTypeTimer = setInterval(() => {
@@ -852,7 +937,7 @@ function startAutoTypeEngine(durationMs, intervalMs) {
 
 // ハッカーのタブ生成処理
 function createHackerTabs() {
-    if (hackerTabsActive > 0) return; // 既に展開中の場合は重ねない
+    if (hackerTabsActive > 0) return; 
     hackerTabsActive = 10;
     
     const container = document.createElement('div');
@@ -864,7 +949,6 @@ function createHackerTabs() {
     container.style.zIndex = '9999';
     document.body.appendChild(container);
 
-    // Xボタン用のグローバル削除関数
     window.removeHackerTab = () => {
         hackerTabsActive--;
         if (hackerTabsActive <= 0) {
@@ -885,8 +969,6 @@ function createHackerTabs() {
         tab.style.boxShadow = '0 0 15px #000';
         tab.style.display = 'flex';
         tab.style.flexDirection = 'column';
-        
-        // 画面の真ん中より下側にバラバラに配置
         tab.style.top = (Math.random() * 45 + 40) + '%'; 
         tab.style.left = (Math.random() * 70 + 5) + '%';
         
@@ -920,9 +1002,10 @@ function applyBlurEffect() {
         } else {
             playScreen.style.filter = `blur(${blurAmount}px)`;
         }
-    }, 1000); // 10秒かけて0になる
+    }, 1000);
 }
 
+// 攻撃受信ハンドル
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
 
@@ -968,9 +1051,47 @@ function handleIncomingAttack(attack) {
         return;
     }
 
+    // 花火回避処理
+    if (attack.type === "fireworks_dodge") {
+        showDodgeButton();
+        return;
+    }
+
     if (attack.duration > 0) {
         applyJamming(attack.duration);
     }
+}
+
+// 花火の「避ける」ボタン表示
+function showDodgeButton() {
+    if (dodgeBtnActive) return;
+    dodgeBtnActive = true;
+    const btn = document.createElement("button");
+    btn.id = "dodge-fireworks-btn";
+    btn.innerText = "避ける！";
+    btn.style.position = "fixed";
+    btn.style.top = "50%"; btn.style.left = "50%";
+    btn.style.transform = "translate(-50%, -50%)";
+    btn.style.padding = "40px 80px";
+    btn.style.fontSize = "40px";
+    btn.style.zIndex = "10000";
+    btn.style.background = "red";
+    btn.style.color = "white";
+    btn.onclick = () => {
+        btn.remove();
+        dodgeBtnActive = false;
+        showBattleAlert("👍 回避成功！", "var(--accent-blue)");
+    };
+    document.body.appendChild(btn);
+
+    setTimeout(() => {
+        if (document.getElementById("dodge-fireworks-btn")) {
+            btn.remove();
+            dodgeBtnActive = false;
+            showBattleAlert("💥 回避失敗！8秒スタン", "var(--accent-red)");
+            applyJamming(8000);
+        }
+    }, 1000);
 }
 
 function applyJamming(durationMs) {
@@ -990,6 +1111,83 @@ window.openSingleSelect = () => {
     if (myPartyId || isMatchmaking) return; 
     openScreen("screen-single-select");
 };
+
+// ストーリーモード画面を開く
+window.openStoryMode = () => {
+    if (myPartyId || isMatchmaking) return alert("パーティー中はストーリーを遊べません");
+    openScreen("screen-story-select");
+    renderStoryMap();
+};
+
+function renderStoryMap() {
+    const container = el("story-map-container");
+    container.innerHTML = "";
+    
+    // ワールド1・2の生成
+    for (let w = 1; w <= 2; w++) {
+        const wDiv = document.createElement("div");
+        wDiv.className = "world-section";
+        wDiv.innerHTML = `<h3>ワールド ${w}</h3>`;
+        
+        for (let l = 1; l <= 5; l++) {
+            const btn = document.createElement("button");
+            const isUnlocked = (w < storyStage.world) || (w === storyStage.world && l <= storyStage.level);
+            btn.className = isUnlocked ? "btn-story-level" : "btn-story-level locked";
+            btn.innerText = `${w}-${l}${l === 5 ? " (BOSS)" : ""}`;
+            btn.disabled = !isUnlocked;
+            btn.onclick = () => startStoryLevel(w, l);
+            wDiv.appendChild(btn);
+        }
+        container.appendChild(wDiv);
+    }
+}
+
+window.startStoryLevel = (w, l) => {
+    isStoryMode = true;
+    currentStoryWorld = w;
+    currentStoryLevel = l;
+    
+    // CPUの強さ設定
+    let cpuSpeed = 1000; // 初期
+    if (w === 1) cpuSpeed = 1500 - (l * 200);
+    if (w === 2) cpuSpeed = 800 - (l * 100);
+    
+    // 単発設定
+    currentWords = WORD_DB[w === 1 ? "easy" : "normal"];
+    isCustomGame = false;
+    openScreen("screen-play");
+    startGame(60);
+    
+    // CPU起動（ダミー対戦相手としてスコアを伸ばすロジック等）
+    startCPULogic(cpuSpeed, w, l);
+};
+
+// CPUロジック (簡易版)
+function startCPULogic(speed, w, l) {
+    let cpuScore = 0;
+    const cpuTimer = setInterval(() => {
+        if (!gameActive) {
+            clearInterval(cpuTimer);
+            return;
+        }
+        cpuScore += 100;
+        
+        // ボス攻撃
+        if (l === 5) {
+            if (w === 1 && Math.random() < 0.1) {
+                 // パンチ
+                 applyJamming(3000);
+                 showBattleAlert("👹 ボスのパンチ！", "red");
+            }
+            if (w === 2 && Math.random() < 0.1) {
+                 // リボルバー
+                 applyJamming(6000);
+                 score = Math.max(0, score - 500);
+                 showBattleAlert("👹 ボスのリボルバー！", "red");
+            }
+        }
+    }, speed);
+}
 
 window.startSingle = (diff) => { 
     if (myPartyId || isMatchmaking) return; 
@@ -1121,6 +1319,10 @@ get(userRef).then(snap => {
         }
         if(data.equipped !== undefined) {
             equippedSkill = data.equipped;
+        }
+        // ストーリー進捗ロード
+        if(data.storyStage) {
+            storyStage = data.storyStage;
         }
     }
     saveAndDisplayData(); 
