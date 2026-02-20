@@ -655,7 +655,7 @@ window.activateSkill = () => {
         showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
     } 
     else if (skill.id === "autotype") {
-        startAutoTypeEngine(3000, 70); // 0.5秒で5文字(100ms間隔)
+        startAutoTypeEngine(3000, 1); // 0.5秒で5文字(100ms間隔)
         showBattleAlert("⚡ 自動入力発動！", "var(--accent-blue)");
     } 
     else if (skill.id === "comboUp") {
