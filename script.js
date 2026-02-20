@@ -19,8 +19,38 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- 音声定義 ---
-const sounds = {
+// --- 拡張: 安全なローカルストレージ操作 ---
+/**
+ * ローカルストレージから安全にデータを取得します
+ * @param {string} key - 取得するキー
+ * @param {any} defaultValue - データが存在しない、またはエラー時のデフォルト値
+ * @returns {any} 取得したデータ、またはデフォルト値
+ */
+function safeGetLocalStorage(key, defaultValue) {
+    try {
+        const item = localStorage.getItem(key);
+        return item !== null ? item : defaultValue;
+    } catch (error) {
+        console.warn(`localStorageの取得に失敗しました (キー: ${key}):`, error);
+        return defaultValue;
+    }
+}
+
+/**
+ * ローカルストレージに安全にデータを保存します
+ * @param {string} key - 保存するキー
+ * @param {string} value - 保存する値
+ */
+function safeSetLocalStorage(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch (error) {
+        console.warn(`localStorageの保存に失敗しました (キー: ${key}):`, error);
+    }
+}
+
+// --- 音声定義と拡張: 安全な再生エンジン ---
+const rawSounds = {
     type: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
     miss: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
     correct: new Audio("https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"),
@@ -28,13 +58,39 @@ const sounds = {
     notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3")
 };
 
+const sounds = {
+    type: {
+        currentTime: 0,
+        play: () => {
+            rawSounds.type.currentTime = 0;
+            rawSounds.type.play().catch(e => console.warn("Audio play blocked:", e));
+        }
+    },
+    miss: {
+        currentTime: 0,
+        play: () => {
+            rawSounds.miss.currentTime = 0;
+            rawSounds.miss.play().catch(e => console.warn("Audio play blocked:", e));
+        }
+    },
+    correct: {
+        play: () => rawSounds.correct.play().catch(e => console.warn("Audio play blocked:", e))
+    },
+    finish: {
+        play: () => rawSounds.finish.play().catch(e => console.warn("Audio play blocked:", e))
+    },
+    notify: {
+        play: () => rawSounds.notify.play().catch(e => console.warn("Audio play blocked:", e))
+    }
+};
+
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
 const generateId = () => Math.floor(10000000 + Math.random() * 89999999).toString();
 
-let myId = localStorage.getItem("ramo_uid") || generateId();
-localStorage.setItem("ramo_uid", myId);
-let myName = localStorage.getItem("ramo_name") || `園名：${generateId()}`;
+let myId = safeGetLocalStorage("ramo_uid", generateId());
+safeSetLocalStorage("ramo_uid", myId);
+let myName = safeGetLocalStorage("ramo_name", `園名：${generateId()}`);
 let myPartyId = null;
 let isLeader = false;
 let gameActive = false;
@@ -47,15 +103,28 @@ let currentWords = [];
 let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
-let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
+
+let parsedCustomWords;
+try {
+    parsedCustomWords = JSON.parse(safeGetLocalStorage("ramo_custom", null));
+} catch(e) {
+    parsedCustomWords = null;
+}
+let customWords = parsedCustomWords || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
 let gameInterval; 
 
 let isCustomGame = false;
-let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
+let coins = parseInt(safeGetLocalStorage("ramo_coins", "0")) || 0;
 
 // --- スキルシステム用グローバル変数 ---
-let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
-let equippedSkill = localStorage.getItem("ramo_equipped") || "none";
+let parsedOwnedSkills;
+try {
+    parsedOwnedSkills = JSON.parse(safeGetLocalStorage("ramo_skills", null));
+} catch(e) {
+    parsedOwnedSkills = null;
+}
+let ownedSkills = parsedOwnedSkills || ["none"];
+let equippedSkill = safeGetLocalStorage("ramo_equipped", "none");
 let currentCooldown = 0;
 let maxCooldown = 0;
 let cooldownTimer = null;
@@ -77,10 +146,13 @@ const SKILL_DB = {
 };
 
 // --- セーブデータ保存・表示更新用関数 ---
+/**
+ * 現在のプレイヤーデータ（コイン、スキル情報）をLocalStorageとFirebaseに保存し、UIを更新します。
+ */
 function saveAndDisplayData() {
-    localStorage.setItem("ramo_coins", coins);
-    localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
-    localStorage.setItem("ramo_equipped", equippedSkill);
+    safeSetLocalStorage("ramo_coins", coins.toString());
+    safeSetLocalStorage("ramo_skills", JSON.stringify(ownedSkills));
+    safeSetLocalStorage("ramo_equipped", equippedSkill);
     
     if (el("coin-amount")) el("coin-amount").innerText = coins;
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
@@ -100,6 +172,9 @@ const WORD_DB = {
 };
 
 // --- ボタン状態の制御 ---
+/**
+ * 現在のステータス（マッチメイキング中、パーティ参加中など）に応じて、各種ボタンの有効・無効を切り替えます。
+ */
 function updateButtonStates() {
     const isBusy = myPartyId !== null || isMatchmaking;
     const btnSingle = el("btn-single");
@@ -120,7 +195,7 @@ function updateButtonStates() {
 // --- リアルタイム名前更新 ---
 window.updateMyName = () => {
     myName = el("my-name-input").value || `園名：${myId}`;
-    localStorage.setItem("ramo_name", myName);
+    safeSetLocalStorage("ramo_name", myName);
     update(ref(db, `users/${myId}`), { name: myName });
 };
 
@@ -137,6 +212,11 @@ const KANA_MAP = {
     'ー':['-']
 };
 
+/**
+ * 入力されたひらがな文字列から、可能な全てのローマ字入力パターンの配列を生成します。
+ * @param {string} kana - 変換対象のひらがな文字列
+ * @returns {string[]} ローマ字のパターンの配列
+ */
 function getRomaPatterns(kana) {
     let patterns = [""];
     for (let i = 0; i < kana.length; i++) {
@@ -161,12 +241,19 @@ function getRomaPatterns(kana) {
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
     if (!code || code === myId) return;
-    const snap = await get(ref(db, `users/${code}`));
-    if (snap.exists()) {
-        update(ref(db, `users/${myId}/friends/${code}`), { active: true });
-        update(ref(db, `users/${code}/friends/${myId}`), { active: true });
-        el("friend-code-input").value = "";
-    } else { alert("コードが見つかりません"); }
+    try {
+        const snap = await get(ref(db, `users/${code}`));
+        if (snap.exists()) {
+            update(ref(db, `users/${myId}/friends/${code}`), { active: true });
+            update(ref(db, `users/${code}/friends/${myId}`), { active: true });
+            el("friend-code-input").value = "";
+        } else { 
+            alert("コードが見つかりません"); 
+        }
+    } catch (error) {
+        console.error("フレンド追加エラー:", error);
+        alert("通信エラーが発生しました。");
+    }
 };
 
 onValue(ref(db, `users/${myId}/friends`), (snap) => {
@@ -195,7 +282,10 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
     });
 });
 
-window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`)); remove(ref(db, `users/${fid}/friends/${myId}`)); };
+window.removeFriend = (fid) => { 
+    remove(ref(db, `users/${myId}/friends/${fid}`)); 
+    remove(ref(db, `users/${fid}/friends/${myId}`)); 
+};
 
 // --- パーティー機能 ---
 window.inviteToParty = (fid) => {
@@ -213,7 +303,9 @@ onValue(ref(db, `users/${myId}/invite`), snap => {
         el("invite-msg").innerText = `${inv.from}からパーティーの招待！`;
         el("invite-toast").classList.remove("hidden");
         sounds.notify.play();
-    } else { el("invite-toast").classList.add("hidden"); }
+    } else { 
+        el("invite-toast").classList.add("hidden"); 
+    }
 });
 
 window.acceptInvite = () => {
@@ -223,12 +315,16 @@ window.acceptInvite = () => {
         return;
     }
     get(ref(db, `users/${myId}/invite`)).then(s => {
+        if (!s.exists()) return;
         const pId = s.val().partyId;
         update(ref(db, `parties/${pId}/members/${myId}`), { name: myName, score: 0, ready: false });
         update(ref(db, `users/${myId}`), { partyId: pId });
         remove(ref(db, `users/${myId}/invite`));
+    }).catch(error => {
+        console.error("招待承諾エラー:", error);
     });
 };
+
 window.declineInvite = () => remove(ref(db, `users/${myId}/invite`));
 
 window.leaveParty = () => {
@@ -274,7 +370,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
             if (p.state === "playing" && !gameActive) {
                 el("ready-overlay").classList.add("hidden");
-                currentWords = WORD_DB[p.diff]; 
+                currentWords = WORD_DB[p.diff] || WORD_DB["normal"]; 
                 isCustomGame = false;
                 startGame(p.time);
             }
@@ -320,6 +416,9 @@ window.equipSkill = (skillId) => {
     renderShop();
 };
 
+/**
+ * ショップ画面のUIを最新状態にレンダリングします。
+ */
 function renderShop() {
     const shopList = el("shop-list");
     shopList.innerHTML = "";
@@ -349,6 +448,10 @@ function renderShop() {
 }
 
 // --- ゲームエンジン ---
+/**
+ * 指定されたIDのスクリーンを表示し、他のスクリーンを非表示にします。
+ * @param {string} id - 表示するスクリーンの要素ID
+ */
 function openScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
     const target = el(id);
@@ -367,6 +470,9 @@ window.goHome = () => {
     updateButtonStates();
 };
 
+/**
+ * 次の問題をランダムに抽出し、画面にセットします。
+ */
 function nextQuestion() {
     if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
     let randomIdx = Math.floor(Math.random() * currentWords.length);
@@ -376,9 +482,12 @@ function nextQuestion() {
     currentRoma = patterns[0]; romaIdx = 0; renderRoma();
 }
 
+/**
+ * ローマ字入力の進捗状況を画面に反映します。
+ */
 function renderRoma() {
-    el("q-done").innerText = currentRoma.substring(0, romaIdx);
-    el("q-todo").innerText = currentRoma.substring(romaIdx);
+    if (el("q-done")) el("q-done").innerText = currentRoma.substring(0, romaIdx);
+    if (el("q-todo")) el("q-todo").innerText = currentRoma.substring(romaIdx);
 }
 
 // タイピング成功処理を分離 (手動・自動の両方で利用)
@@ -388,7 +497,7 @@ function processCorrectType() {
     score += (10 + combo) * comboMultiplier; 
     combo += 1 * comboMultiplier; 
     
-    sounds.type.currentTime = 0; sounds.type.play();
+    sounds.type.play();
     
     if (romaIdx >= currentRoma.length) { 
         sounds.correct.play(); 
@@ -396,8 +505,8 @@ function processCorrectType() {
         nextQuestion(); 
     }
     
-    el("stat-score").innerText = score; 
-    el("stat-combo").innerText = combo;
+    if (el("stat-score")) el("stat-score").innerText = score; 
+    if (el("stat-combo")) el("stat-combo").innerText = combo;
     renderRoma();
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 }
@@ -417,13 +526,17 @@ window.addEventListener("keydown", e => {
 
     if (e.key === currentRoma[romaIdx]) {
         processCorrectType();
-    } else if (!["Shift","Alt","Control","Space"].includes(e.key)) {
+    } else if (!["Shift","Alt","Control","Space", "Meta", "Tab", "Escape"].includes(e.key)) {
         combo = 0; 
-        sounds.miss.currentTime = 0; sounds.miss.play();
-        el("stat-combo").innerText = combo;
+        sounds.miss.play();
+        if (el("stat-combo")) el("stat-combo").innerText = combo;
     }
 });
 
+/**
+ * 指定された秒数でタイピングゲームを開始します。
+ * @param {number} sec - ゲームの制限時間（秒）
+ */
 function startGame(sec) {
     clearInterval(gameInterval);
     gameActive = true; 
@@ -437,7 +550,7 @@ function startGame(sec) {
     setupSkillUI();
 
     if (!myPartyId) {
-        el("rival-display").classList.add("hidden");
+        if (el("rival-display")) el("rival-display").classList.add("hidden");
     } else {
         // 対戦時は妨害（攻撃）リスナーを登録
         attackListenerReference = ref(db, `parties/${myPartyId}/members/${myId}/attacks`);
@@ -453,13 +566,14 @@ function startGame(sec) {
     }
 
     nextQuestion(); 
-    el("stat-score").innerText = "0"; 
-    el("stat-combo").innerText = "0";
+    if (el("stat-score")) el("stat-score").innerText = "0"; 
+    if (el("stat-combo")) el("stat-combo").innerText = "0";
+    if (el("timer-display")) el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
     
     gameInterval = setInterval(() => {
         if(!gameActive) { clearInterval(gameInterval); return; }
         timer--; 
-        el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
+        if (el("timer-display")) el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
         if (myPartyId) syncRivals();
         if (timer <= 0) { 
             clearInterval(gameInterval); 
@@ -468,20 +582,28 @@ function startGame(sec) {
     }, 1000);
 }
 
+/**
+ * リアルタイムで対戦相手のスコア状況を同期・表示します。
+ */
 function syncRivals() {
     if (!myPartyId) return;
-    el("rival-display").classList.remove("hidden");
+    if (el("rival-display")) el("rival-display").classList.remove("hidden");
     const isHidden = timer < (duration / 2);
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
         const val = s.val();
-        if(val) {
+        if(val && el("rival-list")) {
             el("rival-list").innerHTML = Object.values(val).map(m => `
                 <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
             `).join("");
         }
+    }).catch(error => {
+        console.warn("対戦相手情報の同期エラー:", error);
     });
 }
 
+/**
+ * タイマー終了時、またはゲーム中断時の処理を実行し、結果画面へ遷移します。
+ */
 function endGame() {
     gameActive = false; 
     clearInterval(gameInterval);
@@ -518,33 +640,37 @@ function endGame() {
                     saveAndDisplayData();
                 }
 
-                el("ranking-box").innerHTML = res.map((item, i) => {
-                    const m = item[1];
-                    return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
-                }).join("");
-                
-                let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
-                el("ranking-box").innerHTML += `
-                    <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                        <span>結果</span><span>${coinText}</span>
-                    </div>`;
+                if (el("ranking-box")) {
+                    el("ranking-box").innerHTML = res.map((item, i) => {
+                        const m = item[1];
+                        return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
+                    }).join("");
+                    
+                    let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
+                    el("ranking-box").innerHTML += `
+                        <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                            <span>結果</span><span>${coinText}</span>
+                        </div>`;
+                }
 
                 if (isLeader && !myPartyId.startsWith("match_")) {
                     update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
                 }
             }
-        });
+        }).catch(error => console.error("結果取得エラー:", error));
     } else { 
         if (earnedCoins > 0) {
             coins += earnedCoins;
             saveAndDisplayData();
         }
-        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
-        let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
-        el("ranking-box").innerHTML += `
-            <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                <span>結果</span><span>${coinText}</span>
-            </div>`;
+        if (el("ranking-box")) {
+            el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
+            let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
+            el("ranking-box").innerHTML += `
+                <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                    <span>結果</span><span>${coinText}</span>
+                </div>`;
+        }
     }
 }
 
@@ -555,10 +681,10 @@ function setupSkillUI() {
     const skillNameText = el("skill-btn-name");
     
     if (equippedSkill && equippedSkill !== "none") {
-        actionBox.classList.remove("hidden");
-        skillNameText.innerText = SKILL_DB[equippedSkill].name;
+        if (actionBox) actionBox.classList.remove("hidden");
+        if (skillNameText && SKILL_DB[equippedSkill]) skillNameText.innerText = SKILL_DB[equippedSkill].name;
     } else {
-        actionBox.classList.add("hidden");
+        if (actionBox) actionBox.classList.add("hidden");
     }
 }
 
@@ -572,12 +698,16 @@ function resetSkillState() {
     comboMultiplier = 1;
     timeSlipUsed = false;
     
-    el("jamming-overlay").classList.add("hidden");
-    el("skill-cooldown-bar").style.height = "0%";
-    el("in-game-skill-btn").classList.remove("cooldown");
-    el("skill-status-text").innerText = "準備完了！(スペースキーで発動)";
+    if (el("jamming-overlay")) el("jamming-overlay").classList.add("hidden");
+    if (el("skill-cooldown-bar")) el("skill-cooldown-bar").style.height = "0%";
+    if (el("in-game-skill-btn")) el("in-game-skill-btn").classList.remove("cooldown");
+    if (el("skill-status-text")) el("skill-status-text").innerText = "準備完了！(スペースキーで発動)";
 }
 
+/**
+ * スキルのクールダウンタイマーを開始します。
+ * @param {number} seconds - クールダウン時間（秒）
+ */
 function startSkillCooldown(seconds) {
     if (seconds <= 0) return;
     currentCooldown = seconds;
@@ -587,28 +717,34 @@ function startSkillCooldown(seconds) {
     const statusText = el("skill-status-text");
     const bar = el("skill-cooldown-bar");
     
-    btn.classList.add("cooldown");
-    statusText.innerText = `冷却中... (${currentCooldown}s)`;
-    bar.style.height = "100%";
+    if (btn) btn.classList.add("cooldown");
+    if (statusText) statusText.innerText = `冷却中... (${currentCooldown}s)`;
+    if (bar) bar.style.height = "100%";
     
     clearInterval(cooldownTimer);
     cooldownTimer = setInterval(() => {
         currentCooldown--;
         if (currentCooldown <= 0) {
             clearInterval(cooldownTimer);
-            btn.classList.remove("cooldown");
-            statusText.innerText = "準備完了！(スペースキーで発動)";
-            bar.style.height = "0%";
+            if (btn) btn.classList.remove("cooldown");
+            if (statusText) statusText.innerText = "準備完了！(スペースキーで発動)";
+            if (bar) bar.style.height = "0%";
         } else {
-            statusText.innerText = `冷却中... (${currentCooldown}s)`;
+            if (statusText) statusText.innerText = `冷却中... (${currentCooldown}s)`;
             const pct = (currentCooldown / maxCooldown) * 100;
-            bar.style.height = `${pct}%`;
+            if (bar) bar.style.height = `${pct}%`;
         }
     }, 1000);
 }
 
+/**
+ * バトル中のエフェクト通知を画面に表示します。
+ * @param {string} text - 表示するテキスト
+ * @param {string} color - テキストの色
+ */
 function showBattleAlert(text, color) {
     const alertEl = el("battle-alert");
+    if (!alertEl) return;
     alertEl.innerText = text;
     alertEl.style.color = color;
     alertEl.style.textShadow = `0 0 20px ${color}`;
@@ -622,6 +758,9 @@ function showBattleAlert(text, color) {
     setTimeout(() => alertEl.classList.add("hidden"), 2000);
 }
 
+/**
+ * パーティーメンバーに攻撃データを送信します。
+ */
 function sendAttackToOthers(type, duration, stealAmount) {
     if (!myPartyId) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
@@ -639,7 +778,7 @@ function sendAttackToOthers(type, duration, stealAmount) {
                 }
             });
         }
-    });
+    }).catch(e => console.error("攻撃送信エラー:", e));
 }
 
 window.activateSkill = () => {
@@ -681,8 +820,8 @@ window.activateSkill = () => {
         timeSlipUsed = true;
         
         // 1回制限のUI処理
-        el("in-game-skill-btn").classList.add("cooldown");
-        el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
+        if (el("in-game-skill-btn")) el("in-game-skill-btn").classList.add("cooldown");
+        if (el("skill-status-text")) el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
         showBattleAlert("⏳ タイムスリップ！", "#FFD700");
     }
 
@@ -691,7 +830,7 @@ window.activateSkill = () => {
     }
 
     // スコア変動があった場合は即時反映
-    el("stat-score").innerText = score;
+    if (el("stat-score")) el("stat-score").innerText = score;
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 };
 
@@ -713,14 +852,14 @@ function handleIncomingAttack(attack) {
     // スコア奪取処理
     if (attack.stealAmount > 0) {
         score = Math.max(0, score - attack.stealAmount);
-        el("stat-score").innerText = score;
+        if (el("stat-score")) el("stat-score").innerText = score;
         if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
     }
 
     // タイムスリップ専用処理 (スコア半減 + ジャミング)
     if (attack.type === "timeslip") {
         score = Math.floor(score / 2);
-        el("stat-score").innerText = score;
+        if (el("stat-score")) el("stat-score").innerText = score;
         if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
         applyJamming(3000);
         return;
@@ -734,13 +873,13 @@ function handleIncomingAttack(attack) {
 
 function applyJamming(durationMs) {
     isJamming = true;
-    el("jamming-overlay").classList.remove("hidden");
+    if (el("jamming-overlay")) el("jamming-overlay").classList.remove("hidden");
     sounds.miss.play(); // 妨害を受けた警告音として流用
     
     clearTimeout(jammingTimer);
     jammingTimer = setTimeout(() => {
         isJamming = false;
-        el("jamming-overlay").classList.add("hidden");
+        if (el("jamming-overlay")) el("jamming-overlay").classList.add("hidden");
     }, durationMs);
 }
 
@@ -752,7 +891,7 @@ window.openSingleSelect = () => {
 
 window.startSingle = (diff) => { 
     if (myPartyId || isMatchmaking) return; 
-    currentWords = WORD_DB[diff]; 
+    currentWords = WORD_DB[diff] || WORD_DB["normal"]; 
     isCustomGame = false;
     openScreen("screen-play"); 
     startGame(60); 
@@ -767,8 +906,8 @@ window.openFriendBattle = () => {
 
 window.launchBattle = () => {
     if (!myPartyId || !isLeader) return;
-    const selectedTime = parseInt(el("setup-time").value, 10);
-    const selectedDiff = el("setup-diff").value;
+    const selectedTime = parseInt(el("setup-time")?.value || "30", 10);
+    const selectedDiff = el("setup-diff")?.value || "normal";
     update(ref(db, `parties/${myPartyId}`), {
         state: "ready_check",
         time: selectedTime,
@@ -790,6 +929,7 @@ window.openOnlineMatch = () => {
     updateButtonStates();
     set(ref(db, `matchmaking/${n}/${myId}`), { name: myName });
     alert("マッチング待機中...");
+    
     onValue(ref(db, `matchmaking/${n}`), snap => {
         const players = snap.val();
         if (players && Object.keys(players).length >= n) {
@@ -827,7 +967,9 @@ window.removeCustomWord = (index) => {
 };
 
 function renderEditor() {
-    el("editor-list").innerHTML = customWords.map((w, i) => `
+    const listEl = el("editor-list");
+    if (!listEl) return;
+    listEl.innerHTML = customWords.map((w, i) => `
         <div class="editor-row">
             <input type="text" class="editor-input" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="2~20文字のひらがな">
             <button class="btn-kick" onclick="window.removeCustomWord(${i})">削除</button>
@@ -846,15 +988,19 @@ window.saveEditor = () => {
     const valid = customWords.filter(w => w && w.length >= 2 && w.length <= 20);
     if (valid.length < 5) return alert("最低5個必要です (2~20文字で入力してください)");
     customWords = valid; 
-    localStorage.setItem("ramo_custom", JSON.stringify(customWords));
+    safeSetLocalStorage("ramo_custom", JSON.stringify(customWords));
     alert("完成しました！"); 
     window.goHome();
 };
 
 window.playCustom = () => { 
     if (myPartyId || isMatchmaking) return; 
-    const savedWords = JSON.parse(localStorage.getItem("ramo_custom"));
-    if (!savedWords || savedWords.length < 5) {
+    const savedWordsStr = safeGetLocalStorage("ramo_custom", null);
+    if (!savedWordsStr) {
+        return alert("まずはエディターで5個以上作って保存してください"); 
+    }
+    const savedWords = JSON.parse(savedWordsStr);
+    if (savedWords.length < 5) {
         return alert("まずはエディターで5個以上作って保存してください"); 
     }
     customWords = savedWords; 
@@ -865,8 +1011,8 @@ window.playCustom = () => {
 };
 
 // --- 初期化 ---
-el("my-id-display").innerText = myId;
-el("my-name-input").value = myName;
+if (el("my-id-display")) el("my-id-display").innerText = myId;
+if (el("my-name-input")) el("my-name-input").value = myName;
 const userRef = ref(db, `users/${myId}`);
 
 get(userRef).then(snap => {
@@ -883,7 +1029,7 @@ get(userRef).then(snap => {
         }
     }
     saveAndDisplayData(); 
-});
+}).catch(e => console.warn("初期データ取得エラー:", e));
 
 update(userRef, { name: myName, status: "online", partyId: null });
 onDisconnect(userRef).update({ status: "offline" });
