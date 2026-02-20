@@ -76,8 +76,20 @@ body, html {
 
 /* サイドバー */
 #sidebar { width: 380px; background: var(--panel-bg); border-left: 1px solid var(--glass); padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-.side-panel { background: var(--glass); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); }
+.side-panel { background: var(--glass); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
 .panel-title { font-weight: 900; color: var(--accent-blue); margin-bottom: 15px; border-left: 5px solid var(--accent-blue); padding-left: 10px; }
+
+/* スクロールバー追加 (バグ修正箇所) */
+.side-scroll {
+    flex: 1;
+    max-height: 250px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 5px;
+}
+.side-scroll::-webkit-scrollbar { width: 6px; }
+.side-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 3px; }
+.side-scroll::-webkit-scrollbar-thumb { background: var(--accent-purple); border-radius: 3px; }
 
 input[type="text"], .cyber-select { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 10px; width: 100%; border-radius: 5px; font-family: inherit; }
 .code-display { margin-top: 10px; font-size: 0.8rem; color: var(--accent-purple); }
@@ -153,6 +165,11 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
     overflow-y: auto;
     padding: 10px;
 }
+
+/* ショップのスクロールバーも綺麗に */
+.shop-grid::-webkit-scrollbar { width: 8px; }
+.shop-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+.shop-grid::-webkit-scrollbar-thumb { background: var(--accent-purple); border-radius: 4px; }
 
 .shop-item {
     background: rgba(0, 0, 0, 0.6);
@@ -333,4 +350,72 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
 @keyframes flashRed {
     from { background: rgba(255, 0, 0, 0.1); }
     to { background: rgba(255, 0, 0, 0.4); }
+}
+
+/* =========================================
+   ログインボーナス ＆ イベントUI追加分
+   ========================================= */
+#login-bonus-btn {
+    position: absolute;
+    top: 20px;
+    left: 40px;
+    font-size: 3rem;
+    cursor: pointer;
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8));
+    transition: transform 0.2s;
+    z-index: 50;
+    animation: floatGift 3s ease-in-out infinite;
+}
+#login-bonus-btn:hover {
+    transform: scale(1.1);
+}
+@keyframes floatGift {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+    display: flex; justify-content: center; align-items: center; z-index: 2000;
+}
+
+.modal-content {
+    background: var(--panel-bg); border: 2px solid var(--accent-purple);
+    padding: 30px; border-radius: 15px; box-shadow: 0 0 40px var(--accent-purple);
+    text-align: center; max-width: 600px; width: 90%;
+}
+
+.days-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0;
+}
+.day-item {
+    background: rgba(255,255,255,0.05); padding: 15px 5px; border-radius: 10px;
+    border: 1px solid var(--glass); font-weight: bold;
+}
+.day-item.claimed {
+    border-color: var(--accent-green); background: rgba(57, 255, 20, 0.2);
+    color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green);
+}
+.day-item.today {
+    border-color: #FFD700; box-shadow: 0 0 15px #FFD700;
+}
+.special-day {
+    grid-column: span 2; background: rgba(188,0,255,0.2); border-color: var(--accent-purple);
+}
+
+.event-banner {
+    background: linear-gradient(45deg, rgba(188, 0, 255, 0.3), rgba(0, 242, 255, 0.3));
+    border: 2px solid var(--accent-blue);
+    border-radius: 15px; padding: 15px; margin-bottom: 25px; width: 100%; max-width: 700px;
+    text-align: center; box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+    animation: pulseBorder 2s infinite alternate;
+}
+.event-banner h3 { margin: 0 0 10px 0; color: #FFD700; text-shadow: 0 0 10px #FFD700; }
+.event-banner p { margin: 0 0 10px 0; font-weight: bold; }
+.event-timer-text { font-family: 'JetBrains Mono'; font-size: 1.5rem; color: var(--accent-green); font-weight: 900; }
+
+@keyframes pulseBorder {
+    from { box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+    to { box-shadow: 0 0 25px rgba(0, 242, 255, 0.8); }
 }
