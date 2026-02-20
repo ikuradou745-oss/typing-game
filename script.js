@@ -69,7 +69,7 @@ let attackListenerReference = null;
 // スキルのデータ定義
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
-    autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で（あいうえおを0.1秒ぐらい）自動タイピング" },
+    autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 10, desc: "3秒間爆速で（あいうえおを0.35秒ぐらい）自動タイピング" },
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
@@ -655,7 +655,7 @@ window.activateSkill = () => {
         showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
     } 
     else if (skill.id === "autotype") {
-        startAutoTypeEngine(3000, 20); // 0.5秒で5文字(100ms間隔)
+        startAutoTypeEngine(3000, 150); // 0.5秒で5文字(100ms間隔)
         showBattleAlert("⚡ 自動入力発動！", "var(--accent-blue)");
     } 
     else if (skill.id === "comboUp") {
