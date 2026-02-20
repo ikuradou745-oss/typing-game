@@ -27,21 +27,25 @@ body, html {
     animation: move-bg 20s linear infinite;
     z-index: -1;
 }
-@keyframes move-bg { from { transform: perspective(1000px) rotateX(60deg) translateY(0); } to { transform: perspective(1000px) rotateX(60deg) translateY(60px); } }
+@keyframes move-bg { 
+    from { transform: perspective(1000px) rotateX(60deg) translateY(0); } 
+    to { transform: perspective(1000px) rotateX(60deg) translateY(60px); } 
+}
 
 #app { display: flex; height: 100vh; width: 100vw; }
 
 /* メインエリア */
-#main-area { flex: 1; display: flex; flex-direction: column; padding: 40px; position: relative; }
+#main-area { flex: 1; display: flex; flex-direction: column; padding: 40px; position: relative; overflow: hidden; }
 .header-logo {
     font-family: 'Exo 2', sans-serif; font-size: 3rem; font-weight: 900;
     background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.4));
     margin-bottom: 20px;
+    text-align: center;
 }
 
-.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; width: 100%; }
 .hidden { display: none !important; }
 
 /* ボタン */
@@ -57,7 +61,6 @@ body, html {
 .gray-btn { border-color: #555; }
 .purple-btn { border-color: var(--accent-purple); }
 
-/* 無効化状態のボタン (待機中・パーティー中用に追加) */
 .action-btn:disabled, .action-btn.disabled {
     background: rgba(30, 30, 30, 0.8);
     border-color: #444;
@@ -69,23 +72,25 @@ body, html {
 
 /* プレイ画面 */
 #timer-display { font-size: 4rem; color: var(--accent-red); font-family: 'JetBrains Mono'; text-shadow: 0 0 20px var(--accent-red); }
-.word-ja { font-size: 4.5rem; font-weight: 900; margin: 20px 0; text-shadow: 0 0 30px var(--accent-blue); }
+.word-ja { font-size: 4.5rem; font-weight: 900; margin: 20px 0; text-shadow: 0 0 30px var(--accent-blue); text-align: center; }
 .word-roma { font-family: 'JetBrains Mono'; font-size: 2.8rem; background: rgba(0,0,0,0.7); padding: 15px 40px; border-radius: 20px; border: 1px solid var(--glass); }
 .char-done { color: var(--accent-blue); }
 .char-todo { color: #444; }
 
 /* サイドバー */
-#sidebar { width: 380px; background: var(--panel-bg); border-left: 1px solid var(--glass); padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-.side-panel { background: var(--glass); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
+#sidebar { width: 380px; background: var(--panel-bg); border-left: 1px solid var(--glass); padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+.side-panel { background: var(--glass); border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; min-height: 100px; }
 .panel-title { font-weight: 900; color: var(--accent-blue); margin-bottom: 15px; border-left: 5px solid var(--accent-blue); padding-left: 10px; }
 
-/* スクロールバー追加 (バグ修正箇所) */
+/* パーティー・フレンドリストのスクロール修正 */
 .side-scroll {
     flex: 1;
-    max-height: 250px;
+    min-height: 50px;
+    max-height: 300px; /* 高さを制限してスクロールを有効化 */
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: 5px;
+    padding-right: 10px;
+    margin-bottom: 5px;
 }
 .side-scroll::-webkit-scrollbar { width: 6px; }
 .side-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 3px; }
@@ -94,20 +99,24 @@ body, html {
 input[type="text"], .cyber-select { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 10px; width: 100%; border-radius: 5px; font-family: inherit; }
 .code-display { margin-top: 10px; font-size: 0.8rem; color: var(--accent-purple); }
 
-.friend-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.3); margin-bottom: 10px; border-radius: 8px; }
+.friend-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.3); margin-bottom: 10px; border-radius: 8px; border: 1px solid transparent; transition: 0.2s; }
+.friend-item:hover { border-color: var(--accent-blue); }
+
 .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
 .online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
 .offline { background: var(--accent-red); }
 
 /* 招待トースト */
-#invite-toast { position: fixed; top: 20px; left: 20px; z-index: 1000; animation: slideIn 0.3s ease; }
+#invite-toast { position: fixed; top: 20px; left: 20px; z-index: 3000; animation: slideIn 0.3s ease; }
 .toast-content { background: var(--panel-bg); border: 2px solid var(--accent-purple); padding: 20px; border-radius: 15px; box-shadow: 0 0 30px var(--accent-purple); }
 @keyframes slideIn { from { transform: translateX(-110%); } to { transform: translateX(0); } }
 
 /* エディター */
 .editor-scroll { height: 400px; overflow-y: auto; width: 100%; max-width: 600px; padding: 10px; }
 .editor-row { display: flex; gap: 10px; margin-bottom: 10px; }
-.btn-full { width: 100%; padding: 10px; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
+
+/* 共通ボタンパーツ */
+.btn-full { width: 100%; padding: 10px; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; margin-top: 10px; }
 .btn-invite { background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 .btn-kick { background: var(--accent-red); color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
@@ -115,307 +124,78 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
 
 /* フッター＆コイン表示 */
 .footer-container {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
+    position: absolute; bottom: 20px; left: 20px;
+    display: flex; align-items: center; gap: 15px;
 }
 .footer-credit { font-size: 0.9rem; color: #555; }
 .footer-credit span { color: var(--accent-blue); font-weight: 900; }
-
 .coin-display {
-    font-size: 1.2rem;
-    font-family: 'JetBrains Mono', 'M PLUS 1p', sans-serif;
-    font-weight: 900;
-    color: #FFD700;
-    background: rgba(255, 215, 0, 0.1);
-    border: 1px solid #FFD700;
-    padding: 5px 15px;
-    border-radius: 20px;
+    font-size: 1.2rem; font-family: 'JetBrains Mono'; font-weight: 900;
+    color: #FFD700; background: rgba(255, 215, 0, 0.1);
+    border: 1px solid #FFD700; padding: 5px 15px; border-radius: 20px;
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    display: flex; align-items: center; gap: 5px;
 }
 
-.ranking-panel { background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; margin-bottom: 20px; }
-.ranking-row { display: flex; justify-content: space-between; font-size: 1.5rem; padding: 10px 0; border-bottom: 1px solid var(--glass); }
-
-/* =========================================
-   ショップシステム用CSS
-   ========================================= */
-.shop-coin-display {
-    font-size: 1.8rem;
-    color: #FFD700;
-    margin-bottom: 20px;
-    font-weight: bold;
-    text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-}
-
+/* ショップシステム用CSS */
+.shop-coin-display { font-size: 1.8rem; color: #FFD700; margin-bottom: 20px; font-weight: bold; }
 .shop-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 15px;
-    width: 100%;
-    max-width: 900px;
-    max-height: 50vh;
-    overflow-y: auto;
-    padding: 10px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px; width: 100%; max-width: 900px; max-height: 50vh; overflow-y: auto; padding: 10px;
 }
-
-/* ショップのスクロールバーも綺麗に */
-.shop-grid::-webkit-scrollbar { width: 8px; }
-.shop-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
-.shop-grid::-webkit-scrollbar-thumb { background: var(--accent-purple); border-radius: 4px; }
-
 .shop-item {
-    background: rgba(0, 0, 0, 0.6);
-    border: 2px solid var(--accent-purple);
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    text-align: center;
-    transition: 0.3s;
+    background: rgba(0, 0, 0, 0.6); border: 2px solid var(--accent-purple);
+    border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; text-align: center;
 }
 
-.shop-item:hover {
-    box-shadow: 0 0 20px var(--accent-purple);
-    transform: translateY(-5px);
-}
-
-.shop-item h3 {
-    margin: 0;
-    color: var(--accent-blue);
-    font-size: 1.4rem;
-}
-
-.shop-item p {
-    font-size: 0.9rem;
-    color: #ccc;
-    margin: 0;
-    flex-grow: 1;
-}
-
-.shop-item .cost {
-    color: #FFD700;
-    font-weight: bold;
-    font-size: 1.2rem;
-}
-
-.shop-item .cooldown-text {
-    font-size: 0.8rem;
-    color: var(--accent-red);
-}
-
-.shop-btn {
-    background: var(--accent-purple);
-    color: #fff;
-    border: none;
-    padding: 10px;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.shop-btn:hover {
-    background: #d400ff;
-    box-shadow: 0 0 15px var(--accent-purple);
-}
-
-.shop-btn.equipped {
-    background: var(--accent-green);
-    color: #000;
-    box-shadow: 0 0 15px var(--accent-green);
-}
-
-.shop-btn:disabled {
-    background: #555;
-    color: #aaa;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-/* =========================================
-   プレイ画面のスキルシステム用CSS
-   ========================================= */
-#skill-action-box {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-}
-
+/* スキル発動ボタン (プレイ画面) */
+#skill-action-box { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
 #in-game-skill-btn {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background: var(--bg-dark);
-    border: 3px solid var(--accent-purple);
-    color: white;
-    font-weight: bold;
-    font-size: 1.1rem;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 0 20px var(--accent-purple);
-    transition: 0.2s;
-    outline: none;
+    width: 100px; height: 100px; border-radius: 50%; background: var(--bg-dark);
+    border: 3px solid var(--accent-purple); color: white; font-weight: bold;
+    cursor: pointer; position: relative; overflow: hidden; box-shadow: 0 0 20px var(--accent-purple);
 }
 
-#in-game-skill-btn:active {
-    transform: scale(0.95);
-}
-
-#in-game-skill-btn.cooldown {
-    border-color: #555;
-    color: #888;
-    box-shadow: none;
-    cursor: not-allowed;
-}
-
-#skill-cooldown-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 0%;
-    background: rgba(255, 49, 49, 0.5);
-    transition: height 1s linear;
-    z-index: 0;
-}
-
-#skill-btn-name {
-    position: relative;
-    z-index: 1;
-}
-
-#skill-status-text {
-    font-size: 0.8rem;
-    color: var(--accent-purple);
-    font-weight: bold;
-}
-
-/* アラート・妨害エフェクト */
-#battle-alert {
-    position: absolute;
-    top: 30%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 2.5rem;
-    font-weight: 900;
-    color: #fff;
-    text-shadow: 0 0 20px var(--accent-purple);
-    z-index: 100;
-    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
-
-@keyframes popIn {
-    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-    80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-}
-
-#jamming-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(255, 0, 0, 0.2);
-    z-index: 999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    pointer-events: none;
-    animation: flashRed 0.5s infinite alternate;
-}
-
-.jamming-text {
-    font-size: 3rem;
-    font-weight: 900;
-    color: var(--accent-red);
-    text-shadow: 0 0 30px #000, 0 0 20px var(--accent-red);
-    background: rgba(0,0,0,0.7);
-    padding: 20px 50px;
-    border: 3px solid var(--accent-red);
-    border-radius: 10px;
-}
-
-@keyframes flashRed {
-    from { background: rgba(255, 0, 0, 0.1); }
-    to { background: rgba(255, 0, 0, 0.4); }
-}
-
-/* =========================================
-   ログインボーナス ＆ イベントUI追加分
-   ========================================= */
+/* ログインボーナス ＆ イベントUI */
 #login-bonus-btn {
-    position: absolute;
-    top: 20px;
-    left: 40px;
-    font-size: 3rem;
-    cursor: pointer;
+    position: absolute; top: 20px; left: 20px;
+    font-size: 3.5rem; cursor: pointer;
     filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8));
-    transition: transform 0.2s;
-    z-index: 50;
+    z-index: 100; /* 重なり順を上げて確実にクリック可能に */
     animation: floatGift 3s ease-in-out infinite;
-}
-#login-bonus-btn:hover {
-    transform: scale(1.1);
+    pointer-events: auto;
 }
 @keyframes floatGift {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-10px) scale(1.1); }
 }
 
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
-    display: flex; justify-content: center; align-items: center; z-index: 2000;
+    display: flex; justify-content: center; align-items: center; z-index: 5000;
 }
-
 .modal-content {
     background: var(--panel-bg); border: 2px solid var(--accent-purple);
     padding: 30px; border-radius: 15px; box-shadow: 0 0 40px var(--accent-purple);
     text-align: center; max-width: 600px; width: 90%;
 }
+.days-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+.day-item { background: rgba(255,255,255,0.05); padding: 15px 5px; border-radius: 10px; border: 1px solid var(--glass); font-weight: bold; }
+.day-item.claimed { border-color: var(--accent-green); color: var(--accent-green); }
 
-.days-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0;
-}
-.day-item {
-    background: rgba(255,255,255,0.05); padding: 15px 5px; border-radius: 10px;
-    border: 1px solid var(--glass); font-weight: bold;
-}
-.day-item.claimed {
-    border-color: var(--accent-green); background: rgba(57, 255, 20, 0.2);
-    color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green);
-}
-.day-item.today {
-    border-color: #FFD700; box-shadow: 0 0 15px #FFD700;
-}
-.special-day {
-    grid-column: span 2; background: rgba(188,0,255,0.2); border-color: var(--accent-purple);
-}
-
+/* イベントバナーのスタイル */
 .event-banner {
     background: linear-gradient(45deg, rgba(188, 0, 255, 0.3), rgba(0, 242, 255, 0.3));
     border: 2px solid var(--accent-blue);
-    border-radius: 15px; padding: 15px; margin-bottom: 25px; width: 100%; max-width: 700px;
+    border-radius: 15px; padding: 20px; margin-bottom: 25px;
     text-align: center; box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
     animation: pulseBorder 2s infinite alternate;
 }
-.event-banner h3 { margin: 0 0 10px 0; color: #FFD700; text-shadow: 0 0 10px #FFD700; }
-.event-banner p { margin: 0 0 10px 0; font-weight: bold; }
-.event-timer-text { font-family: 'JetBrains Mono'; font-size: 1.5rem; color: var(--accent-green); font-weight: 900; }
+.event-banner h3 { margin: 0 0 10px 0; color: #FFD700; font-size: 1.5rem; }
+.event-timer-text { font-family: 'JetBrains Mono'; font-size: 1.8rem; color: var(--accent-green); }
 
 @keyframes pulseBorder {
     from { box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
-    to { box-shadow: 0 0 25px rgba(0, 242, 255, 0.8); }
+    to { box-shadow: 0 0 30px rgba(0, 242, 255, 0.8); }
 }
