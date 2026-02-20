@@ -23,7 +23,7 @@
 
     <div id="login-bonus-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">LOGIN BONUS</h2>
+            <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">DAILY LOGIN BONUS</h2>
             <div id="login-days-grid" class="days-grid">
                 <div class="day-item" id="day-1">DAY 1<br><small>1000 pt</small></div>
                 <div class="day-item" id="day-2">DAY 2<br><small>1000 pt</small></div>
@@ -86,19 +86,8 @@
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
-                <div class="shop-grid" id="shop-list">
-                    </div>
+                <div class="shop-grid" id="shop-list"></div>
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
-            </div>
-
-            <div id="screen-single-select" class="screen hidden">
-                <h2 class="title-glow">難易度選択</h2>
-                <div class="btn-group">
-                    <button class="action-btn" onclick="window.startSingle('easy')">かんたん<small>2~6文字</small></button>
-                    <button class="action-btn" onclick="window.startSingle('normal')">ちゅうきゅう<small>6~12文字</small></button>
-                    <button class="action-btn" onclick="window.startSingle('hard')">むずかしい<small>12~20文字</small></button>
-                    <button class="action-btn full-width gray-btn" onclick="window.goHome()">戻る</button>
-                </div>
             </div>
 
             <div id="screen-battle-setup" class="screen hidden">
@@ -134,7 +123,7 @@
                 </div>
 
                 <div id="jamming-overlay" class="hidden">
-                    <div class="jamming-text">⚠️ 通信妨害を受けています！ ⚠️</div>
+                    <div class="jamming-text">⚠️ スタン中 / 妨害発生中！ ⚠️</div>
                 </div>
 
                 <div id="battle-alert" class="hidden"></div>
@@ -147,7 +136,7 @@
                             <span id="skill-btn-name">スキルなし</span>
                             <div id="skill-cooldown-bar"></div>
                         </button>
-                        <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
+                        <div id="skill-status-text">準備完了！(スペースキー)</div>
                     </div>
 
                     <div class="word-ja" id="q-ja">準備中...</div>
