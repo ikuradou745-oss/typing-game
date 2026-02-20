@@ -659,7 +659,7 @@ window.activateSkill = () => {
         showBattleAlert("⚡ 自動入力発動！", "var(--accent-blue)");
     } 
     else if (skill.id === "comboUp") {
-        comboMultiplier = 2;
+        comboMultiplier = 1000000;
         setTimeout(() => { comboMultiplier = 1; }, 5000);
         showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
     } 
