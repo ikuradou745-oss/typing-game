@@ -21,41 +21,11 @@
         </div>
     </div>
 
-    <div id="login-bonus-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">DAILY LOGIN BONUS</h2>
-            <div id="login-days-grid" class="days-grid">
-                <div class="day-item" id="day-1">DAY 1<br><small>1000 pt</small></div>
-                <div class="day-item" id="day-2">DAY 2<br><small>1000 pt</small></div>
-                <div class="day-item" id="day-3">DAY 3<br><small>1500 pt</small></div>
-                <div class="day-item" id="day-4">DAY 4<br><small>1500 pt</small></div>
-                <div class="day-item" id="day-5">DAY 5<br><small>2000 pt</small></div>
-                <div class="day-item" id="day-6">DAY 6<br><small>2000 pt</small></div>
-                <div class="day-item special-day" id="day-7">DAY 7<br><small>限定スキル<br>「強盗」</small></div>
-            </div>
-            <button class="action-btn full-width" style="padding: 15px; font-size: 1.2rem;" onclick="window.closeLoginBonus()">受け取って閉じる</button>
-        </div>
-    </div>
-
     <div id="app">
         <main id="main-area">
-            <div id="login-bonus-btn" onclick="window.openLoginBonus()" title="ログインボーナス">🎁</div>
-            
             <div class="header-logo">ULTIMATE TYPING</div>
 
             <div id="screen-home" class="screen">
-                <div id="event-container" style="width: 100%; max-width: 700px;">
-                    <div id="event-banner" class="event-banner hidden">
-                        <h3>🎉 特別イベント開催中！ 🎉</h3>
-                        <p>獲得資金1.5倍 ＆ 限定スキル解放中！</p>
-                        <div id="event-timer" class="event-timer-text">終了まで: --:--:--</div>
-                    </div>
-                    <div id="event-countdown-banner" class="event-banner hidden">
-                        <h3>⏳ 次のイベント開催まで</h3>
-                        <div id="next-event-timer" class="event-timer-text">--:--:--</div>
-                    </div>
-                </div>
-
                 <div class="btn-group">
                     <button id="btn-single" class="action-btn" onclick="window.openSingleSelect()">
                         <span>一人でプレイ</span>
@@ -86,8 +56,19 @@
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
-                <div class="shop-grid" id="shop-list"></div>
+                <div class="shop-grid" id="shop-list">
+                    </div>
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
+            </div>
+
+            <div id="screen-single-select" class="screen hidden">
+                <h2 class="title-glow">難易度選択</h2>
+                <div class="btn-group">
+                    <button class="action-btn" onclick="window.startSingle('easy')">かんたん<small>2~6文字</small></button>
+                    <button class="action-btn" onclick="window.startSingle('normal')">ちゅうきゅう<small>6~12文字</small></button>
+                    <button class="action-btn" onclick="window.startSingle('hard')">むずかしい<small>12~20文字</small></button>
+                    <button class="action-btn full-width gray-btn" onclick="window.goHome()">戻る</button>
+                </div>
             </div>
 
             <div id="screen-battle-setup" class="screen hidden">
@@ -95,7 +76,7 @@
                 <div class="setup-panel">
                     <div class="setup-item">
                         <span>制限時間:</span>
-                        <input type="range" id="setup-time" min="10" max="180" step="10" value="30" oninput="document.getElementById('time-val').innerText=this.value">
+                        <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="el('time-val').innerText=this.value">
                         <span id="time-val" class="stat-val">30</span>秒
                     </div>
                     <div class="setup-item">
@@ -123,7 +104,7 @@
                 </div>
 
                 <div id="jamming-overlay" class="hidden">
-                    <div class="jamming-text">⚠️ スタン中 ⚠️<br>妨害発生中！</div>
+                    <div class="jamming-text">⚠️ 通信妨害を受けています！ ⚠️</div>
                 </div>
 
                 <div id="battle-alert" class="hidden"></div>
@@ -136,7 +117,7 @@
                             <span id="skill-btn-name">スキルなし</span>
                             <div id="skill-cooldown-bar"></div>
                         </button>
-                        <div id="skill-status-text">準備完了！(スペースキー)</div>
+                        <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
                     </div>
 
                     <div class="word-ja" id="q-ja">準備中...</div>
@@ -197,7 +178,7 @@
                 <div id="friend-list-ui" class="side-scroll"></div>
             </section>
 
-            <section class="side-panel party-panel">
+            <section class="side-panel">
                 <div class="panel-title" id="party-label">パーティー (未参加)</div>
                 <div id="party-list-ui" class="side-scroll"></div>
                 <div id="party-actions" class="hidden">
