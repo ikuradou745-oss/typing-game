@@ -223,7 +223,8 @@ body, html {
     border: 1px solid rgba(255,255,255,0.05); 
     display: flex; 
     flex-direction: column; 
-    max-height: 40%; /* パネルごとの最大高さを制限 */
+    flex: 1; /* ★パーティーやフレンドが増えても対応できるようにflex: 1に変更 */
+    min-height: 0; /* ★これがスクロールを有効にするための超重要プロパティ */
 }
 
 .panel-title { 
@@ -242,6 +243,7 @@ body, html {
     overflow-x: hidden;
     padding-right: 8px;
     margin-bottom: 5px;
+    min-height: 0; /* ★ここも追加 */
 }
 
 .side-scroll::-webkit-scrollbar { width: 6px; }
@@ -489,7 +491,35 @@ body, html {
     to { transform: translateX(0); opacity: 1; } 
 }
 
-/* スタン状態のエフェクト */
+/* =========================================
+   ★追加: スタン警告の超巨大化＆エフェクト
+   ========================================= */
+#jamming-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 0, 0, 0.4); /* 赤くぼんやり光る */
+    z-index: 9999;
+    backdrop-filter: blur(8px);
+}
+
+.jamming-text {
+    font-size: 6rem; /* どデカく設定 */
+    color: var(--accent-red);
+    font-weight: 900;
+    text-shadow: 0 0 40px var(--accent-red), 0 0 10px #ffffff;
+    text-align: center;
+    line-height: 1.2;
+    animation: stun-pulse 0.3s infinite alternate;
+}
+
+@keyframes stun-pulse {
+    from { transform: scale(1) rotate(-2deg); }
+    to { transform: scale(1.1) rotate(2deg); }
+}
+
 .stunned-effect {
     filter: grayscale(1) blur(2px);
     pointer-events: none;
