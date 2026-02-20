@@ -99,6 +99,8 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
 .btn-invite { background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 .btn-kick { background: var(--accent-red); color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
+.game-stats-row { display: flex; gap: 20px; margin-top: 20px; justify-content: center; }
+.stat-box { background: rgba(0,0,0,0.5); border: 1px solid var(--accent-blue); padding: 10px 20px; border-radius: 10px; font-size: 1.2rem; font-weight: bold; }
 .stat-val { color: var(--accent-green); font-family: 'JetBrains Mono'; }
 
 /* フッター＆コイン表示 */
@@ -333,4 +335,97 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
 @keyframes flashRed {
     from { background: rgba(255, 0, 0, 0.1); }
     to { background: rgba(255, 0, 0, 0.4); }
+}
+
+/* =========================================
+   ストーリーモード用CSS
+   ========================================= */
+.story-container {
+    width: 100%;
+    max-width: 800px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+.world-section h3 {
+    color: var(--accent-blue);
+    border-bottom: 2px solid var(--accent-blue);
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+}
+.story-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+}
+.story-stage-btn {
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid var(--accent-green);
+    color: white;
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    font-size: 1.2rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+}
+.story-stage-btn:hover:not(.locked) {
+    background: var(--accent-green);
+    color: #000;
+    box-shadow: 0 0 20px var(--accent-green);
+    transform: translateY(-5px);
+}
+.story-stage-btn.boss {
+    border-color: var(--accent-red);
+    width: 120px;
+    color: var(--accent-red);
+    box-shadow: 0 0 10px rgba(255, 49, 49, 0.2);
+}
+.story-stage-btn.boss:hover:not(.locked) {
+    background: var(--accent-red);
+    color: #fff;
+    box-shadow: 0 0 20px var(--accent-red);
+}
+.story-stage-btn.locked {
+    border-color: #444;
+    color: #555;
+    background: rgba(30, 30, 30, 0.8);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* 花火スキル：避けるボタン用 */
+#dodge-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#btn-dodge {
+    background: var(--accent-red);
+    color: white;
+    border: 5px solid #fff;
+    border-radius: 20px;
+    font-size: 5rem;
+    font-weight: 900;
+    padding: 40px 80px;
+    cursor: pointer;
+    box-shadow: 0 0 50px var(--accent-red);
+    animation: pulseDodge 0.2s infinite alternate;
+}
+@keyframes pulseDodge {
+    from { transform: scale(1); box-shadow: 0 0 50px var(--accent-red); }
+    to { transform: scale(1.1); box-shadow: 0 0 80px #fff; }
 }
