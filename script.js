@@ -1,11 +1,12 @@
-// =========================================
+// =============================================================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V6.0 (Shop & Skill System Integrated)
-// =========================================
+// FIREBASE & TYPING ENGINE V6.0 (Shop & Skill System & Custom Editor Integrated)
+// =============================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+// --- Firebase 設定 ---
 const firebaseConfig = {
     apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
     authDomain: "typing-game-28ed0.firebaseapp.com",
@@ -915,132 +916,130 @@ window.launchBattle = () => {
     });
 };
 
+// --- マッチメイキング完了ロジック (続き) ---
 window.openOnlineMatch = () => {
     if (myPartyId) return alert("パーティー中は利用できません");
     if (isMatchmaking) {
         alert("マッチングをキャンセルします。");
         isMatchmaking = false;
+        remove(ref(db, `matchmaking/2/${myId}`));
+        remove(ref(db, `matchmaking/3/${myId}`));
+        remove(ref(db, `matchmaking/4/${myId}`));
         updateButtonStates();
         return;
     }
     const n = prompt("何人で遊ぶ？ (2-4)");
-    if (![2,3,4].includes(Number(n))) return;
+    const num = Number(n);
+    if (![2,3,4].includes(num)) return;
+    
     isMatchmaking = true;
     updateButtonStates();
-    set(ref(db, `matchmaking/${n}/${myId}`), { name: myName });
-    alert("マッチング待機中...");
+    set(ref(db, `matchmaking/${num}/${myId}`), { name: myName, timestamp: Date.now() });
+    alert(`${num}人マッチング待機中...`);
     
-    onValue(ref(db, `matchmaking/${n}`), snap => {
+    onValue(ref(db, `matchmaking/${num}`), snap => {
+        if (!isMatchmaking) return;
         const players = snap.val();
-        if (players && Object.keys(players).length >= n) {
-            const ids = Object.keys(players).slice(0, n);
-            if (ids[0] === myId) {
-                const pid = "match_" + myId;
-                const members = {};
-                ids.forEach(id => { 
-                    members[id] = { name: players[id].name, score: 0, ready: false }; 
-                    remove(ref(db, `matchmaking/${n}/${id}`)); 
+        if (players && Object.keys(players).length >= num) {
+            const pIds = Object.keys(players).sort();
+            const matchPartyId = "match_" + pIds.join("_").substring(0, 25);
+            
+            // 最初のプレイヤーが代表してパーティーを作成
+            if (pIds[0] === myId) {
+                const membersData = {};
+                pIds.forEach(id => {
+                    membersData[id] = { name: players[id].name, score: 0, ready: false };
                 });
-                set(ref(db, `parties/${pid}`), { leader: myId, state: "ready_check", time: 30, diff: "normal", members });
-                ids.forEach(id => update(ref(db, `users/${id}`), { partyId: pid }));
+                set(ref(db, `parties/${matchPartyId}`), {
+                    leader: myId,
+                    state: "ready_check",
+                    time: 30,
+                    diff: "normal",
+                    members: membersData
+                });
+                // マッチング待機列をクリア
+                remove(ref(db, `matchmaking/${num}`));
             }
-            isMatchmaking = false; 
-            updateButtonStates();
+            
+            isMatchmaking = false;
+            update(ref(db, `users/${myId}`), { partyId: matchPartyId });
         }
     });
 };
 
-// --- エディター ---
-window.openEditor = () => { 
-    if (myPartyId || isMatchmaking) return; 
-    openScreen("screen-editor"); 
-    renderEditor(); 
+// --- カスタム単語エディタ ---
+window.openCustomEditor = () => {
+    openScreen("screen-editor");
+    renderEditorList();
 };
 
-window.updateCustomWord = (index, value) => {
-    customWords[index] = value;
+window.addCustomWord = () => {
+    const input = el("editor-input");
+    const word = input.value.trim();
+    if (!word) return;
+    if (!/^[ぁ-んー]+$/.test(word)) return alert("ひらがなで入力してください");
+    customWords.push(word);
+    input.value = "";
+    renderEditorList();
+    saveCustomData();
 };
 
-window.removeCustomWord = (index) => {
-    customWords.splice(index, 1);
-    renderEditor();
+window.removeCustomWord = (idx) => {
+    customWords.splice(idx, 1);
+    renderEditorList();
+    saveCustomData();
 };
 
-function renderEditor() {
-    const listEl = el("editor-list");
-    if (!listEl) return;
-    listEl.innerHTML = customWords.map((w, i) => `
-        <div class="editor-row">
-            <input type="text" class="editor-input" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="2~20文字のひらがな">
+function renderEditorList() {
+    const list = el("editor-list");
+    if (!list) return;
+    list.innerHTML = customWords.map((w, i) => `
+        <div class="friend-item">
+            <span>${w}</span>
             <button class="btn-kick" onclick="window.removeCustomWord(${i})">削除</button>
         </div>
     `).join("");
 }
 
-window.addEditorRow = () => { 
-    if (customWords.length < 20) { 
-        customWords.push(""); 
-        renderEditor(); 
-    } 
-};
-
-window.saveEditor = () => {
-    const valid = customWords.filter(w => w && w.length >= 2 && w.length <= 20);
-    if (valid.length < 5) return alert("最低5個必要です (2~20文字で入力してください)");
-    customWords = valid; 
+function saveCustomData() {
     safeSetLocalStorage("ramo_custom", JSON.stringify(customWords));
-    alert("完成しました！"); 
-    window.goHome();
-};
-
-window.playCustom = () => { 
-    if (myPartyId || isMatchmaking) return; 
-    const savedWordsStr = safeGetLocalStorage("ramo_custom", null);
-    if (!savedWordsStr) {
-        return alert("まずはエディターで5個以上作って保存してください"); 
-    }
-    const savedWords = JSON.parse(savedWordsStr);
-    if (savedWords.length < 5) {
-        return alert("まずはエディターで5個以上作って保存してください"); 
-    }
-    customWords = savedWords; 
-    currentWords = customWords; 
-    isCustomGame = true;
-    openScreen("screen-play"); 
-    startGame(60); 
-};
-
-// --- 初期化 ---
-if (el("my-id-display")) el("my-id-display").innerText = myId;
-if (el("my-name-input")) el("my-name-input").value = myName;
-const userRef = ref(db, `users/${myId}`);
-
-get(userRef).then(snap => {
-    if(snap.exists()) {
-        let data = snap.val();
-        if(data.coins !== undefined && data.coins > coins) {
-            coins = data.coins; 
-        }
-        if(data.skills !== undefined) {
-            ownedSkills = data.skills;
-        }
-        if(data.equipped !== undefined) {
-            equippedSkill = data.equipped;
-        }
-    }
-    saveAndDisplayData(); 
-}).catch(e => console.warn("初期データ取得エラー:", e));
-
-update(userRef, { name: myName, status: "online", partyId: null });
-onDisconnect(userRef).update({ status: "offline" });
-updateButtonStates();
-
-const timeSlider = el("setup-time");
-const timeLabel = el("time-val"); 
-if (timeSlider) {
-    timeSlider.addEventListener("input", (e) => {
-        if (timeLabel) timeLabel.innerText = e.target.value;
-    });
 }
 
-window.goHome();
+window.startCustomGame = () => {
+    if (customWords.length < 1) return alert("単語を登録してください");
+    currentWords = [...customWords];
+    isCustomGame = true;
+    openScreen("screen-play");
+    startGame(60);
+};
+
+// --- 初期化とクリーンアップ ---
+window.addEventListener("load", () => {
+    // ユーザー名の初期表示
+    if (el("my-name-input")) el("my-name-input").value = myName;
+    if (el("my-id-display")) el("my-id-display").innerText = myId;
+    
+    // データ読み込みと表示
+    saveAndDisplayData();
+    updateButtonStates();
+
+    // 接続状態の監視
+    const statusRef = ref(db, `users/${myId}/status`);
+    const connectedRef = ref(db, ".info/connected");
+    onValue(connectedRef, (snap) => {
+        if (snap.val() === true) {
+            onDisconnect(statusRef).set("offline");
+            update(statusRef, "online");
+        }
+    });
+
+    // パーティー離脱の自動処理 (タブを閉じたとき)
+    onDisconnect(ref(db, `users/${myId}/partyId`)).set(null);
+});
+
+// 外部公開用の関数をwindowに紐付け
+window.openScreen = openScreen;
+
+// =============================================================================
+// END OF SCRIPT - ULTIMATE TYPING ONLINE RAMO EDITION
+// =============================================================================
