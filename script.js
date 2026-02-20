@@ -1,12 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V6.0 FULL SOURCE
+// FIREBASE & TYPING ENGINE V5.7 (Auto-Leave Match Bug Fix)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// --- Firebase Configuration ---
 const firebaseConfig = {
     apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
     authDomain: "typing-game-28ed0.firebaseapp.com",
@@ -20,7 +19,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- Sound Resources ---
+// --- 音声定義 ---
 const sounds = {
     type: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
     miss: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
@@ -29,16 +28,13 @@ const sounds = {
     notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3")
 };
 
-// --- DOM Utility ---
+// --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
-
-// --- Constants & Global States ---
 const generateId = () => Math.floor(10000000 + Math.random() * 89999999).toString();
 
 let myId = localStorage.getItem("ramo_uid") || generateId();
 localStorage.setItem("ramo_uid", myId);
-
-let myName = localStorage.getItem("ramo_name") || `園名：${myId}`;
+let myName = localStorage.getItem("ramo_name") || `園名：${generateId()}`;
 let myPartyId = null;
 let isLeader = false;
 let gameActive = false;
@@ -52,41 +48,83 @@ let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
 let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
-let gameInterval = null; 
+let gameInterval; 
 
 let isCustomGame = false;
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
 
-// --- Skill System States ---
-let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
-let equippedSkill = localStorage.getItem("ramo_equipped") || "none";
-let currentCooldown = 0;
-let maxCooldown = 0;
-let cooldownTimer = null;
-let autoTypeTimer = null;
-let jammingTimer = null;
-let isJamming = false;
-let comboMultiplier = 1;
-let timeSlipUsed = false;
-let attackListenerReference = null;
+// --- コイン保存・表示更新用関数 ---
+function saveAndDisplayCoins() {
 
-// --- Database Definitions ---
-const SKILL_DB = {
-    punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
-    autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
-    comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が4倍" },
-    revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
-    thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
-    timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は10秒爆速自動入力＆5秒コンボ3倍" }
-};
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    localStorage.setItem("ramo_coins", coins);
+    if (el("coin-amount")) {
+        el("coin-amount").innerText = coins;
+    }
+    update(ref(db, `users/${myId}`), { coins: coins });
+
+
+
+
+
+
+
+}
+
+// --- 出題データ ---
 const WORD_DB = {
     easy: ["ねこ","いぬ","うみ","つき","さかな","たこ","やま","はな","とり","いす","ゆめ","かぜ","あめ","ほし","そら","はし"],
     normal: ["すまーとふぉん","いんたーねっと","ぷろぐらみんぐ","しんかんせん","たいぴんぐ","ふぉん","あにめーしょん","うみのせかい"],
     hard: ["じぶんだけのものものものすごくひろいせかい","るびーちゃんのあいすくりーむ","ばくだいなせかいがまちうけている","ぷろぐらまーのぷろぐらみんぐ","このげーむをつくったひとはらもです","おあそびはここまでだここからがほんばん","ゆーちゅーぶぷれみあむはさいこうである","いしばしをよくたたいてわたる"]
 };
 
-// --- Roma-ji Conversion Table ---
+// --- ボタン状態の制御 ---
+function updateButtonStates() {
+    const isBusy = myPartyId !== null || isMatchmaking;
+    const btnSingle = el("btn-single");
+    const btnParty = el("btn-party");
+    const btnMatch = el("btn-match");
+    const btnEditor = el("btn-editor");
+    const btnCustom = el("btn-custom");
+
+
+    if (btnSingle) btnSingle.disabled = isBusy;
+    if (btnParty) btnParty.disabled = isMatchmaking; 
+    if (btnMatch) btnMatch.disabled = isBusy;
+    if (btnEditor) btnEditor.disabled = isBusy;
+    if (btnCustom) btnCustom.disabled = isBusy;
+
+}
+
+// --- リアルタイム名前更新 ---
+window.updateMyName = () => {
+    myName = el("my-name-input").value || `園名：${myId}`;
+    localStorage.setItem("ramo_name", myName);
+    update(ref(db, `users/${myId}`), { name: myName });
+};
+
+// --- ローマ字変換テーブル ---
 const KANA_MAP = {
     'あ':'a','い':'i','う':'u','え':'e','お':'o','か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
     'さ':'sa','し':['si','shi'],'す':'su','せ':'se','そ':'so','た':'ta','ち':['ti','chi'],'つ':['tu','tsu'],'て':'te','と':'to',
@@ -99,84 +137,19 @@ const KANA_MAP = {
     'ー':['-']
 };
 
-// --- Data Persistence ---
-function saveAndDisplayData() {
-    localStorage.setItem("ramo_coins", coins);
-    localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
-    localStorage.setItem("ramo_equipped", equippedSkill);
-    
-    if (el("coin-amount")) el("coin-amount").innerText = coins;
-    if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
-    
-    update(ref(db, `users/${myId}`), { 
-        coins: coins,
-        skills: ownedSkills,
-        equipped: equippedSkill
-    });
-}
-
-// --- UI Management ---
-function openScreen(id) {
-    const screens = document.querySelectorAll(".screen");
-    screens.forEach(s => s.classList.add("hidden"));
-    const target = el(id);
-    if(target) target.classList.remove("hidden");
-}
-
-function updateButtonStates() {
-    const isBusy = myPartyId !== null || isMatchmaking;
-    const buttons = ["btn-single", "btn-party", "btn-match", "btn-editor", "btn-custom", "btn-shop"];
-    buttons.forEach(id => {
-        const button = el(id);
-        if (button) {
-            if (id === "btn-party" && isMatchmaking) {
-                button.disabled = true;
-            } else {
-                button.disabled = isBusy;
-            }
-        }
-    });
-}
-
-window.goHome = () => { 
-    gameActive = false; 
-    clearInterval(gameInterval);
-    resetSkillState();
-
-    if (myPartyId && myPartyId.startsWith("match_")) {
-        window.leaveParty();
-    }
-    openScreen("screen-home"); 
-    updateButtonStates();
-};
-
-window.updateMyName = () => {
-    myName = el("my-name-input").value || `園名：${myId}`;
-    localStorage.setItem("ramo_name", myName);
-    update(ref(db, `users/${myId}`), { name: myName });
-};
-
-// --- Typing Engine Core ---
 function getRomaPatterns(kana) {
     let patterns = [""];
     for (let i = 0; i < kana.length; i++) {
         let char2 = kana.substring(i, i + 2);
         let char1 = kana.substring(i, i + 1);
         let candidates = [];
-        if (KANA_MAP[char2]) { 
-            candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]]; 
-            i++; 
-        }
-        else if (KANA_MAP[char1]) { 
-            candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]]; 
-        }
+        if (KANA_MAP[char2]) { candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]]; i++; }
+        else if (KANA_MAP[char1]) { candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]]; }
         else if (char1 === 'っ' && i + 1 < kana.length) {
             let next = kana.substring(i + 1, i + 2);
             let nextRoma = Array.isArray(KANA_MAP[next]) ? KANA_MAP[next][0] : KANA_MAP[next];
             candidates = nextRoma ? [nextRoma[0]] : ['xtu'];
-        } else { 
-            candidates = [char1]; 
-        }
+        } else { candidates = [char1]; }
         let nextPatterns = [];
         patterns.forEach(p => candidates.forEach(c => nextPatterns.push(p + c)));
         patterns = nextPatterns;
@@ -184,434 +157,7 @@ function getRomaPatterns(kana) {
     return patterns;
 }
 
-function nextQuestion() {
-    if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
-    const randomIdx = Math.floor(Math.random() * currentWords.length);
-    const q = currentWords[randomIdx];
-    el("q-ja").innerText = q;
-    const patterns = getRomaPatterns(q);
-    currentRoma = patterns[0]; 
-    romaIdx = 0; 
-    renderRoma();
-}
-
-function renderRoma() {
-    el("q-done").innerText = currentRoma.substring(0, romaIdx);
-    el("q-todo").innerText = currentRoma.substring(romaIdx);
-}
-
-function processCorrectType() {
-    romaIdx++;
-    score += (10 + combo) * comboMultiplier; 
-    combo += 1 * comboMultiplier; 
-    
-    sounds.type.currentTime = 0; 
-    sounds.type.play();
-    
-    if (romaIdx >= currentRoma.length) { 
-        sounds.correct.play(); 
-        currentWordIdx++; 
-        nextQuestion(); 
-    }
-    
-    el("stat-score").innerText = score; 
-    el("stat-combo").innerText = combo;
-    renderRoma();
-    if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
-}
-
-window.addEventListener("keydown", e => {
-    if (!gameActive) return;
-    if (e.code === "Space") {
-        e.preventDefault();
-        window.activateSkill();
-        return;
-    }
-    if (isJamming) return;
-
-    if (e.key === currentRoma[romaIdx]) {
-        processCorrectType();
-    } else if (!["Shift","Alt","Control","CapsLock","Tab","Escape"].includes(e.key)) {
-        combo = 0; 
-        sounds.miss.currentTime = 0; 
-        sounds.miss.play();
-        el("stat-combo").innerText = combo;
-    }
-});
-
-// --- Game Control ---
-function startGame(sec) {
-    if (gameInterval) clearInterval(gameInterval);
-    gameActive = true; 
-    score = 0; 
-    combo = 0; 
-    timer = sec; 
-    duration = sec; 
-    currentWordIdx = 0;
-    
-    resetSkillState();
-    setupSkillUI();
-
-    if (!myPartyId) {
-        el("rival-display").classList.add("hidden");
-    } else {
-        attackListenerReference = ref(db, `parties/${myPartyId}/members/${myId}/attacks`);
-        onValue(attackListenerReference, snap => {
-            const attacks = snap.val();
-            if (attacks) {
-                Object.keys(attacks).forEach(key => {
-                    handleIncomingAttack(attacks[key]);
-                    remove(ref(db, `parties/${myPartyId}/members/${myId}/attacks/${key}`));
-                });
-            }
-        });
-    }
-
-    nextQuestion(); 
-    el("stat-score").innerText = "0"; 
-    el("stat-combo").innerText = "0";
-    
-    gameInterval = setInterval(() => {
-        if(!gameActive) { clearInterval(gameInterval); return; }
-        timer--; 
-        el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
-        if (myPartyId) syncRivals();
-        if (timer <= 0) { 
-            clearInterval(gameInterval); 
-            endGame(); 
-        }
-    }, 1000);
-}
-
-function syncRivals() {
-    if (!myPartyId) return;
-    el("rival-display").classList.remove("hidden");
-    const isHidden = timer < (duration / 2);
-    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-        const val = s.val();
-        if(val) {
-            el("rival-list").innerHTML = Object.values(val).map(m => `
-                <div class="friend-item">
-                    <span>${m.name}</span>
-                    <span>${isHidden ? '???' : m.score}</span>
-                </div>
-            `).join("");
-        }
-    });
-}
-
-function endGame() {
-    gameActive = false; 
-    clearInterval(gameInterval);
-    resetSkillState();
-
-    if (attackListenerReference) {
-        off(attackListenerReference);
-        attackListenerReference = null;
-    }
-
-    sounds.finish.play();
-    openScreen("screen-result");
-
-    let earnedCoins = Math.floor(score / 10);
-    let isWinner = false;
-
-    if (isCustomGame) {
-        earnedCoins = 0;
-    }
-
-    if (myPartyId) {
-        get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-            const val = s.val();
-            if(val) {
-                const res = Object.entries(val).sort((a,b) => b[1].score - a[1].score);
-                
-                if (!isCustomGame && res[0][0] === myId && res.length > 1) {
-                    earnedCoins *= 2;
-                    isWinner = true;
-                }
-
-                if (earnedCoins > 0) {
-                    coins += earnedCoins;
-                    saveAndDisplayData();
-                }
-
-                el("ranking-box").innerHTML = res.map((item, i) => {
-                    const m = item[1];
-                    return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
-                }).join("");
-                
-                let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
-                el("ranking-box").innerHTML += `
-                    <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                        <span>結果</span><span>${coinText}</span>
-                    </div>`;
-
-                if (isLeader && !myPartyId.startsWith("match_")) {
-                    update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
-                }
-            }
-        });
-    } else { 
-        if (earnedCoins > 0) {
-            coins += earnedCoins;
-            saveAndDisplayData();
-        }
-        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
-        let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
-        el("ranking-box").innerHTML += `
-            <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                <span>結果</span><span>${coinText}</span>
-            </div>`;
-    }
-}
-
-// --- Skill & Battle System ---
-function setupSkillUI() {
-    const actionBox = el("skill-action-box");
-    const skillNameText = el("skill-btn-name");
-    
-    if (equippedSkill && equippedSkill !== "none") {
-        actionBox.classList.remove("hidden");
-        skillNameText.innerText = SKILL_DB[equippedSkill].name;
-    } else {
-        actionBox.classList.add("hidden");
-    }
-}
-
-function resetSkillState() {
-    if (cooldownTimer) clearInterval(cooldownTimer);
-    if (autoTypeTimer) clearInterval(autoTypeTimer);
-    if (jammingTimer) clearTimeout(jammingTimer);
-    
-    currentCooldown = 0;
-    isJamming = false;
-    comboMultiplier = 1;
-    timeSlipUsed = false;
-    
-    el("jamming-overlay").classList.add("hidden");
-    el("skill-cooldown-bar").style.height = "0%";
-    el("in-game-skill-btn").classList.remove("cooldown");
-    el("skill-status-text").innerText = "準備完了！(スペースキーで発動)";
-}
-
-function startSkillCooldown(seconds) {
-    if (seconds <= 0) return;
-    currentCooldown = seconds;
-    maxCooldown = seconds;
-    
-    const btn = el("in-game-skill-btn");
-    const statusText = el("skill-status-text");
-    const bar = el("skill-cooldown-bar");
-    
-    btn.classList.add("cooldown");
-    statusText.innerText = `冷却中... (${currentCooldown}s)`;
-    bar.style.height = "100%";
-    
-    if (cooldownTimer) clearInterval(cooldownTimer);
-    cooldownTimer = setInterval(() => {
-        currentCooldown--;
-        if (currentCooldown <= 0) {
-            clearInterval(cooldownTimer);
-            btn.classList.remove("cooldown");
-            statusText.innerText = "準備完了！(スペースキーで発動)";
-            bar.style.height = "0%";
-        } else {
-            statusText.innerText = `冷却中... (${currentCooldown}s)`;
-            const pct = (currentCooldown / maxCooldown) * 100;
-            bar.style.height = `${pct}%`;
-        }
-    }, 1000);
-}
-
-function showBattleAlert(text, color) {
-    const alertEl = el("battle-alert");
-    alertEl.innerText = text;
-    alertEl.style.color = color;
-    alertEl.style.textShadow = `0 0 20px ${color}`;
-    alertEl.classList.remove("hidden");
-    
-    alertEl.style.animation = 'none';
-    alertEl.offsetHeight; 
-    alertEl.style.animation = null; 
-    
-    setTimeout(() => alertEl.classList.add("hidden"), 2000);
-}
-
-function sendAttackToOthers(type, duration, stealAmount) {
-    if (!myPartyId) return;
-    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-        const members = s.val();
-        if (members) {
-            Object.keys(members).forEach(targetId => {
-                if (targetId !== myId) {
-                    const attackId = generateId();
-                    update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
-                        type: type,
-                        duration: duration,
-                        stealAmount: stealAmount,
-                        timestamp: Date.now()
-                    });
-                }
-            });
-        }
-    });
-}
-
-window.activateSkill = () => {
-    if (!gameActive) return;
-    if (!equippedSkill || equippedSkill === "none") return;
-    if (currentCooldown > 0) return;
-    if (equippedSkill === "timeslip" && timeSlipUsed) return;
-    
-    const skill = SKILL_DB[equippedSkill];
-
-    if (skill.id === "punch") {
-        sendAttackToOthers("jam", 3000, 0);
-        showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
-    } 
-    else if (skill.id === "autotype") {
-        startAutoTypeEngine(3000, 100); 
-        showBattleAlert("⚡ 自動入力発動！", "var(--accent-blue)");
-    } 
-    else if (skill.id === "comboUp") {
-        comboMultiplier = 4;
-        setTimeout(() => { comboMultiplier = 1; }, 5000);
-        showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
-    } 
-    else if (skill.id === "revolver") {
-        sendAttackToOthers("jam", 6000, 500); 
-        score += 500;
-        showBattleAlert("🔫 リボルバー発動！", "var(--accent-red)");
-    } 
-    else if (skill.id === "thief") {
-        sendAttackToOthers("steal", 0, 1200);
-        score += 1200;
-        showBattleAlert("💰 泥棒発動！", "var(--accent-green)");
-    } 
-    else if (skill.id === "timeslip") {
-        sendAttackToOthers("timeslip", 3000, 0);
-        startAutoTypeEngine(10000, 60); 
-        comboMultiplier = 3;
-        setTimeout(() => { comboMultiplier = 1; }, 5000);
-        timeSlipUsed = true;
-        
-        el("in-game-skill-btn").classList.add("cooldown");
-        el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
-        showBattleAlert("⏳ タイムスリップ！", "#FFD700");
-    }
-
-    if (skill.cooldown > 0) {
-        startSkillCooldown(skill.cooldown);
-    }
-
-    el("stat-score").innerText = score;
-    if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
-};
-
-function startAutoTypeEngine(durationMs, intervalMs) {
-    if (autoTypeTimer) clearInterval(autoTypeTimer);
-    autoTypeTimer = setInterval(() => {
-        if (!gameActive || isJamming) return;
-        processCorrectType();
-    }, intervalMs);
-    
-    setTimeout(() => {
-        clearInterval(autoTypeTimer);
-    }, durationMs);
-}
-
-function handleIncomingAttack(attack) {
-    if (!gameActive) return;
-
-    if (attack.stealAmount > 0) {
-        score = Math.max(0, score - attack.stealAmount);
-        el("stat-score").innerText = score;
-        if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
-    }
-
-    if (attack.type === "timeslip") {
-        score = Math.floor(score / 2);
-        el("stat-score").innerText = score;
-        if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
-        applyJamming(3000);
-        return;
-    }
-
-    if (attack.duration > 0) {
-        applyJamming(attack.duration);
-    }
-}
-
-function applyJamming(durationMs) {
-    isJamming = true;
-    el("jamming-overlay").classList.remove("hidden");
-    sounds.miss.play(); 
-    
-    if (jammingTimer) clearTimeout(jammingTimer);
-    jammingTimer = setTimeout(() => {
-        isJamming = false;
-        el("jamming-overlay").classList.add("hidden");
-    }, durationMs);
-}
-
-// --- Shop Logic ---
-window.openShop = () => {
-    openScreen("screen-shop");
-    renderShop();
-};
-
-window.buySkill = (skillId) => {
-    const skill = SKILL_DB[skillId];
-    if (coins >= skill.cost) {
-        coins -= skill.cost;
-        ownedSkills.push(skillId);
-        equippedSkill = skillId; 
-        saveAndDisplayData();
-        renderShop();
-        sounds.notify.play();
-        alert(`${skill.name} を購入・装備しました！`);
-    } else {
-        alert("コインが足りません！");
-    }
-};
-
-window.equipSkill = (skillId) => {
-    equippedSkill = skillId;
-    saveAndDisplayData();
-    renderShop();
-};
-
-function renderShop() {
-    const shopList = el("shop-list");
-    if (!shopList) return;
-    shopList.innerHTML = "";
-    Object.values(SKILL_DB).forEach(skill => {
-        const isOwned = ownedSkills.includes(skill.id);
-        const isEquipped = equippedSkill === skill.id;
-        
-        let buttonHtml = "";
-        if (isEquipped) {
-            buttonHtml = `<button class="action-btn purple-btn" disabled style="font-size: 1rem; padding: 10px;">装備中</button>`;
-        } else if (isOwned) {
-            buttonHtml = `<button class="action-btn" onclick="window.equipSkill('${skill.id}')" style="font-size: 1rem; padding: 10px;">装備する</button>`;
-        } else {
-            const canAfford = coins >= skill.cost;
-            buttonHtml = `<button class="action-btn" onclick="window.buySkill('${skill.id}')" ${canAfford ? '' : 'disabled'} style="font-size: 1rem; padding: 10px;">購入 (${skill.cost}🪙)</button>`;
-        }
-
-        shopList.innerHTML += `
-            <div class="shop-item">
-                <h3 style="color: var(--accent-blue); margin: 5px 0;">${skill.name}</h3>
-                <p style="font-size: 0.9rem; margin: 10px 0;">${skill.desc}</p>
-                <div style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">クールダウン: ${skill.cooldown > 0 ? skill.cooldown + '秒' : '1回のみ'}</div>
-                ${buttonHtml}
-            </div>
-        `;
-    });
-}
-
-// --- Social & Party Logic ---
+// --- フレンド機能 ---
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
     if (!code || code === myId) return;
@@ -641,19 +187,17 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
             }
             row.innerHTML = `
                 <div><span class="status-dot ${data.status}"></span>${data.name}</div>
-                <div class="toast-btns">
-                    <button class="btn-invite btn-s" onclick="window.inviteToParty('${fid}')">招待</button>
-                    <button class="btn-kick btn-s" onclick="window.removeFriend('${fid}')">削除</button>
+                <div>
+                    <button class="btn-invite" onclick="window.inviteToParty('${fid}')">招待</button>
+                    <button class="btn-kick" onclick="window.removeFriend('${fid}')">削除</button>
                 </div>`;
         });
     });
 });
 
-window.removeFriend = (fid) => { 
-    remove(ref(db, `users/${myId}/friends/${fid}`)); 
-    remove(ref(db, `users/${fid}/friends/${myId}`)); 
-};
+window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`)); remove(ref(db, `users/${fid}/friends/${myId}`)); };
 
+// --- パーティー機能 ---
 window.inviteToParty = (fid) => {
     if (!myPartyId) {
         myPartyId = myId;
@@ -666,7 +210,7 @@ window.inviteToParty = (fid) => {
 onValue(ref(db, `users/${myId}/invite`), snap => {
     const inv = snap.val();
     if (inv) {
-        el("invite-msg").innerText = `${inv.from}から招待！`;
+        el("invite-msg").innerText = `${inv.from}からパーティーの招待！`;
         el("invite-toast").classList.remove("hidden");
         sounds.notify.play();
     } else { el("invite-toast").classList.add("hidden"); }
@@ -679,25 +223,30 @@ window.acceptInvite = () => {
         return;
     }
     get(ref(db, `users/${myId}/invite`)).then(s => {
-        if (!s.exists()) return;
         const pId = s.val().partyId;
         update(ref(db, `parties/${pId}/members/${myId}`), { name: myName, score: 0, ready: false });
         update(ref(db, `users/${myId}`), { partyId: pId });
         remove(ref(db, `users/${myId}/invite`));
     });
 };
-
 window.declineInvite = () => remove(ref(db, `users/${myId}/invite`));
 
+// 【修正】パーティーから抜ける処理を共通化
 window.leaveParty = () => {
     if (!myPartyId) return;
+
+    // オンライン対戦の場合は相手と組んだ状態を完全に解消する
     if (myPartyId.startsWith("match_")) {
+        // マッチング用パーティーからは常に退出・削除を試みる
         remove(ref(db, `parties/${myPartyId}/members/${myId}`));
+        // リーダーならパーティー自体を消す
         if (isLeader) remove(ref(db, `parties/${myPartyId}`));
     } else {
+        // 通常のフレンドパーティー
         if (isLeader) remove(ref(db, `parties/${myPartyId}`));
         else remove(ref(db, `parties/${myPartyId}/members/${myId}`));
     }
+
     update(ref(db, `users/${myId}`), { partyId: null });
     myPartyId = null;
     isLeader = false;
@@ -721,7 +270,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
             el("party-list-ui").innerHTML = Object.values(p.members).map(m => `<div class="friend-item">${m.name} ${m.ready?'✅':''}</div>`).join("");
-            
+
             if (p.state === "ready_check" && !gameActive) {
                 openScreen("screen-play"); 
                 el("ready-overlay").classList.remove("hidden");
@@ -751,7 +300,465 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- Mode Selection Logic ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// --- ゲームエンジン ---
+function openScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
+    const target = el(id);
+    if(target) target.classList.remove("hidden");
+}
+
+// 【重要修正】ホームに戻る際にパーティーを確実にリセット
+window.goHome = () => { 
+    gameActive = false; 
+    clearInterval(gameInterval);
+
+
+    // オンライン対戦終了後、または対戦中にホームへ戻る場合はパーティーを抜ける
+    if (myPartyId && myPartyId.startsWith("match_")) {
+        window.leaveParty();
+    }
+
+    openScreen("screen-home"); 
+    updateButtonStates();
+};
+
+function nextQuestion() {
+    if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
+    let randomIdx = Math.floor(Math.random() * currentWords.length);
+    let q = currentWords[randomIdx];
+    el("q-ja").innerText = q;
+    let patterns = getRomaPatterns(q);
+    currentRoma = patterns[0]; romaIdx = 0; renderRoma();
+}
+
+function renderRoma() {
+    el("q-done").innerText = currentRoma.substring(0, romaIdx);
+    el("q-todo").innerText = currentRoma.substring(romaIdx);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+window.addEventListener("keydown", e => {
+    if (!gameActive) return;
+
+
+
+
+
+
+
+
+
+
+
+    if (e.key === currentRoma[romaIdx]) {
+        romaIdx++; score += (10 + combo); combo++;
+        sounds.type.currentTime = 0; sounds.type.play();
+        if (romaIdx >= currentRoma.length) { sounds.correct.play(); currentWordIdx++; nextQuestion(); }
+    } else if (!["Shift","Alt","Control"].includes(e.key)) {
+        combo = 0; sounds.miss.currentTime = 0; sounds.miss.play();
+    }
+    el("stat-score").innerText = score; el("stat-combo").innerText = combo;
+    renderRoma();
+    if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
+});
+
+function startGame(sec) {
+    clearInterval(gameInterval);
+    gameActive = true; score = 0; combo = 0; timer = sec; duration = sec; currentWordIdx = 0;
+
+
+
+
+
+
+
+
+
+    if (!myPartyId) {
+        el("rival-display").classList.add("hidden");
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+
+    nextQuestion(); 
+    el("stat-score").innerText = "0"; 
+    el("stat-combo").innerText = "0";
+
+    gameInterval = setInterval(() => {
+        if(!gameActive) { clearInterval(gameInterval); return; }
+        timer--; 
+        el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
+        if (myPartyId) syncRivals();
+        if (timer <= 0) { 
+            clearInterval(gameInterval); 
+            endGame(); 
+        }
+    }, 1000);
+}
+
+function syncRivals() {
+    if (!myPartyId) return;
+    el("rival-display").classList.remove("hidden");
+    const isHidden = timer < (duration / 2);
+    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
+        const val = s.val();
+        if(val) {
+            el("rival-list").innerHTML = Object.values(val).map(m => `
+                <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
+            `).join("");
+        }
+    });
+}
+
+function endGame() {
+    gameActive = false; 
+    clearInterval(gameInterval);
+
+
+
+
+
+
+
+    sounds.finish.play();
+    openScreen("screen-result");
+
+    let earnedCoins = Math.floor(score / 10);
+    let isWinner = false;
+
+    if (isCustomGame) {
+        earnedCoins = 0;
+    }
+
+    if (myPartyId) {
+        get(ref(db, `parties/${myPartyId}/members`)).then(s => {
+            const val = s.val();
+            if(val) {
+                const res = Object.entries(val).sort((a,b) => b[1].score - a[1].score);
+
+                if (!isCustomGame && res[0][0] === myId && res.length > 1) {
+                    earnedCoins *= 2;
+                    isWinner = true;
+                }
+
+                if (earnedCoins > 0) {
+                    coins += earnedCoins;
+                    saveAndDisplayCoins();
+                }
+
+                el("ranking-box").innerHTML = res.map((item, i) => {
+                    const m = item[1];
+                    return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
+                }).join("");
+
+                let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
+                el("ranking-box").innerHTML += `
+                    <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                        <span>結果</span><span>${coinText}</span>
+                    </div>`;
+
+                // 【重要】オンライン対戦(match_)の場合は、状態をlobbyに戻さず、そのまま終了させる
+                if (isLeader && !myPartyId.startsWith("match_")) {
+                    update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
+                }
+            }
+        });
+    } else { 
+        if (earnedCoins > 0) {
+            coins += earnedCoins;
+            saveAndDisplayCoins();
+        }
+        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
+        let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
+        el("ranking-box").innerHTML += `
+            <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                <span>結果</span><span>${coinText}</span>
+            </div>`;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// --- モード制御 ---
 window.openSingleSelect = () => {
     if (myPartyId || isMatchmaking) return; 
     openScreen("screen-single-select");
@@ -788,7 +795,6 @@ window.openOnlineMatch = () => {
     if (isMatchmaking) {
         alert("マッチングをキャンセルします。");
         isMatchmaking = false;
-        remove(ref(db, `matchmaking`)); // 簡易化のため全削除、本番は特定IDのみ
         updateButtonStates();
         return;
     }
@@ -798,7 +804,6 @@ window.openOnlineMatch = () => {
     updateButtonStates();
     set(ref(db, `matchmaking/${n}/${myId}`), { name: myName });
     alert("マッチング待機中...");
-    
     onValue(ref(db, `matchmaking/${n}`), snap => {
         const players = snap.val();
         if (players && Object.keys(players).length >= n) {
@@ -819,7 +824,7 @@ window.openOnlineMatch = () => {
     });
 };
 
-// --- Custom Editor Logic ---
+// --- エディター ---
 window.openEditor = () => { 
     if (myPartyId || isMatchmaking) return; 
     openScreen("screen-editor"); 
@@ -836,12 +841,10 @@ window.removeCustomWord = (index) => {
 };
 
 function renderEditor() {
-    const list = el("editor-list");
-    if (!list) return;
-    list.innerHTML = customWords.map((w, i) => `
-        <div class="editor-row" style="display:flex; gap:10px; margin-bottom:10px; width:100%;">
-            <input type="text" class="cyber-select" style="flex:1; background:rgba(255,255,255,0.1); color:white; border:1px solid var(--accent-blue); padding:10px;" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="ひらがな入力">
-            <button class="btn-kick btn-s" onclick="window.removeCustomWord(${i})">削除</button>
+    el("editor-list").innerHTML = customWords.map((w, i) => `
+        <div class="editor-row">
+            <input type="text" class="editor-input" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="2~20文字のひらがな">
+            <button class="btn-kick" onclick="window.removeCustomWord(${i})">削除</button>
         </div>
     `).join("");
 }
@@ -855,10 +858,10 @@ window.addEditorRow = () => {
 
 window.saveEditor = () => {
     const valid = customWords.filter(w => w && w.length >= 2 && w.length <= 20);
-    if (valid.length < 5) return alert("最低5個必要です (2~20文字)");
+    if (valid.length < 5) return alert("最低5個必要です (2~20文字で入力してください)");
     customWords = valid; 
     localStorage.setItem("ramo_custom", JSON.stringify(customWords));
-    alert("保存しました！"); 
+    alert("完成しました！"); 
     window.goHome();
 };
 
@@ -875,27 +878,37 @@ window.playCustom = () => {
     startGame(60); 
 };
 
-// --- Initialization ---
-function init() {
-    el("my-id-display").innerText = myId;
-    el("my-name-input").value = myName;
-    const userRef = ref(db, `users/${myId}`);
+// --- 初期化 ---
+el("my-id-display").innerText = myId;
+el("my-name-input").value = myName;
+const userRef = ref(db, `users/${myId}`);
 
-    get(userRef).then(snap => {
-        if(snap.exists()) {
-            let data = snap.val();
-            if(data.coins !== undefined) coins = data.coins; 
-            if(data.skills !== undefined) ownedSkills = data.skills;
-            if(data.equipped !== undefined) equippedSkill = data.equipped;
+get(userRef).then(snap => {
+    if(snap.exists() && snap.val().coins !== undefined) {
+        let cloudCoins = snap.val().coins;
+        if(cloudCoins > coins) {
+            coins = cloudCoins; 
+
+
+
+
+
+
         }
-        saveAndDisplayData(); 
-    });
+    }
+    saveAndDisplayCoins(); 
+});
 
-    update(userRef, { name: myName, status: "online", partyId: null });
-    onDisconnect(userRef).update({ status: "offline" });
-    
-    updateButtonStates();
-    window.goHome();
+update(userRef, { name: myName, status: "online", partyId: null });
+onDisconnect(userRef).update({ status: "offline" });
+updateButtonStates();
+
+const timeSlider = el("setup-time");
+const timeLabel = el("time-val"); 
+if (timeSlider) {
+    timeSlider.addEventListener("input", (e) => {
+        if (timeLabel) timeLabel.innerText = e.target.value;
+    });
 }
 
-init();
+window.goHome();
