@@ -128,10 +128,11 @@ const NEW_SKILLS = {
 
 // スキルのデータ定義 (新スキル追加)
 const SKILL_DB = {
+    nashi: { id: "punch", name: "なし", cost: 0, cooldown: 0, desc: "なし。" },
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 10, desc: "3秒間爆速で自動タイピング" },
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
-        com: { id: "comboUp", name: "コンボ10000000アップ", cost: 5000000000000, cooldown: 1, desc: "買うな。" },
+        com: { id: "com", name: "コンボ10000000アップ", cost: 5000000000000, cooldown: 1, desc: "買うな。" },
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
     timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は6秒爆速自動入力" },
