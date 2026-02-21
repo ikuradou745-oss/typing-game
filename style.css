@@ -9,6 +9,89 @@
     --glass: rgba(255, 255, 255, 0.03);
 }
 
+/* =========================================
+   VOICE CHAT & SCROLL SYSTEM
+   ========================================= */
+
+/* タイトル行のレイアウト */
+.panel-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* VC状態バッジ */
+.vc-badge-off {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #333;
+    color: #888;
+}
+
+.vc-badge-on {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(57, 255, 20, 0.2);
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+    box-shadow: 0 0 10px var(--accent-green);
+    animation: pulse-vc 1.5s infinite;
+}
+
+/* パーティーリストのスクロール強化 */
+.party-vc-list {
+    max-height: 250px; /* 高さを固定してスクロールさせる */
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* スクロールバーのカスタムデザイン（RAMO Edition風） */
+.side-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+.side-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+.side-scroll::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 10px;
+    box-shadow: 0 0 10px var(--accent-blue);
+}
+
+/* VC中のメンバー表示 */
+.party-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+}
+
+.party-item.is-speaking {
+    border-left-color: var(--accent-green);
+    background: rgba(57, 255, 20, 0.1);
+}
+
+/* マイク操作ボタン */
+.vc-controls {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+@keyframes pulse-vc {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
 * { box-sizing: border-box; }
 body, html {
     margin: 0; padding: 0; width: 100%; height: 100%;
