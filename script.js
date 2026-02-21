@@ -91,10 +91,7 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- デバッグモード／ボイスチャット用 ---
-let debugMode = false;
-let secretKeyPressTime = { q: 0, b: 0 };
-let secretKeyTimer = null;
+// --- ボイスチャット用 ---
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
@@ -275,16 +272,26 @@ function getRomaPatterns(kana) {
     return patterns;
 }
 
-// --- フレンド機能 ---
+// --- フレンド機能（修正箇所）---
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
+    
+    // 1x4x が入力されたらボイスチャットを起動
+    if (code === "1x4x") {
+        el("friend-code-input").value = "";
+        openVoiceChat();
+        return;
+    }
+    
     if (!code || code === myId) return;
     const snap = await get(ref(db, `users/${code}`));
     if (snap.exists()) {
         update(ref(db, `users/${myId}/friends/${code}`), { active: true });
         update(ref(db, `users/${code}/friends/${myId}`), { active: true });
         el("friend-code-input").value = "";
-    } else { alert("コードが見つかりません"); }
+    } else { 
+        alert("コードが見つかりません"); 
+    }
 };
 
 onValue(ref(db, `users/${myId}/friends`), (snap) => {
@@ -311,11 +318,6 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 </div>`;
         });
     });
-    
-    // デバッグモード用のフレンドリストも更新
-    if (debugMode) {
-        renderVoiceFriendList();
-    }
 });
 
 window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`)); remove(ref(db, `users/${fid}/friends/${myId}`)); };
@@ -754,43 +756,6 @@ function giveBossSkill(skillId) {
 
 // キーイベントの監視（ゲーム外でも動作）
 document.addEventListener("keydown", e => {
-    console.log("キーが押されました:", e.key); // デバッグ用
-    
-    // デバッグモード用の秘密コード検出（QとBの同時長押し1秒）
-    if (!debugMode) {
-        // Qキーまたはqキー
-        if (e.key === 'q' || e.key === 'Q') {
-            console.log("Qキー押下");
-            secretKeyPressTime.q = Date.now();
-        }
-        // Bキーまたはbキー
-        if (e.key === 'b' || e.key === 'B') {
-            console.log("Bキー押下");
-            secretKeyPressTime.b = Date.now();
-        }
-        
-        // 両方のキーが押されているかチェック
-        if (secretKeyPressTime.q > 0 && secretKeyPressTime.b > 0) {
-            console.log("両方のキーが押されました");
-            const timeDiff = Math.abs(secretKeyPressTime.q - secretKeyPressTime.b);
-            if (timeDiff < 500) { // 0.5秒以内に両方押された
-                console.log("タイマーセット");
-                if (!secretKeyTimer) {
-                    secretKeyTimer = setTimeout(() => {
-                        // 1秒間長押しされたかチェック
-                        const now = Date.now();
-                        console.log("1秒経過チェック", now - secretKeyPressTime.q, now - secretKeyPressTime.b);
-                        if (now - secretKeyPressTime.q >= 1000 && now - secretKeyPressTime.b >= 1000) {
-                            console.log("秘密コード入力画面を開きます");
-                            openSecretCodeInput();
-                        }
-                        secretKeyTimer = null;
-                    }, 1000);
-                }
-            }
-        }
-    }
-    
     if (!gameActive) return;
     
     // 【新スキル】ハッカーのタブが出ている間はタイピング等完全不可
@@ -821,23 +786,6 @@ document.addEventListener("keydown", e => {
             sounds.miss.currentTime = 0; sounds.miss.play();
             el("stat-combo").innerText = combo;
         }
-    }
-});
-
-document.addEventListener("keyup", e => {
-    // デバッグモード用のキーリセット
-    if (e.key === 'q' || e.key === 'Q') {
-        console.log("Qキーリリース");
-        secretKeyPressTime.q = 0;
-    }
-    if (e.key === 'b' || e.key === 'B') {
-        console.log("Bキーリリース");
-        secretKeyPressTime.b = 0;
-    }
-    if (secretKeyPressTime.q === 0 && secretKeyPressTime.b === 0 && secretKeyTimer) {
-        console.log("タイマーキャンセル");
-        clearTimeout(secretKeyTimer);
-        secretKeyTimer = null;
     }
 });
 
@@ -2036,38 +1984,18 @@ window.executeDodge = () => {
     }
 };
 
-// --- デバッグモード／ボイスチャット機能（完成版）---
-function openSecretCodeInput() {
-    console.log("秘密コード入力画面を開きます");
-    const overlay = el("secret-code-overlay");
+// --- ボイスチャット機能（簡略化）---
+function openVoiceChat() {
+    console.log("ボイスチャットを開きます");
+    const overlay = el("debug-overlay");
     if (overlay) {
         overlay.classList.remove("hidden");
+        renderVoiceFriendList();
+        alert("🎤 ボイスチャットモードを起動しました");
     } else {
-        console.error("secret-code-overlayが見つかりません");
-        alert("秘密コード入力画面が見つかりません");
+        console.error("debug-overlayが見つかりません");
+        alert("ボイスチャット画面が見つかりません");
     }
-}
-
-window.closeSecretCode = () => {
-    el("secret-code-overlay").classList.add("hidden");
-};
-
-window.submitSecretCode = () => {
-    const code = el("secret-code-input").value;
-    if (code === "1x4x") {
-        debugMode = true;
-        el("secret-code-overlay").classList.add("hidden");
-        openDebugMode();
-        alert("✅ デバッグモードを起動しました");
-    } else {
-        alert("❌ コードが違います");
-    }
-    el("secret-code-input").value = "";
-};
-
-function openDebugMode() {
-    el("debug-overlay").classList.remove("hidden");
-    renderVoiceFriendList();
 }
 
 window.closeDebugMode = () => {
@@ -2122,8 +2050,6 @@ function renderVoiceFriendList() {
 }
 
 window.inviteToVoiceChat = (fid, friendName) => {
-    if (!debugMode) return;
-    
     // ボイスチャット招待を送信
     set(ref(db, `users/${fid}/voice_invite`), {
         from: myId,
@@ -2140,7 +2066,7 @@ window.inviteToVoiceChat = (fid, friendName) => {
 // ボイスチャット招待の受信監視
 onValue(ref(db, `users/${myId}/voice_invite`), snap => {
     const invite = snap.val();
-    if (invite && debugMode && !voiceChatActive) {
+    if (invite && !voiceChatActive) {
         // 招待が来たら確認ダイアログを表示
         const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
         if (result) {
@@ -2163,9 +2089,9 @@ function acceptVoiceInvite(fromId, fromName) {
     updateVoiceParticipants();
     
     // 通話開始のアラート
-    showBattleAlert(`🔊 ${fromName} とボイスチャットを開始しました`, "var(--accent-green)");
+    alert(`🔊 ${fromName} とボイスチャットを開始しました`);
     
-    // 実際のWebRTC接続（簡易版）
+    // マイク使用許可のリクエスト
     startVoiceChat();
 }
 
@@ -2178,9 +2104,6 @@ function startVoiceChat() {
             .then(stream => {
                 voiceStream = stream;
                 console.log("マイクの使用を開始しました");
-                
-                // 簡易的な通話開始通知
-                showBattleAlert("🎤 マイクが有効になりました", "var(--accent-green)");
             })
             .catch(err => {
                 console.error("マイクの使用に失敗:", err);
@@ -2240,9 +2163,6 @@ window.toggleMute = () => {
         });
     }
     
-    showBattleAlert(voiceMuted ? "🔇 マイクをミュートしました" : "🎤 ミュートを解除しました", 
-                   voiceMuted ? "var(--accent-red)" : "var(--accent-green)");
-    
     updateVoiceParticipants();
 };
 
@@ -2268,7 +2188,6 @@ window.endVoiceChat = () => {
     }
     
     updateVoiceParticipants();
-    showBattleAlert("🔇 ボイスチャットを終了しました", "var(--accent-red)");
 };
 
 // --- モード制御 ---
