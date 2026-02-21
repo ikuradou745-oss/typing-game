@@ -9,6 +9,135 @@
     --glass: rgba(255, 255, 255, 0.03);
 }
 
+/* VCパネル専用デザイン */
+.vc-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.vc-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--glass);
+}
+
+/* 状態インジケーター（光るドット） */
+.vc-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+.dot-off {
+    background: #444;
+    box-shadow: inset 0 0 5px #000;
+}
+.dot-on {
+    background: var(--accent-green);
+    box-shadow: 0 0 15px var(--accent-green);
+    animation: pulse-green 1.5s infinite;
+}
+@keyframes pulse-green {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.vc-text-group {
+    display: flex;
+    flex-direction: column;
+}
+#vc-status-label {
+    font-size: 0.8rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+#vc-mic-name {
+    font-size: 0.65rem;
+    color: #888;
+}
+
+/* VCトグルボタン */
+.vc-action-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 2px solid;
+    font-weight: 900;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-family: inherit;
+}
+.vc-action-btn.off {
+    background: rgba(0, 242, 255, 0.1);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+.vc-action-btn.on {
+    background: rgba(255, 49, 49, 0.1);
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+    box-shadow: 0 0 15px rgba(255, 49, 49, 0.3);
+}
+.vc-action-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.2);
+}
+
+/* 音量スライダー */
+.vc-settings {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px;
+    border-radius: 8px;
+}
+.vc-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    margin-bottom: 5px;
+    color: #bbb;
+}
+input[type="range"]#vc-volume-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    border: none;
+}
+input[type="range"]#vc-volume-slider::-webkit-scrollbar-thumb { /* 誤記修正用：実際はslider-thumb */ }
+input[type="range"]#vc-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-blue);
+}
+
+.vc-members-mini {
+    font-size: 0.7rem;
+    color: #888;
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+.vc-note {
+    font-size: 0.6rem;
+    color: #555;
+    text-align: center;
+}
+
 /* サイドバー全体のレイアウト修正 */
 #sidebar {
     height: 100vh;
