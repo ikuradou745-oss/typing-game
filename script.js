@@ -93,7 +93,7 @@ let partyStoryProgress = {};
 
 // --- デバッグモード／ボイスチャット用 ---
 let debugMode = false;
-let secretKeyPressTime = { q: 0, '1': 0 };
+let secretKeyPressTime = { q: 0, 'b': 0 };
 let secretKeyTimer = null;
 let voiceChatActive = false;
 let voiceMuted = false;
