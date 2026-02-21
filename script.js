@@ -118,7 +118,8 @@ const NEW_SKILLS = {
         desc: "【パチパチ】使用すると相手に1秒間「避ける」ボタンを表示。避けられなかったら8秒間スタン",
         boss: true,
         chapter: 1,
-        stage: 7
+        stage: 7,
+        requirement: "第1章 1-7 クリア"
     },
     hacker_milestone4: { 
         id: "hacker_milestone4", 
@@ -128,7 +129,8 @@ const NEW_SKILLS = {
         desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成（10秒間タイピング不可）\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態",
         boss: true,
         chapter: 2,
-        stage: 7
+        stage: 7,
+        requirement: "第2章 2-7 クリア"
     }
 };
 
@@ -422,32 +424,62 @@ function renderShop() {
     const shopList = el("shop-list");
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
-        // ストーリーモード報酬スキルはショップに表示しない
-        if (skill.boss) return;
-        
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
         
+        // ボススキルの場合、進行状況に応じて表示を変える
+        let canUseBossSkill = true;
+        let requirementText = "";
+        
+        if (skill.boss) {
+            if (skill.id === "hanabi") {
+                canUseBossSkill = storyProgress.chapter1 >= 7;
+                requirementText = `【条件: ${canUseBossSkill ? '✓ クリア済み' : '第1章 1-7 をクリアすると使用可能'}】`;
+            } else if (skill.id === "hacker_milestone4") {
+                canUseBossSkill = storyProgress.chapter2 >= 7;
+                requirementText = `【条件: ${canUseBossSkill ? '✓ クリア済み' : '第2章 2-7 をクリアすると使用可能'}】`;
+            }
+        }
+        
         let buttonHtml = "";
-        if (isEquipped) {
+        if (skill.boss && !canUseBossSkill) {
+            // ボススキルで未クリアの場合
+            buttonHtml = `<button class="shop-btn" disabled style="background: #666;">使用不可 (未クリア)</button>`;
+        } else if (isEquipped) {
             buttonHtml = `<button class="shop-btn equipped" disabled>装備中</button>`;
         } else if (isOwned) {
             buttonHtml = `<button class="shop-btn" onclick="window.equipSkill('${skill.id}')">装備する</button>`;
-        } else {
+        } else if (!skill.boss) {
+            // 通常スキル（購入可能）
             const canAfford = coins >= skill.cost;
             buttonHtml = `<button class="shop-btn" onclick="window.buySkill('${skill.id}')" ${canAfford ? '' : 'disabled'}>購入 (${skill.cost}🪙)</button>`;
+        } else if (skill.boss && canUseBossSkill && !isOwned) {
+            // ボススキルでクリア済みだけど未取得の場合（通常はクリア時に自動取得するが念のため）
+            buttonHtml = `<button class="shop-btn" onclick="window.unlockBossSkill('${skill.id}')" style="background: #FFD700;">解除する</button>`;
         }
 
         shopList.innerHTML += `
-            <div class="shop-item">
-                <h3>${skill.name}</h3>
+            <div class="shop-item ${skill.boss ? 'boss-skill-item' : ''}">
+                <h3>${skill.name} ${skill.boss ? '👑' : ''}</h3>
                 <p style="white-space: pre-wrap;">${skill.desc}</p>
+                ${skill.boss ? `<p style="color: #FFD700; font-size: 0.9rem;">${requirementText}</p>` : ''}
                 <span class="cooldown-text">クールダウン: ${skill.cooldown > 0 ? skill.cooldown + '秒' : '個別/1回のみ'}</span>
                 ${buttonHtml}
             </div>
         `;
     });
 }
+
+// ボススキルを手動で解除（クリア時に自動取得されるが、万一のため）
+window.unlockBossSkill = (skillId) => {
+    if (!ownedSkills.includes(skillId)) {
+        ownedSkills.push(skillId);
+        equippedSkill = skillId;
+        saveAndDisplayData();
+        renderShop();
+        alert(`${SKILL_DB[skillId].name} を解除しました！`);
+    }
+};
 
 // --- ゲームエンジン ---
 function openScreen(id) {
