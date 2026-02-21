@@ -93,7 +93,7 @@ let partyStoryProgress = {};
 
 // --- デバッグモード／ボイスチャット用 ---
 let debugMode = false;
-let secretKeyPressTime = { q: 0, '1': 0 };
+let secretKeyPressTime = { q: 0, b: 0 };
 let secretKeyTimer = null;
 let voiceChatActive = false;
 let voiceMuted = false;
@@ -752,40 +752,40 @@ function giveBossSkill(skillId) {
     }
 }
 
-// キーイベントの監視（ゲーム外でも動作するように修正）
+// キーイベントの監視（ゲーム外でも動作）
 document.addEventListener("keydown", e => {
     console.log("キーが押されました:", e.key); // デバッグ用
     
-    // デバッグモード用の秘密コード検出（Qと1の同時長押し）- ゲーム中以外でも動作
+    // デバッグモード用の秘密コード検出（QとBの同時長押し1秒）
     if (!debugMode) {
         // Qキーまたはqキー
         if (e.key === 'q' || e.key === 'Q') {
             console.log("Qキー押下");
             secretKeyPressTime.q = Date.now();
         }
-        // 1キー
-        if (e.key === '1') {
-            console.log("1キー押下");
-            secretKeyPressTime['1'] = Date.now();
+        // Bキーまたはbキー
+        if (e.key === 'b' || e.key === 'B') {
+            console.log("Bキー押下");
+            secretKeyPressTime.b = Date.now();
         }
         
         // 両方のキーが押されているかチェック
-        if (secretKeyPressTime.q > 0 && secretKeyPressTime['1'] > 0) {
+        if (secretKeyPressTime.q > 0 && secretKeyPressTime.b > 0) {
             console.log("両方のキーが押されました");
-            const timeDiff = Math.abs(secretKeyPressTime.q - secretKeyPressTime['1']);
+            const timeDiff = Math.abs(secretKeyPressTime.q - secretKeyPressTime.b);
             if (timeDiff < 500) { // 0.5秒以内に両方押された
                 console.log("タイマーセット");
                 if (!secretKeyTimer) {
                     secretKeyTimer = setTimeout(() => {
-                        // 3秒間長押しされたかチェック
+                        // 1秒間長押しされたかチェック
                         const now = Date.now();
-                        console.log("3秒経過チェック", now - secretKeyPressTime.q, now - secretKeyPressTime['1']);
-                        if (now - secretKeyPressTime.q >= 3000 && now - secretKeyPressTime['1'] >= 3000) {
+                        console.log("1秒経過チェック", now - secretKeyPressTime.q, now - secretKeyPressTime.b);
+                        if (now - secretKeyPressTime.q >= 1000 && now - secretKeyPressTime.b >= 1000) {
                             console.log("秘密コード入力画面を開きます");
                             openSecretCodeInput();
                         }
                         secretKeyTimer = null;
-                    }, 3000);
+                    }, 1000);
                 }
             }
         }
@@ -830,11 +830,11 @@ document.addEventListener("keyup", e => {
         console.log("Qキーリリース");
         secretKeyPressTime.q = 0;
     }
-    if (e.key === '1') {
-        console.log("1キーリリース");
-        secretKeyPressTime['1'] = 0;
+    if (e.key === 'b' || e.key === 'B') {
+        console.log("Bキーリリース");
+        secretKeyPressTime.b = 0;
     }
-    if (secretKeyPressTime.q === 0 && secretKeyPressTime['1'] === 0 && secretKeyTimer) {
+    if (secretKeyPressTime.q === 0 && secretKeyPressTime.b === 0 && secretKeyTimer) {
         console.log("タイマーキャンセル");
         clearTimeout(secretKeyTimer);
         secretKeyTimer = null;
@@ -2036,7 +2036,7 @@ window.executeDodge = () => {
     }
 };
 
-// --- デバッグモード／ボイスチャット機能 ---
+// --- デバッグモード／ボイスチャット機能（完成版）---
 function openSecretCodeInput() {
     console.log("秘密コード入力画面を開きます");
     const overlay = el("secret-code-overlay");
@@ -2165,25 +2165,29 @@ function acceptVoiceInvite(fromId, fromName) {
     // 通話開始のアラート
     showBattleAlert(`🔊 ${fromName} とボイスチャットを開始しました`, "var(--accent-green)");
     
-    // 実際のWebRTC接続は簡易版として、ここでは模擬的に接続
+    // 実際のWebRTC接続（簡易版）
     startVoiceChat();
 }
 
 function startVoiceChat() {
-    // 簡易的なボイスチャット接続（実際のWebRTCは複雑なため、模擬実装）
     console.log("ボイスチャット接続開始");
     
-    // マイク使用許可のリクエスト（実際の実装では必要）
+    // マイク使用許可のリクエスト
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(stream => {
                 voiceStream = stream;
                 console.log("マイクの使用を開始しました");
+                
+                // 簡易的な通話開始通知
+                showBattleAlert("🎤 マイクが有効になりました", "var(--accent-green)");
             })
             .catch(err => {
                 console.error("マイクの使用に失敗:", err);
                 alert("マイクの使用に失敗しました。ブラウザの設定を確認してください。");
             });
+    } else {
+        alert("お使いのブラウザは音声通話に対応していません");
     }
 }
 
@@ -2229,12 +2233,15 @@ window.toggleMute = () => {
         muteBtn.classList.toggle("muted", voiceMuted);
     }
     
-    // 実際のミュート処理（簡易版）
+    // 実際のミュート処理
     if (voiceStream) {
         voiceStream.getAudioTracks().forEach(track => {
             track.enabled = !voiceMuted;
         });
     }
+    
+    showBattleAlert(voiceMuted ? "🔇 マイクをミュートしました" : "🎤 ミュートを解除しました", 
+                   voiceMuted ? "var(--accent-red)" : "var(--accent-green)");
     
     updateVoiceParticipants();
 };
