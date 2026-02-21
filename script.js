@@ -72,6 +72,59 @@ let isGodfatherMissionActive = false;
 let hackerTabsActive = 0;
 let attackListenerReference = null;
 
+// --- ストーリーモード用グローバル変数 ---
+let storyProgress = JSON.parse(localStorage.getItem("ramo_story_progress")) || { chapter1: 0, chapter2: 0 };
+let currentStage = { chapter: 1, stage: 1 };
+let isStoryMode = false;
+let storyTargetScore = 8000;
+let dodgeTimer = null;
+let mazeActive = false;
+let mazePlayerPos = { x: 0, y: 0 };
+let mazeGoalPos = { x: 9, y: 9 };
+let mazeGrid = [];
+let poisonActive = false;
+let hackingActive = false;
+
+// ストーリーモードのステージデータ
+const STORY_STAGES = {
+    chapter1: [
+        { stage: 1, target: 8000, reward: 100 },
+        { stage: 2, target: 9000, reward: 200 },
+        { stage: 3, target: 10000, reward: 300 },
+        { stage: 4, target: 11000, reward: 400 },
+        { stage: 5, target: 12000, reward: 500 },
+        { stage: 6, target: 13000, reward: 600 },
+        { stage: 7, target: 25000, reward: 700, boss: true, skill: "hanabi" }
+    ],
+    chapter2: [
+        { stage: 1, target: 26000, reward: 800 },
+        { stage: 2, target: 27000, reward: 900 },
+        { stage: 3, target: 28000, reward: 1000 },
+        { stage: 4, target: 29000, reward: 1100 },
+        { stage: 5, target: 30000, reward: 1200 },
+        { stage: 6, target: 31000, reward: 1300 },
+        { stage: 7, target: 45000, reward: 1400, boss: true, skill: "hacker_milestone4" }
+    ]
+};
+
+// 新しいスキルの追加
+const NEW_SKILLS = {
+    hanabi: { 
+        id: "hanabi", 
+        name: "花火", 
+        cost: 0, 
+        cooldown: 40, 
+        desc: "【パチパチ】使用すると相手に1秒間「避ける」ボタンを表示。避けられなかったら8秒間スタン" 
+    },
+    hacker_milestone4: { 
+        id: "hacker_milestone4", 
+        name: "ハッカーマイルストーン4", 
+        cost: 0, 
+        cooldown: 0, 
+        desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態" 
+    }
+};
+
 // スキルのデータ定義 (新スキル追加)
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
@@ -86,7 +139,10 @@ const SKILL_DB = {
     godfundraiser: { id: "godfundraiser", name: "神資金稼ぎ", cost: 100000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に4倍になる" },
     godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×20)のコインを直接獲得" },
     hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
-    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を20秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" }
+    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を20秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
+    
+    // --- ストリーモード報酬スキル ---
+    ...NEW_SKILLS
 };
 
 // --- セーブデータ保存・表示更新用関数 ---
@@ -94,6 +150,7 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_coins", coins);
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
+    localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
     
     if (el("coin-amount")) el("coin-amount").innerText = coins;
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
@@ -101,7 +158,8 @@ function saveAndDisplayData() {
     update(ref(db, `users/${myId}`), { 
         coins: coins,
         skills: ownedSkills,
-        equipped: equippedSkill
+        equipped: equippedSkill,
+        story_progress: storyProgress
     });
 }
 
@@ -121,6 +179,7 @@ function updateButtonStates() {
     const btnEditor = el("btn-editor");
     const btnCustom = el("btn-custom");
     const btnShop = el("btn-shop");
+    const btnStory = el("btn-story");
 
     if (btnSingle) btnSingle.disabled = isBusy;
     if (btnParty) btnParty.disabled = isMatchmaking; 
@@ -128,6 +187,7 @@ function updateButtonStates() {
     if (btnEditor) btnEditor.disabled = isBusy;
     if (btnCustom) btnCustom.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy;
+    if (btnStory) btnStory.disabled = isBusy;
 }
 
 // --- リアルタイム名前更新 ---
@@ -288,9 +348,26 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
             if (p.state === "playing" && !gameActive) {
                 el("ready-overlay").classList.add("hidden");
-                currentWords = WORD_DB[p.diff]; 
-                isCustomGame = false;
-                startGame(p.time);
+                if (p.storyMode) {
+                    // ストーリーモードのパーティープレイ
+                    isStoryMode = true;
+                    storyTargetScore = p.storyTarget;
+                    currentStage = { chapter: p.storyChapter, stage: p.storyStage };
+                    isCustomGame = true;
+                    currentWords = WORD_DB[p.diff] || WORD_DB.normal;
+                    
+                    // スコアバー表示
+                    const progressBar = el("story-progress-bar");
+                    progressBar.classList.remove("hidden");
+                    el("progress-target").innerText = storyTargetScore;
+                    updateProgressBar(0);
+                    
+                    startGame(p.time);
+                } else {
+                    currentWords = WORD_DB[p.diff]; 
+                    isCustomGame = false;
+                    startGame(p.time);
+                }
             }
             if (p.state === "lobby" && gameActive) {
                 endGame();
@@ -338,6 +415,9 @@ function renderShop() {
     const shopList = el("shop-list");
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
+        // ストーリーモード報酬スキルはショップに表示しない
+        if (skill.id === "hanabi" || skill.id === "hacker_milestone4") return;
+        
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
         
@@ -377,6 +457,11 @@ window.goHome = () => {
     if (myPartyId && myPartyId.startsWith("match_")) {
         window.leaveParty();
     }
+    
+    // ストーリーモード用プログレスバーを非表示
+    el("story-progress-bar").classList.add("hidden");
+    isStoryMode = false;
+    
     openScreen("screen-home"); 
     updateButtonStates();
 };
@@ -404,7 +489,7 @@ function processCorrectType() {
     // 【新スキル】ゴッドファザー任務処理
     if (isGodfatherMissionActive) {
         coins += (combo > 0 ? combo * 20 : 20);
-        el("coin-amount").innerText = coins; // UI即時反映
+        el("coin-amount").innerText = coins;
     }
     
     sounds.type.currentTime = 0; sounds.type.play();
@@ -418,7 +503,96 @@ function processCorrectType() {
     el("stat-score").innerText = score; 
     el("stat-combo").innerText = combo;
     renderRoma();
+    
+    // ストーリーモードならプログレスバー更新
+    if (isStoryMode) {
+        updateProgressBar(score);
+        
+        // クリア条件達成
+        if (score >= storyTargetScore && gameActive) {
+            clearInterval(gameInterval);
+            gameActive = false;
+            storyClear();
+        }
+    }
+    
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
+}
+
+// プログレスバー更新
+function updateProgressBar(currentScore) {
+    const percentage = Math.min(100, (currentScore / storyTargetScore) * 100);
+    el("progress-bar-fill").style.width = percentage + "%";
+    el("progress-score").innerText = currentScore;
+}
+
+// ストーリークリア処理
+function storyClear() {
+    const stageData = currentStage.chapter === 1 ?
+        STORY_STAGES.chapter1[currentStage.stage - 1] :
+        STORY_STAGES.chapter2[currentStage.stage - 1];
+    
+    let earnedCoins = stageData.reward;
+    
+    // パーティープレイ時は人数で割る
+    if (myPartyId) {
+        get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
+            const members = snap.val();
+            const memberCount = Object.keys(members).length;
+            earnedCoins = Math.floor(earnedCoins / memberCount);
+            
+            // 進行状況を保存
+            updateStoryProgress();
+            
+            // コイン付与
+            coins += earnedCoins;
+            saveAndDisplayData();
+            
+            // ボスステージならスキル付与
+            if (stageData.boss) {
+                giveBossSkill(stageData.skill);
+            }
+            
+            endGame();
+        });
+    } else {
+        // ソロプレイ
+        updateStoryProgress();
+        coins += earnedCoins;
+        saveAndDisplayData();
+        
+        if (stageData.boss) {
+            giveBossSkill(stageData.skill);
+        }
+        
+        endGame();
+    }
+}
+
+// 進行状況更新
+function updateStoryProgress() {
+    if (currentStage.chapter === 1) {
+        if (storyProgress.chapter1 < currentStage.stage) {
+            storyProgress.chapter1 = currentStage.stage;
+        }
+    } else {
+        if (storyProgress.chapter2 < currentStage.stage) {
+            storyProgress.chapter2 = currentStage.stage;
+        }
+    }
+    
+    localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
+    update(ref(db, `users/${myId}/story_progress`), storyProgress);
+}
+
+// ボススキル付与
+function giveBossSkill(skillId) {
+    if (!ownedSkills.includes(skillId)) {
+        ownedSkills.push(skillId);
+        equippedSkill = skillId;
+        saveAndDisplayData();
+        alert(`ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
+    }
 }
 
 window.addEventListener("keydown", e => {
@@ -517,16 +691,18 @@ function endGame() {
     let earnedCoins = Math.floor(score / 10);
     let isWinner = false;
 
-    if (isCustomGame) {
+    if (isCustomGame && !isStoryMode) {
         earnedCoins = 0;
     }
 
-    // 【新スキル】資金稼ぎパッシブ適用
-    if (equippedSkill === "fundraiser") {
-        earnedCoins *= 2;
-    }
+    // 【新スキル】資金稼ぎパッシブ適用（ストーリーモード以外）
+    if (!isStoryMode) {
+        if (equippedSkill === "fundraiser") {
+            earnedCoins *= 2;
+        }
         if (equippedSkill === "godfundraiser") {
-        earnedCoins *= 4;
+            earnedCoins *= 4;
+        }
     }
 
     if (myPartyId) {
@@ -540,7 +716,7 @@ function endGame() {
                     isWinner = true;
                 }
 
-                if (earnedCoins > 0) {
+                if (earnedCoins > 0 && !isStoryMode) {
                     coins += earnedCoins;
                     saveAndDisplayData();
                 }
@@ -550,13 +726,13 @@ function endGame() {
                     return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
                 }).join("");
                 
-                let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
-                if (equippedSkill === "fundraiser" && !isCustomGame) coinText += " (資金稼ぎ2倍適用!)";
-                el("ranking-box").innerHTML += `
-                    <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                        <span>結果</span><span>${coinText}</span>
-                    </div>`;
-                                if (equippedSkill === "godfundraiser" && !isCustomGame) coinText += " (資金稼ぎ4倍適用!)";
+                let coinText = "";
+                if (isStoryMode) {
+                    coinText = "ストーリーモードクリア！報酬は別途獲得";
+                } else {
+                    coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
+                }
+                
                 el("ranking-box").innerHTML += `
                     <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
                         <span>結果</span><span>${coinText}</span>
@@ -568,13 +744,13 @@ function endGame() {
             }
         });
     } else { 
-        if (earnedCoins > 0) {
+        if (earnedCoins > 0 && !isStoryMode) {
             coins += earnedCoins;
             saveAndDisplayData();
         }
         el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
-        let coinText = isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`;
-        if (equippedSkill === "fundraiser" && !isCustomGame) coinText += " (資金稼ぎ2倍適用!)";
+        let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : (isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`);
+        
         el("ranking-box").innerHTML += `
             <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
                 <span>結果</span><span>${coinText}</span>
@@ -588,6 +764,12 @@ function setupSkillUI() {
     const skillNameText = el("skill-btn-name");
     const statusText = el("skill-status-text");
     
+    // ストーリーモードではスキル無効
+    if (isStoryMode) {
+        actionBox.classList.add("hidden");
+        return;
+    }
+    
     if (equippedSkill && equippedSkill !== "none") {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = SKILL_DB[equippedSkill].name;
@@ -595,11 +777,10 @@ function setupSkillUI() {
         if (equippedSkill === "fundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン2倍";
             el("in-game-skill-btn").classList.add("hidden");
-        } else if (equippedSkill === "hacker" || equippedSkill === "accelerator") {
+        } else if (equippedSkill === "hacker" || equippedSkill === "accelerator" || equippedSkill === "hacker_milestone4") {
             el("in-game-skill-btn").classList.add("hidden");
             updateCooldownText();
-        }
-            else if (equippedSkill === "godfundraiser") {
+        } else if (equippedSkill === "godfundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
             el("in-game-skill-btn").classList.add("hidden");
         } else {
@@ -625,6 +806,11 @@ function updateCooldownText() {
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]特別加熱OK";
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]自爆OK";
         txt = `${k1} | ${k2} | ${k3}`;
+    } else if (skill.id === "hacker_milestone4") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]迷路OK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]高度なハックOK";
+        let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]状態変異OK";
+        txt = `${k1} | ${k2} | ${k3}`;
     } else {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     }
@@ -646,6 +832,11 @@ function resetSkillState() {
     isGodfatherMissionActive = false;
     hackerTabsActive = 0;
     
+    // ストーリーモード関連のリセット
+    mazeActive = false;
+    hackingActive = false;
+    poisonActive = false;
+    
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
     
@@ -656,6 +847,10 @@ function resetSkillState() {
     }
     
     el("jamming-overlay").classList.add("hidden");
+    el("maze-overlay").classList.add("hidden");
+    el("hacking-overlay").classList.add("hidden");
+    el("poison-overlay").classList.add("hidden");
+    document.body.classList.remove("poisoned");
     el("skill-cooldown-bar").style.height = "0%";
     el("in-game-skill-btn").classList.remove("cooldown", "hidden");
     el("skill-status-text").innerText = "準備完了！(指定キーで発動)";
@@ -668,7 +863,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -679,12 +874,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -752,6 +947,7 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
     if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
+    if (isStoryMode) return; // ストーリーモードではスキル使用不可
     
     const skill = SKILL_DB[equippedSkill];
 
@@ -762,10 +958,6 @@ window.activateSkill = (keySlot = "space") => {
         if (skill.id === "punch") {
             sendAttackToOthers("jam", 3000, 0);
             showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
-        } 
-            else if (skill.id === "tinko") {
-            sendAttackToOthers("jam", 20, 0);
-            showBattleAlert("👆 やりまくった！！！！", "var(--accent-red)");
         } 
         else if (skill.id === "autotype") {
             startAutoTypeEngine(3000, 70); 
@@ -796,12 +988,16 @@ window.activateSkill = (keySlot = "space") => {
             el("in-game-skill-btn").classList.add("cooldown");
             el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
             showBattleAlert("⏳ タイムスリップ！", "#FFD700");
-            return; // 1回のみなのでクールダウン処理スキップ
+            return;
         }
         else if (skill.id === "godfather") {
             isGodfatherMissionActive = true;
             setTimeout(() => { isGodfatherMissionActive = false; }, 10000);
             showBattleAlert("🕴 任務開始！(10秒間)", "#ffd700");
+        }
+        else if (skill.id === "hanabi") {
+            sendAttackToOthers("dodge", 1000, 0);
+            showBattleAlert("🎆 パチパチ発動！", "#FFD700");
         }
 
         if (skill.cooldown > 0) startSpecificCooldown("space", skill.cooldown);
@@ -821,6 +1017,11 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🔥 熱い温度発動！", "var(--accent-red)");
             startSpecificCooldown("key1", 40);
         }
+        else if (skill.id === "hacker_milestone4") {
+            sendAttackToOthers("maze", 0, 0);
+            showBattleAlert("🔷 迷路を送信！", "#00ff00");
+            startSpecificCooldown("key1", 45);
+        }
     }
 
     // ====== KEY 2 SKILLS ======
@@ -837,6 +1038,13 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("☄️ 特別加熱！", "var(--accent-red)");
             startSpecificCooldown("key2", 70);
         }
+        else if (skill.id === "hacker_milestone4") {
+            if (!skill.used) {
+                sendAttackToOthers("hacking", 3000, 0);
+                showBattleAlert("💻 高度なハック！", "#ff0000");
+                skill.used = true;
+            }
+        }
     }
 
     // ====== KEY 3 SKILLS ======
@@ -848,6 +1056,11 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOthers("reset_combo", 0, 0);
             showBattleAlert("💥 自爆！", "var(--accent-red)");
             startSpecificCooldown("key3", 200);
+        }
+        else if (skill.id === "hacker_milestone4") {
+            sendAttackToOthers("poison", 3000, 0);
+            showBattleAlert("🧪 状態変異！", "#00ff00");
+            startSpecificCooldown("key3", 35);
         }
     }
 
@@ -869,7 +1082,7 @@ function startAutoTypeEngine(durationMs, intervalMs) {
 
 // ハッカーのタブ生成処理
 function createHackerTabs() {
-    if (hackerTabsActive > 0) return; // 既に展開中の場合は重ねない
+    if (hackerTabsActive > 0) return;
     hackerTabsActive = 10;
     
     const container = document.createElement('div');
@@ -881,7 +1094,6 @@ function createHackerTabs() {
     container.style.zIndex = '9999';
     document.body.appendChild(container);
 
-    // Xボタン用のグローバル削除関数
     window.removeHackerTab = () => {
         hackerTabsActive--;
         if (hackerTabsActive <= 0) {
@@ -903,7 +1115,6 @@ function createHackerTabs() {
         tab.style.display = 'flex';
         tab.style.flexDirection = 'column';
         
-        // 画面の真ん中より下側にバラバラに配置
         tab.style.top = (Math.random() * 45 + 40) + '%'; 
         tab.style.left = (Math.random() * 70 + 5) + '%';
         
@@ -937,9 +1148,134 @@ function applyBlurEffect() {
         } else {
             playScreen.style.filter = `blur(${blurAmount}px)`;
         }
-    }, 1000); // 10秒かけて0になる
+    }, 1000);
 }
 
+// 迷路生成
+function generateMaze() {
+    const size = 10;
+    const maze = Array(size).fill().map(() => Array(size).fill(1));
+    
+    function carve(x, y) {
+        const dirs = [[0,1],[1,0],[0,-1],[-1,0]];
+        dirs.sort(() => Math.random() - 0.5);
+        
+        for (let [dx, dy] of dirs) {
+            const nx = x + dx*2;
+            const ny = y + dy*2;
+            if (nx >= 0 && nx < size && ny >= 0 && ny < size && maze[ny][nx] === 1) {
+                maze[y+dy][x+dx] = 0;
+                maze[ny][nx] = 0;
+                carve(nx, ny);
+            }
+        }
+    }
+    
+    maze[0][0] = 0;
+    carve(0, 0);
+    maze[size-1][size-1] = 2;
+    
+    return maze;
+}
+
+// 迷路描画
+function renderMaze() {
+    const grid = el("maze-grid");
+    grid.innerHTML = "";
+    
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+            const cell = document.createElement("div");
+            cell.className = "maze-cell";
+            
+            if (mazeGrid[y][x] === 1) {
+                cell.classList.add("wall");
+            } else if (x === mazePlayerPos.x && y === mazePlayerPos.y) {
+                cell.classList.add("player");
+            } else if (x === mazeGoalPos.x && y === mazeGoalPos.y) {
+                cell.classList.add("goal");
+            } else {
+                cell.classList.add("path");
+            }
+            
+            grid.appendChild(cell);
+        }
+    }
+}
+
+// 迷路移動
+window.moveMaze = (direction) => {
+    if (!mazeActive) return;
+    
+    let newX = mazePlayerPos.x;
+    let newY = mazePlayerPos.y;
+    
+    switch(direction) {
+        case 'up': newY--; break;
+        case 'down': newY++; break;
+        case 'left': newX--; break;
+        case 'right': newX++; break;
+    }
+    
+    if (newX >= 0 && newX < 10 && newY >= 0 && newY < 10) {
+        if (mazeGrid[newY][newX] !== 1) {
+            mazePlayerPos.x = newX;
+            mazePlayerPos.y = newY;
+            renderMaze();
+            
+            if (newX === mazeGoalPos.x && newY === mazeGoalPos.y) {
+                mazeActive = false;
+                el("maze-overlay").classList.add("hidden");
+                showBattleAlert("✅ 迷路クリア！", "var(--accent-green)");
+            }
+        }
+    }
+};
+
+// ハッキング開始
+function startHacking(duration) {
+    hackingActive = true;
+    const overlay = el("hacking-overlay");
+    const progress = document.querySelector(".hacking-progress");
+    
+    overlay.classList.remove("hidden");
+    
+    let count = 3;
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            progress.innerText = count;
+        } else {
+            clearInterval(interval);
+            overlay.classList.add("hidden");
+            hackingActive = false;
+            
+            const originalSkillState = equippedSkill;
+            equippedSkill = "none";
+            setupSkillUI();
+            
+            setTimeout(() => {
+                equippedSkill = originalSkillState;
+                setupSkillUI();
+            }, 15000);
+        }
+    }, 1000);
+}
+
+// 毒状態開始
+function startPoison(duration) {
+    poisonActive = true;
+    el("poison-overlay").classList.remove("hidden");
+    document.body.classList.add("poisoned");
+    
+    setTimeout(() => {
+        poisonActive = false;
+        el("poison-overlay").classList.add("hidden");
+        document.body.classList.remove("poisoned");
+    }, duration);
+}
+
+// 受信攻撃処理
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
 
@@ -984,6 +1320,54 @@ function handleIncomingAttack(attack) {
         sounds.miss.play();
         return;
     }
+    
+    if (attack.type === "dodge") {
+        el("dodge-overlay").classList.remove("hidden");
+        
+        let dodged = false;
+        window.dodgeCallback = (success) => {
+            dodged = success;
+        };
+        
+        setTimeout(() => {
+            el("dodge-overlay").classList.add("hidden");
+            if (!dodged) {
+                applyJamming(8000);
+                showBattleAlert("💥 花火直撃！8秒スタン！", "var(--accent-red)");
+            }
+            window.dodgeCallback = null;
+        }, 1000);
+        
+        sounds.miss.play();
+        return;
+    }
+    
+    if (attack.type === "maze") {
+        mazeActive = true;
+        mazeGrid = attack.maze || generateMaze();
+        mazePlayerPos = { x: 0, y: 0 };
+        mazeGoalPos = { x: 9, y: 9 };
+        
+        renderMaze();
+        el("maze-overlay").classList.remove("hidden");
+        sounds.miss.play();
+        return;
+    }
+    
+    if (attack.type === "hacking") {
+        startHacking(attack.duration);
+        sounds.miss.play();
+        return;
+    }
+    
+    if (attack.type === "poison") {
+        applyJamming(attack.duration);
+        setTimeout(() => {
+            startPoison(10000);
+        }, attack.duration);
+        sounds.miss.play();
+        return;
+    }
 
     if (attack.duration > 0) {
         applyJamming(attack.duration);
@@ -1001,6 +1385,214 @@ function applyJamming(durationMs) {
         el("jamming-overlay").classList.add("hidden");
     }, durationMs);
 }
+
+// --- ストーリーモード制御 ---
+window.openStoryMode = () => {
+    if (myPartyId || isMatchmaking) return;
+    openScreen("screen-story");
+    renderStoryMap();
+};
+
+// ストーリーマップの描画
+function renderStoryMap() {
+    // 第1章のマップ描画
+    const map1 = el("story-map-1");
+    map1.innerHTML = "";
+    STORY_STAGES.chapter1.forEach((stage, index) => {
+        const stageNum = index + 1;
+        const isCompleted = storyProgress.chapter1 >= stageNum;
+        const isLocked = storyProgress.chapter1 < stageNum - 1;
+        const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
+        
+        const node = document.createElement("div");
+        node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+        node.onclick = () => !isLocked && selectStage(1, stageNum);
+        
+        node.innerHTML = `
+            <div class="stage-number">1-${stageNum}</div>
+            <div class="stage-target">${stage.target}</div>
+            ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+            ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+        `;
+        map1.appendChild(node);
+    });
+
+    // 第2章のマップ描画
+    const map2 = el("story-map-2");
+    map2.innerHTML = "";
+    STORY_STAGES.chapter2.forEach((stage, index) => {
+        const stageNum = index + 1;
+        const isCompleted = storyProgress.chapter2 >= stageNum;
+        const isLocked = (storyProgress.chapter1 < 7) || (storyProgress.chapter2 < stageNum - 1);
+        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && storyProgress.chapter1 >= 7;
+        
+        const node = document.createElement("div");
+        node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+        node.onclick = () => !isLocked && selectStage(2, stageNum);
+        
+        node.innerHTML = `
+            <div class="stage-number">2-${stageNum}</div>
+            <div class="stage-target">${stage.target}</div>
+            ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+            ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+        `;
+        map2.appendChild(node);
+    });
+    
+    // チャプタータブ切り替え
+    document.querySelectorAll('.chapter-tab').forEach(tab => {
+        tab.onclick = () => {
+            document.querySelectorAll('.chapter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            document.querySelectorAll('.story-chapter').forEach(ch => ch.classList.add('hidden'));
+            el(`story-chapter-${tab.dataset.chapter}`).classList.remove('hidden');
+        };
+    });
+}
+
+// ステージ選択
+function selectStage(chapter, stage) {
+    currentStage = { chapter, stage };
+    const stageData = chapter === 1 ? 
+        STORY_STAGES.chapter1[stage - 1] : 
+        STORY_STAGES.chapter2[stage - 1];
+    
+    el("stage-title").innerText = `${chapter}-${stage}`;
+    el("stage-time").innerText = "60";
+    el("stage-target").innerText = stageData.target;
+    el("stage-reward").innerText = stageData.reward;
+    
+    if (stageData.boss) {
+        el("boss-info").classList.remove("hidden");
+        el("boss-skill-name").innerText = stageData.skill === "hanabi" ? "花火" : "ハッカーマイルストーン4";
+    } else {
+        el("boss-info").classList.add("hidden");
+    }
+    
+    // ボタン状態の更新
+    updateStageButtons();
+    
+    openScreen("screen-stage-detail");
+}
+
+// ステージボタンの状態更新
+function updateStageButtons() {
+    const soloBtn = el("story-solo-btn");
+    const partyBtn = el("story-party-btn");
+    const restrictionMsg = el("party-restriction-msg");
+    
+    soloBtn.disabled = myPartyId !== null;
+    
+    if (myPartyId && isLeader) {
+        partyBtn.disabled = false;
+        checkPartyProgress();
+    } else {
+        partyBtn.disabled = true;
+        restrictionMsg.classList.add("hidden");
+    }
+}
+
+// パーティーメンバーの進行状況チェック
+async function checkPartyProgress() {
+    if (!myPartyId) return;
+    
+    const snap = await get(ref(db, `parties/${myPartyId}/members`));
+    const members = snap.val();
+    if (!members) return;
+    
+    const memberIds = Object.keys(members).filter(id => id !== myId);
+    let allCleared = true;
+    
+    for (const mid of memberIds) {
+        const userSnap = await get(ref(db, `users/${mid}/story_progress`));
+        const progress = userSnap.val() || { chapter1: 0, chapter2: 0 };
+        
+        if (currentStage.chapter === 1) {
+            if (progress.chapter1 < currentStage.stage - 1) {
+                allCleared = false;
+                break;
+            }
+        } else {
+            if (progress.chapter2 < currentStage.stage - 1) {
+                allCleared = false;
+                break;
+            }
+        }
+    }
+    
+    const msg = el("party-restriction-msg");
+    if (!allCleared) {
+        msg.classList.remove("hidden");
+        el("story-party-btn").disabled = true;
+    } else {
+        msg.classList.add("hidden");
+        el("story-party-btn").disabled = false;
+    }
+}
+
+// ストーリーモードソロプレイ開始
+window.startStorySolo = () => {
+    if (myPartyId) {
+        alert("パーティー参加中は一人プレイできません");
+        return;
+    }
+    
+    const stageData = currentStage.chapter === 1 ?
+        STORY_STAGES.chapter1[currentStage.stage - 1] :
+        STORY_STAGES.chapter2[currentStage.stage - 1];
+    
+    const diffs = ["easy", "normal", "hard"];
+    const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
+    currentWords = WORD_DB[randomDiff];
+    
+    isStoryMode = true;
+    storyTargetScore = stageData.target;
+    isCustomGame = true;
+    
+    const progressBar = el("story-progress-bar");
+    progressBar.classList.remove("hidden");
+    el("progress-target").innerText = storyTargetScore;
+    updateProgressBar(0);
+    
+    openScreen("screen-play");
+    startGame(60);
+};
+
+// ストーリーモードパーティープレイ開始
+window.startStoryParty = () => {
+    if (!myPartyId || !isLeader) {
+        alert("パーティーリーダーのみ開始できます");
+        return;
+    }
+    
+    const stageData = currentStage.chapter === 1 ?
+        STORY_STAGES.chapter1[currentStage.stage - 1] :
+        STORY_STAGES.chapter2[currentStage.stage - 1];
+    
+    update(ref(db, `parties/${myPartyId}`), {
+        state: "ready_check",
+        time: 60,
+        diff: "normal",
+        storyMode: true,
+        storyTarget: stageData.target,
+        storyChapter: currentStage.chapter,
+        storyStage: currentStage.stage
+    });
+};
+
+// ストーリー画面に戻る
+window.backToStory = () => {
+    openScreen("screen-story");
+    renderStoryMap();
+};
+
+// 避けるボタン実行
+window.executeDodge = () => {
+    if (window.dodgeCallback) {
+        window.dodgeCallback(true);
+    }
+};
 
 // --- モード制御 ---
 window.openSingleSelect = () => {
@@ -1139,11 +1731,14 @@ get(userRef).then(snap => {
         if(data.equipped !== undefined) {
             equippedSkill = data.equipped;
         }
+        if(data.story_progress !== undefined) {
+            storyProgress = data.story_progress;
+        }
     }
     saveAndDisplayData(); 
 });
 
-update(userRef, { name: myName, status: "online", partyId: null });
+update(userRef, { name: myName, status: "online", partyId: null, story_progress: storyProgress });
 onDisconnect(userRef).update({ status: "offline" });
 updateButtonStates();
 
