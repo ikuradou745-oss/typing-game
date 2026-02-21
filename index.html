@@ -205,6 +205,39 @@
             </section>
 
             <section class="side-panel">
+                <section class="side-panel">
+                <div class="panel-title">COMMUNICATION</div>
+                <div class="vc-panel">
+                    <div class="vc-status-row">
+                        <div id="vc-indicator" class="vc-dot dot-off"></div>
+                        <div class="vc-text-group">
+                            <span id="vc-status-label">VOICE: OFF</span>
+                            <small id="vc-mic-name">マイク未接続</small>
+                        </div>
+                    </div>
+
+                    <button id="btn-vc-toggle" class="vc-action-btn off" onclick="window.toggleVoiceChat()">
+                        <span id="vc-btn-icon">🎤</span>
+                        <span id="vc-btn-text">ボイスチャットをON</span>
+                    </button>
+
+                    <div class="vc-settings">
+                        <div class="vc-setting-item">
+                            <div class="vc-label-row">
+                                <label>相手の音量</label>
+                                <span id="vc-vol-num">80</span>
+                            </div>
+                            <input type="range" id="vc-volume-slider" min="0" max="100" value="80" 
+                                oninput="document.getElementById('vc-vol-num').innerText=this.value; window.updateVCVolume(this.value)">
+                        </div>
+                    </div>
+                    
+                    <div id="vc-member-list" class="vc-members-mini">
+                        </div>
+                    
+                    <div class="vc-note">※パーティーメンバー間でのみ通話可能です</div>
+                </div>
+            </section>
                 <div class="panel-title">フレンド機能</div>
                 <div class="friend-add-box">
                     <input type="text" id="friend-code-input" placeholder="コードを入力">
