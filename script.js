@@ -3,6 +3,12 @@
 // FIREBASE & TYPING ENGINE V7.0 (Multi-Skill & Advanced Effects Integrated)
 // =========================================
 
+// --- ボイスチャット関連の状態管理 ---
+let localStream = null;       // 自分のマイク音声を保持する変数
+let isVCOn = false;           // VCがONかOFFかのフラグ
+let audioContext = null;      // 音声処理用のコンテキスト
+let gainNode = null;          // 音量調整用のノード
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
