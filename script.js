@@ -25,8 +25,46 @@ const sounds = {
     miss: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
     correct: new Audio("https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"),
     finish: new Audio("https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"),
-    notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3")
+    notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"),
+    
+    // ボイスチャット用効果音（声の種類）
+    voiceMale: [
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1066/1066-preview.mp3"), // あ
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1067/1067-preview.mp3"), // い
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1068/1068-preview.mp3"), // う
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1069/1069-preview.mp3"), // え
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3"), // お
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1071/1071-preview.mp3"), // か
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1072/1072-preview.mp3"), // き
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1073/1073-preview.mp3"), // く
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1074/1074-preview.mp3"), // け
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1075/1075-preview.mp3")  // こ
+    ],
+    voiceFemale: [
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1086/1086-preview.mp3"), // あ
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1087/1087-preview.mp3"), // い
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1088/1088-preview.mp3"), // う
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1089/1089-preview.mp3"), // え
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1090/1090-preview.mp3"), // お
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1091/1091-preview.mp3"), // か
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1092/1092-preview.mp3"), // き
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1093/1093-preview.mp3"), // く
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1094/1094-preview.mp3"), // け
+        new Audio("https://assets.mixkit.co/active_storage/sfx/1095/1095-preview.mp3")  // こ
+    ],
+    voiceRobot: [
+        new Audio("https://assets.mixkit.co/active_storage/sfx/958/958-preview.mp3"),  // ビープ1
+        new Audio("https://assets.mixkit.co/active_storage/sfx/959/959-preview.mp3"),  // ビープ2
+        new Audio("https://assets.mixkit.co/active_storage/sfx/960/960-preview.mp3"),  // ビープ3
+        new Audio("https://assets.mixkit.co/active_storage/sfx/961/961-preview.mp3"),  // ビープ4
+        new Audio("https://assets.mixkit.co/active_storage/sfx/962/962-preview.mp3")   // ビープ5
+    ]
 };
+
+// 各音声のプリロード
+Object.values(sounds.voiceMale).forEach(audio => audio.load());
+Object.values(sounds.voiceFemale).forEach(audio => audio.load());
+Object.values(sounds.voiceRobot).forEach(audio => audio.load());
 
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
@@ -91,14 +129,15 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- ボイスチャット用（修正版）---
+// --- ボイスチャット用（音声認識＋効果音版）---
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
-let localStream = null;
-let peerConnections = {};
 let voiceRoomId = null;
 let voiceInviteListener = null;
+let voiceType = 'male'; // 'male', 'female', 'robot'
+let recognition = null;
+let isListening = false;
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -1990,96 +2029,271 @@ window.executeDodge = () => {
     }
 };
 
-// --- ボイスチャット機能（修正版：SkyWayを使用）---
+// --- ボイスチャット機能（音声認識＋効果音版）---
 function openVoiceChat() {
     console.log("ボイスチャットを開きます");
     const overlay = el("debug-overlay");
     if (overlay) {
         overlay.classList.remove("hidden");
-        // SkyWayライブラリを動的に読み込み
-        loadSkyWayLibrary();
         renderVoiceFriendList();
-        alert("🎤 ボイスチャットモードを起動しました\n※音声通話にはマイクの許可が必要です");
+        initVoiceChat();
+        createVoiceChatBar(); // 常時表示バーを作成
+        alert("🎤 ボイスチャットモードを起動しました");
     } else {
         console.error("debug-overlayが見つかりません");
         alert("ボイスチャット画面が見つかりません");
     }
 }
 
-// SkyWayライブラリの読み込み
-function loadSkyWayLibrary() {
-    if (!window.peer) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/skyway/4.4.4/skyway.js';
-        script.onload = initVoiceChat;
-        document.head.appendChild(script);
-    } else {
-        initVoiceChat();
+// 常時表示のボイスチャットバーを作成
+function createVoiceChatBar() {
+    // 既存のバーがあれば削除
+    const existingBar = document.getElementById("voice-chat-bar");
+    if (existingBar) existingBar.remove();
+    
+    const bar = document.createElement("div");
+    bar.id = "voice-chat-bar";
+    bar.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid var(--accent-purple);
+        border-radius: 50px;
+        padding: 10px 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        z-index: 20001;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 0 20px var(--accent-purple);
+    `;
+    
+    // 参加者表示
+    const participantsSpan = document.createElement("span");
+    participantsSpan.id = "voice-bar-participants";
+    participantsSpan.style.color = "white";
+    participantsSpan.innerHTML = `👥 参加者: ${myName}`;
+    
+    // 声の種類選択
+    const voiceSelect = document.createElement("select");
+    voiceSelect.style.cssText = `
+        background: #333;
+        color: white;
+        border: 1px solid var(--accent-blue);
+        padding: 5px;
+        border-radius: 5px;
+    `;
+    voiceSelect.innerHTML = `
+        <option value="male">👨 男性の声</option>
+        <option value="female">👩 女性の声</option>
+        <option value="robot">🤖 ロボットの声</option>
+    `;
+    voiceSelect.onchange = (e) => {
+        voiceType = e.target.value;
+    };
+    
+    // ミュートボタン
+    const muteBtn = document.createElement("button");
+    muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
+    muteBtn.style.cssText = `
+        background: ${voiceMuted ? '#666' : 'var(--accent-blue)'};
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+    `;
+    muteBtn.onclick = toggleVoiceMute;
+    
+    // 通話終了ボタン
+    const endBtn = document.createElement("button");
+    endBtn.innerHTML = "📞 通話終了";
+    endBtn.style.cssText = `
+        background: var(--accent-red);
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+    `;
+    endBtn.onclick = () => {
+        closeDebugMode();
+    };
+    
+    bar.appendChild(participantsSpan);
+    bar.appendChild(voiceSelect);
+    bar.appendChild(muteBtn);
+    bar.appendChild(endBtn);
+    
+    document.body.appendChild(bar);
+    
+    window.voiceBarMuteBtn = muteBtn;
+}
+
+// ミュート切り替え
+function toggleVoiceMute() {
+    voiceMuted = !voiceMuted;
+    
+    if (voiceMuted && recognition) {
+        recognition.stop();
+        isListening = false;
+    } else if (!voiceMuted && !isListening) {
+        startListening();
+    }
+    
+    if (window.voiceBarMuteBtn) {
+        window.voiceBarMuteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
+        window.voiceBarMuteBtn.style.background = voiceMuted ? '#666' : 'var(--accent-blue)';
     }
 }
 
-// ボイスチャット初期化
+// 音声認識の初期化
 function initVoiceChat() {
-    if (voiceChatActive) return;
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert("お使いのブラウザは音声認識に対応していません");
+        return;
+    }
     
-    // SkyWayのAPIキー（無料版を使用）
-    const peer = new Peer(myId, {
-        key: '4f8c6a0a-8b8c-4f8c-9a0a-8b8c4f8c9a0a', // ダミーキー（実際のSkyWayキーに置き換えが必要）
-        debug: 3
-    });
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.continuous = true;
+    recognition.interimResults = false;
     
-    peer.on('open', () => {
-        console.log('Peer ID:', peer.id);
-        voiceChannel = peer;
-        voiceChatActive = true;
+    recognition.onresult = (event) => {
+        if (voiceMuted) return;
         
-        // 自分のストリームを取得
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-            .then(stream => {
-                localStream = stream;
-                console.log('Local stream obtained');
-                
-                // 参加者リストに自分を追加
-                updateVoiceParticipants();
-                
-                // 発信を待機
-                peer.on('call', call => {
-                    call.answer(stream);
-                    call.on('stream', remoteStream => {
-                        addRemoteStream(remoteStream, call.peer);
-                    });
-                });
-            })
-            .catch(err => {
-                console.error('Failed to get local stream', err);
-                alert('マイクの使用が許可されていません');
-            });
-    });
+        const result = event.results[event.results.length - 1];
+        const text = result[0].transcript;
+        console.log("認識結果:", text);
+        
+        // 認識されたテキストを音声効果に変換
+        playVoiceEffect(text);
+        
+        // 参加者に音声効果を送信
+        sendVoiceEffect(text);
+    };
     
-    peer.on('error', err => {
-        console.error('Peer error:', err);
-        alert('ボイスチャットの接続に失敗しました');
+    recognition.onerror = (event) => {
+        console.error("音声認識エラー:", event.error);
+        if (event.error === 'not-allowed') {
+            alert("マイクの使用が許可されていません");
+        }
+    };
+    
+    recognition.onend = () => {
+        if (!voiceMuted && voiceChatActive) {
+            // 自動的に再開
+            startListening();
+        }
+    };
+    
+    // 音声認識開始
+    startListening();
+}
+
+// 音声認識開始
+function startListening() {
+    if (recognition && !isListening && !voiceMuted) {
+        try {
+            recognition.start();
+            isListening = true;
+            console.log("音声認識開始");
+        } catch (e) {
+            console.error("音声認識開始エラー:", e);
+        }
+    }
+}
+
+// 音声効果を再生
+function playVoiceEffect(text) {
+    // テキストから発音の種類を判断（簡易版）
+    // 実際には形態素解析などが必要だが、ここでは文字数と最初の文字で判断
+    const firstChar = text.charAt(0);
+    const charCode = firstChar.charCodeAt(0);
+    const index = Math.floor(Math.random() * 5); // 0-4のランダム
+    
+    let soundArray;
+    switch(voiceType) {
+        case 'female':
+            soundArray = sounds.voiceFemale;
+            break;
+        case 'robot':
+            soundArray = sounds.voiceRobot;
+            break;
+        default:
+            soundArray = sounds.voiceMale;
+    }
+    
+    // ランダムな効果音を再生
+    const sound = soundArray[Math.floor(Math.random() * soundArray.length)];
+    if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(e => console.log("音声再生エラー:", e));
+    }
+}
+
+// 音声効果を相手に送信
+function sendVoiceEffect(text) {
+    if (!voiceChatActive || voiceParticipants.length === 0) return;
+    
+    voiceParticipants.forEach(pid => {
+        if (pid !== myId) {
+            const effectId = generateId();
+            update(ref(db, `users/${pid}/voice_effect`), {
+                from: myId,
+                fromName: myName,
+                voiceType: voiceType,
+                text: text,
+                timestamp: Date.now()
+            });
+            
+            // 1秒後に削除
+            setTimeout(() => {
+                remove(ref(db, `users/${pid}/voice_effect`));
+            }, 1000);
+        }
     });
 }
 
-// リモートストリームを追加
-function addRemoteStream(stream, peerId) {
-    const audio = document.createElement('audio');
-    audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.id = `audio-${peerId}`;
-    document.body.appendChild(audio);
-    
-    // 参加者リストを更新
-    if (!voiceParticipants.includes(peerId)) {
-        voiceParticipants.push(peerId);
-        updateVoiceParticipants();
+// 音声効果の受信監視
+onValue(ref(db, `users/${myId}/voice_effect`), snap => {
+    const effect = snap.val();
+    if (effect && voiceChatActive) {
+        // 相手の声の種類で効果音を再生
+        const soundArray = effect.voiceType === 'female' ? sounds.voiceFemale :
+                          effect.voiceType === 'robot' ? sounds.voiceRobot :
+                          sounds.voiceMale;
+        
+        const sound = soundArray[Math.floor(Math.random() * soundArray.length)];
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("音声再生エラー:", e));
+        }
+        
+        // バーの参加者表示を更新（相手が話していることを示す）
+        const bar = document.getElementById("voice-chat-bar");
+        if (bar) {
+            const participantsSpan = document.getElementById("voice-bar-participants");
+            if (participantsSpan) {
+                participantsSpan.innerHTML = `👥 参加者: ${myName}, ${effect.fromName} (話し中)`;
+                setTimeout(() => {
+                    participantsSpan.innerHTML = `👥 参加者: ${myName}, ${effect.fromName}`;
+                }, 1000);
+            }
+        }
     }
-}
+});
 
 window.closeDebugMode = () => {
     endVoiceChat();
     el("debug-overlay").classList.add("hidden");
+    const bar = document.getElementById("voice-chat-bar");
+    if (bar) bar.remove();
 };
 
 function renderVoiceFriendList() {
@@ -2136,7 +2350,6 @@ window.inviteToVoiceChat = (fid, friendName) => {
     set(ref(db, `users/${fid}/voice_invite`), {
         from: myId,
         fromName: myName,
-        roomId: myId,
         timestamp: Date.now()
     }).then(() => {
         alert(`${friendName} にボイスチャット招待を送信しました`);
@@ -2159,107 +2372,36 @@ voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
             // ボイスチャットを起動
             openVoiceChat();
             setTimeout(() => {
-                // 相手に発信
-                if (voiceChannel && localStream) {
-                    const call = voiceChannel.call(invite.from, localStream);
-                    call.on('stream', remoteStream => {
-                        addRemoteStream(remoteStream, invite.from);
-                    });
+                // 参加者リストに追加
+                if (!voiceParticipants.includes(invite.from)) {
+                    voiceParticipants.push(invite.from);
+                    
+                    // バーの表示を更新
+                    const bar = document.getElementById("voice-chat-bar");
+                    if (bar) {
+                        const participantsSpan = document.getElementById("voice-bar-participants");
+                        if (participantsSpan) {
+                            participantsSpan.innerHTML = `👥 参加者: ${myName}, ${invite.fromName}`;
+                        }
+                    }
                 }
-            }, 2000);
+            }, 1000);
         }
         // 招待を削除
         remove(ref(db, `users/${myId}/voice_invite`));
     }
 });
 
-function updateVoiceParticipants() {
-    const participantsEl = el("voice-participants");
-    if (!participantsEl) return;
-    
-    participantsEl.innerHTML = "";
-    
-    // 自分を追加
-    const selfItem = document.createElement("div");
-    selfItem.className = "participant-item";
-    selfItem.innerHTML = `
-        <span class="participant-name">${myName} (自分)</span>
-        <span class="participant-status ${voiceMuted ? 'muted' : 'talking'}">${voiceMuted ? 'ミュート' : '話す'}</span>
-    `;
-    participantsEl.appendChild(selfItem);
-    
-    // 参加者を追加
-    voiceParticipants.forEach(pid => {
-        if (pid !== myId) {
-            get(ref(db, `users/${pid}`)).then(snap => {
-                const data = snap.val();
-                if (data) {
-                    const item = document.createElement("div");
-                    item.className = "participant-item";
-                    item.innerHTML = `
-                        <span class="participant-name">${data.name}</span>
-                        <span class="participant-status talking">話す</span>
-                    `;
-                    participantsEl.appendChild(item);
-                }
-            });
-        }
-    });
-}
-
-window.toggleMute = () => {
-    voiceMuted = !voiceMuted;
-    const muteBtn = el("voice-mute-btn");
-    if (muteBtn) {
-        muteBtn.innerText = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
-        muteBtn.classList.toggle("muted", voiceMuted);
-    }
-    
-    // 実際のミュート処理
-    if (localStream) {
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = !voiceMuted;
-        });
-    }
-    
-    updateVoiceParticipants();
-};
-
 function endVoiceChat() {
     voiceChatActive = false;
-    
-    // 全ての接続を閉じる
-    if (voiceChannel) {
-        voiceChannel.destroy();
-        voiceChannel = null;
+    if (recognition) {
+        recognition.stop();
+        recognition = null;
     }
-    
-    // ストリームを停止
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-    
-    // オーディオ要素を削除
-    document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
-    
+    isListening = false;
     voiceParticipants = [];
     voiceMuted = false;
-    
-    const statusEl = el("voice-room-status");
-    if (statusEl) {
-        statusEl.innerText = "未接続";
-        statusEl.classList.remove("connected");
-    }
-    
-    const muteBtn = el("voice-mute-btn");
-    if (muteBtn) {
-        muteBtn.innerText = "🔊 ミュート";
-        muteBtn.classList.remove("muted");
-    }
-    
-    updateVoiceParticipants();
-};
+}
 
 // --- モード制御 ---
 window.openSingleSelect = () => {
