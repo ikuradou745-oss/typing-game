@@ -43,6 +43,10 @@
                         <span>タイピングを作る</span>
                         <small>CUSTOM EDITOR</small>
                     </button>
+                    <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
+                        <span>ストーリーモード</span>
+                        <small>STORY MODE</small>
+                    </button>
                     <button id="btn-shop" class="action-btn full-width purple-btn" onclick="window.openShop()">
                         <span>ショップ (スキル)</span>
                         <small>SKILL SHOP</small>
@@ -50,6 +54,58 @@
                     <button id="btn-custom" class="action-btn full-width" onclick="window.playCustom()">
                         <span>作ったものを遊ぶ</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- ストーリーモード画面 -->
+            <div id="screen-story" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
+                <div class="story-chapter-selector">
+                    <button class="chapter-tab active" data-chapter="1">第1章</button>
+                    <button class="chapter-tab" data-chapter="2">第2章</button>
+                </div>
+                
+                <div id="story-chapter-1" class="story-chapter active">
+                    <div class="story-map" id="story-map-1"></div>
+                </div>
+                
+                <div id="story-chapter-2" class="story-chapter hidden">
+                    <div class="story-map" id="story-map-2"></div>
+                </div>
+                
+                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">戻る</button>
+            </div>
+
+            <!-- ステージ詳細画面 -->
+            <div id="screen-stage-detail" class="screen hidden">
+                <h2 class="title-glow" id="stage-title">1-1</h2>
+                <div class="stage-detail-panel">
+                    <div class="stage-condition">
+                        <div class="condition-item">制限時間: <span id="stage-time">60</span>秒</div>
+                        <div class="condition-item">目標スコア: <span id="stage-target">8000</span></div>
+                        <div class="condition-item">クリア報酬: <span id="stage-reward">100</span>🪙</div>
+                    </div>
+                    
+                    <div class="stage-boss-info hidden" id="boss-info">
+                        <div class="boss-badge">👑 BOSS STAGE 👑</div>
+                        <div class="boss-reward">クリア特典: <span id="boss-skill-name">花火</span></div>
+                    </div>
+                    
+                    <div class="stage-play-options">
+                        <button class="action-btn" onclick="window.startStorySolo()" id="story-solo-btn">
+                            <span>一人で挑戦</span>
+                            <small>SOLO CHALLENGE</small>
+                        </button>
+                        <button class="action-btn" onclick="window.startStoryParty()" id="story-party-btn">
+                            <span>パーティーで挑戦</span>
+                            <small>PARTY CHALLENGE</small>
+                        </button>
+                        <button class="action-btn gray-btn" onclick="window.backToStory()">戻る</button>
+                    </div>
+                    
+                    <div id="party-restriction-msg" class="restriction-msg hidden">
+                        ⚠️ メンバーがこのステージを解放していません
+                    </div>
                 </div>
             </div>
 
@@ -94,6 +150,14 @@
             </div>
 
             <div id="screen-play" class="screen hidden">
+                <!-- スコアプログレスバー -->
+                <div id="story-progress-bar" class="hidden">
+                    <div class="progress-label">目標達成まで <span id="progress-score">0</span>/<span id="progress-target">8000</span></div>
+                    <div class="progress-bar-container">
+                        <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+
                 <div id="ready-overlay" class="hidden">
                     <div class="ready-panel">
                         <h2>READY?</h2>
@@ -192,6 +256,34 @@
                 </div>
             </section>
         </aside>
+    </div>
+
+    <!-- 迷路表示用オーバーレイ -->
+    <div id="maze-overlay" class="hidden">
+        <div class="maze-container">
+            <h3>迷路を攻略せよ！</h3>
+            <div id="maze-grid" class="maze-grid"></div>
+            <div class="maze-controls">
+                <button class="maze-btn" onclick="window.moveMaze('up')">↑</button>
+                <button class="maze-btn" onclick="window.moveMaze('left')">←</button>
+                <button class="maze-btn" onclick="window.moveMaze('down')">↓</button>
+                <button class="maze-btn" onclick="window.moveMaze('right')">→</button>
+            </div>
+            <div id="maze-status"></div>
+        </div>
+    </div>
+
+    <!-- ハッキング画面オーバーレイ -->
+    <div id="hacking-overlay" class="hidden">
+        <div class="hacking-screen">
+            <div class="hacking-text">システムハッキングされました</div>
+            <div class="hacking-progress">3</div>
+        </div>
+    </div>
+
+    <!-- 毒状態エフェクト -->
+    <div id="poison-overlay" class="hidden">
+        <div class="poison-effect"></div>
     </div>
 
     <script type="module" src="script.js"></script>
