@@ -187,7 +187,7 @@ function updateButtonStates() {
     if (btnEditor) btnEditor.disabled = isBusy || myPartyId !== null;
     if (btnCustom) btnCustom.disabled = isBusy || myPartyId !== null;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
-    if (btnStory) btnStory.disabled = isBusy; // パーティー中でもストーリーモードは開ける
+    if (btnStory) btnStory.disabled = isBusy;
 }
 
 // --- リアルタイム名前更新 ---
@@ -538,33 +538,77 @@ function storyClear() {
     if (myPartyId) {
         get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
             const members = snap.val();
+            if (!members) return;
+            
             const memberCount = Object.keys(members).length;
-            earnedCoins = Math.floor(earnedCoins / memberCount);
+            const totalScore = Object.values(members).reduce((sum, m) => sum + (m.score || 0), 0);
+            const averageScore = Math.floor(totalScore / memberCount);
             
-            // 進行状況を保存
-            updateStoryProgress();
+            // 進行状況を全員分更新
+            const updates = {};
+            Object.keys(members).forEach(memberId => {
+                updates[`users/${memberId}/story_progress/chapter${currentStage.chapter}`] = currentStage.stage;
+            });
+            update(ref(db), updates);
             
-            // コイン付与
-            coins += earnedCoins;
-            saveAndDisplayData();
-            
-            // ボスステージならスキル付与
-            if (stageData.boss) {
-                giveBossSkill(stageData.skill);
+            // 自分の進行状況も更新
+            if (currentStage.chapter === 1) {
+                if (storyProgress.chapter1 < currentStage.stage) {
+                    storyProgress.chapter1 = currentStage.stage;
+                }
+            } else {
+                if (storyProgress.chapter2 < currentStage.stage) {
+                    storyProgress.chapter2 = currentStage.stage;
+                }
             }
             
+            // コイン付与（平均スコアを基準に）
+            earnedCoins = Math.floor(earnedCoins / memberCount);
+            coins += earnedCoins;
+            
+            // ボスステージなら全員にスキル付与
+            if (stageData.boss) {
+                const skillId = stageData.skill;
+                
+                // 自分のスキル付与
+                if (!ownedSkills.includes(skillId)) {
+                    ownedSkills.push(skillId);
+                    equippedSkill = skillId;
+                }
+                
+                // 他のメンバーのスキル付与
+                Object.keys(members).forEach(memberId => {
+                    if (memberId !== myId) {
+                        const memberSkillRef = ref(db, `users/${memberId}/skills`);
+                        get(memberSkillRef).then(skillSnap => {
+                            const memberSkills = skillSnap.val() || [];
+                            if (!memberSkills.includes(skillId)) {
+                                memberSkills.push(skillId);
+                                update(ref(db, `users/${memberId}`), { 
+                                    skills: memberSkills,
+                                    equipped: skillId 
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                alert(`ボスステージクリア！パーティー全員が「${SKILL_DB[skillId].name}」を獲得しました！`);
+            }
+            
+            saveAndDisplayData();
             endGame();
         });
     } else {
         // ソロプレイ
         updateStoryProgress();
         coins += earnedCoins;
-        saveAndDisplayData();
         
         if (stageData.boss) {
             giveBossSkill(stageData.skill);
         }
         
+        saveAndDisplayData();
         endGame();
     }
 }
@@ -728,7 +772,10 @@ function endGame() {
                 
                 let coinText = "";
                 if (isStoryMode) {
-                    coinText = "ストーリーモードクリア！報酬は別途獲得";
+                    // ストーリーモードの場合は平均スコアを表示
+                    const totalScore = Object.values(val).reduce((sum, m) => sum + (m.score || 0), 0);
+                    const avgScore = Math.floor(totalScore / Object.keys(val).length);
+                    coinText = `チーム平均スコア: ${avgScore} pts`;
                 } else {
                     coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
                 }
