@@ -593,6 +593,10 @@ function setupSkillUI() {
         } else if (equippedSkill === "hacker" || equippedSkill === "accelerator") {
             el("in-game-skill-btn").classList.add("hidden");
             updateCooldownText();
+        }
+            else if (equippedSkill === "fundraiser") {
+            statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
+            el("in-game-skill-btn").classList.add("hidden");
         } else {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "準備完了！(スペースキーで発動)";
