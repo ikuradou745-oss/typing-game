@@ -141,7 +141,7 @@ const SKILL_DB = {
     hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
     accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を20秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
     
-    // --- ストリーモード報酬スキル ---
+    // --- ストーリーモード報酬スキル ---
     ...NEW_SKILLS
 };
 
@@ -172,7 +172,7 @@ const WORD_DB = {
 
 // --- ボタン状態の制御 ---
 function updateButtonStates() {
-    const isBusy = myPartyId !== null || isMatchmaking;
+    const isBusy = isMatchmaking;
     const btnSingle = el("btn-single");
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
@@ -181,13 +181,13 @@ function updateButtonStates() {
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
 
-    if (btnSingle) btnSingle.disabled = isBusy;
+    if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking; 
-    if (btnMatch) btnMatch.disabled = isBusy;
-    if (btnEditor) btnEditor.disabled = isBusy;
-    if (btnCustom) btnCustom.disabled = isBusy;
-    if (btnShop) btnShop.disabled = isBusy;
-    if (btnStory) btnStory.disabled = isBusy;
+    if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
+    if (btnEditor) btnEditor.disabled = isBusy || myPartyId !== null;
+    if (btnCustom) btnCustom.disabled = isBusy || myPartyId !== null;
+    if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
+    if (btnStory) btnStory.disabled = isBusy; // パーティー中でもストーリーモードは開ける
 }
 
 // --- リアルタイム名前更新 ---
@@ -1388,7 +1388,10 @@ function applyJamming(durationMs) {
 
 // --- ストーリーモード制御 ---
 window.openStoryMode = () => {
-    if (myPartyId || isMatchmaking) return;
+    if (isMatchmaking) {
+        alert("マッチング待機中はストーリーモードを開けません");
+        return;
+    }
     openScreen("screen-story");
     renderStoryMap();
 };
@@ -1482,12 +1485,20 @@ function updateStageButtons() {
     const partyBtn = el("story-party-btn");
     const restrictionMsg = el("party-restriction-msg");
     
-    soloBtn.disabled = myPartyId !== null;
+    // パーティー参加中は一人プレイボタンを非表示
+    if (myPartyId) {
+        soloBtn.style.display = "none";
+    } else {
+        soloBtn.style.display = "block";
+    }
+    soloBtn.disabled = false;
     
     if (myPartyId && isLeader) {
+        partyBtn.style.display = "block";
         partyBtn.disabled = false;
         checkPartyProgress();
     } else {
+        partyBtn.style.display = myPartyId ? "block" : "none";
         partyBtn.disabled = true;
         restrictionMsg.classList.add("hidden");
     }
