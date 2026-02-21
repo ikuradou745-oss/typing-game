@@ -84,7 +84,7 @@ let mazeGoalPos = { x: 9, y: 9 };
 let mazeGrid = [];
 let poisonActive = false;
 let hackingActive = false;
-let partyStoryProgress = {}; // パーティーメンバーの進行状況を保存
+let partyStoryProgress = {};
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -115,24 +115,28 @@ const NEW_SKILLS = {
         name: "花火", 
         cost: 0, 
         cooldown: 40, 
-        desc: "【パチパチ】使用すると相手に1秒間「避ける」ボタンを表示。避けられなかったら8秒間スタン" 
+        desc: "【パチパチ】使用すると相手に1秒間「避ける」ボタンを表示。避けられなかったら8秒間スタン",
+        boss: true,
+        chapter: 1,
+        stage: 7
     },
     hacker_milestone4: { 
         id: "hacker_milestone4", 
         name: "ハッカーマイルストーン4", 
         cost: 0, 
         cooldown: 0, 
-        desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成（10秒間タイピング不可）\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態" 
+        desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成（10秒間タイピング不可）\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態",
+        boss: true,
+        chapter: 2,
+        stage: 7
     }
 };
 
 // スキルのデータ定義 (新スキル追加)
 const SKILL_DB = {
-    nashi: { id: "nashi", name: "なし", cost: 0, cooldown: 0, desc: "なし。" },
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
-    autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 10, desc: "3秒間爆速で自動タイピング" },
+    autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
-        com: { id: "com", name: "コンボ10000000アップ", cost: 5000000000000, cooldown: 1, desc: "買うな。" },
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
     timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は6秒爆速自動入力" },
@@ -356,7 +360,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                     isStoryMode = true;
                     storyTargetScore = p.storyTarget;
                     currentStage = { chapter: p.storyChapter, stage: p.storyStage };
-                    isCustomGame = false; // スキル使用可能にするためfalse
+                    isCustomGame = false;
                     currentWords = WORD_DB[p.diff] || WORD_DB.normal;
                     
                     // スコアバー表示
@@ -419,7 +423,7 @@ function renderShop() {
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
         // ストーリーモード報酬スキルはショップに表示しない
-        if (skill.id === "hanabi" || skill.id === "hacker_milestone4") return;
+        if (skill.boss) return;
         
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
@@ -593,27 +597,29 @@ function storyClear() {
                 // 自分のスキル付与
                 if (!ownedSkills.includes(skillId)) {
                     ownedSkills.push(skillId);
+                    // ボススキルを取得したら自動的に装備
                     equippedSkill = skillId;
+                    alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
                 }
                 
                 // 他のメンバーのスキル付与
                 Object.keys(members).forEach(memberId => {
                     if (memberId !== myId) {
-                        const memberSkillRef = ref(db, `users/${memberId}/skills`);
-                        get(memberSkillRef).then(skillSnap => {
-                            const memberSkills = skillSnap.val() || [];
+                        // Firebaseを通じて他のメンバーにスキルを付与
+                        const memberRef = ref(db, `users/${memberId}`);
+                        get(memberRef).then(memberSnap => {
+                            const memberData = memberSnap.val() || {};
+                            const memberSkills = memberData.skills || [];
                             if (!memberSkills.includes(skillId)) {
                                 memberSkills.push(skillId);
                                 update(ref(db, `users/${memberId}`), { 
                                     skills: memberSkills,
-                                    equipped: skillId 
+                                    equipped: skillId // 自動装備
                                 });
                             }
                         });
                     }
                 });
-                
-                alert(`ボスステージクリア！パーティー全員が「${SKILL_DB[skillId].name}」を獲得しました！`);
             }
             
             saveAndDisplayData();
@@ -649,13 +655,13 @@ function updateStoryProgress() {
     update(ref(db, `users/${myId}/story_progress`), storyProgress);
 }
 
-// ボススキル付与
+// ボススキル付与（ソロプレイ用）
 function giveBossSkill(skillId) {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
-        equippedSkill = skillId;
+        equippedSkill = skillId; // 自動装備
         saveAndDisplayData();
-        alert(`ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
+        alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
     }
 }
 
@@ -831,7 +837,7 @@ function setupSkillUI() {
     const skillNameText = el("skill-btn-name");
     const statusText = el("skill-status-text");
     
-    // ストーリーモードでもスキル使用可能に（isCustomGameをfalseにしたため）
+    // ストーリーモードでもスキル使用可能
     if (equippedSkill && equippedSkill !== "none") {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = SKILL_DB[equippedSkill].name;
@@ -1029,11 +1035,6 @@ window.activateSkill = (keySlot = "space") => {
             setTimeout(() => { comboMultiplier = 1; }, 5000);
             showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
         } 
-                else if (skill.id === "com") {
-            comboMultiplier = 100000000;
-            setTimeout(() => { comboMultiplier = 1; }, 5000);
-            showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
-        } 
         else if (skill.id === "revolver") {
             sendAttackToOthers("jam", 6000, 500); 
             score += 500; 
@@ -1074,12 +1075,12 @@ window.activateSkill = (keySlot = "space") => {
         if (cooldowns.key1 > 0) return;
         
         if (skill.id === "hacker") {
-            sendAttackToOthers("hacker_tabs", 10000, 0); // 10秒間妨害
+            sendAttackToOthers("hacker_tabs", 10000, 0);
             showBattleAlert("💻 タブ追加攻撃！", "var(--accent-green)");
             startSpecificCooldown("key1", 30);
         }
         else if (skill.id === "accelerator") {
-            sendAttackToOthers("blur", 10000, 0); // 10秒間ぼやけ
+            sendAttackToOthers("blur", 10000, 0);
             showBattleAlert("🔥 熱い温度発動！", "var(--accent-red)");
             startSpecificCooldown("key1", 40);
         }
@@ -1535,6 +1536,14 @@ function selectStage(chapter, stage) {
     if (stageData.boss) {
         el("boss-info").classList.remove("hidden");
         el("boss-skill-name").innerText = stageData.skill === "hanabi" ? "花火" : "ハッカーマイルストーン4";
+        
+        // ボススキルの取得状態を表示
+        const skillId = stageData.skill;
+        if (ownedSkills.includes(skillId)) {
+            el("boss-skill-name").innerHTML += ' <span style="color: var(--accent-green);">(獲得済み)</span>';
+        } else {
+            el("boss-skill-name").innerHTML += ' <span style="color: var(--accent-red);">(未獲得)</span>';
+        }
     } else {
         el("boss-info").classList.add("hidden");
     }
@@ -1625,7 +1634,7 @@ window.startStorySolo = () => {
     
     isStoryMode = true;
     storyTargetScore = stageData.target;
-    isCustomGame = false; // スキル使用可能にするためfalse
+    isCustomGame = false;
     
     const progressBar = el("story-progress-bar");
     progressBar.classList.remove("hidden");
