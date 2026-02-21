@@ -691,7 +691,7 @@ function showBattleAlert(text, color) {
     alertEl.offsetHeight; 
     alertEl.style.animation = null; 
     
-    setTimeout(() => alertEl.classList.add("hidden"), 2000);
+    setTimeout(() => alertEl.classList.add("hidden"), 4000);
 }
 
 // ターゲット指定なし全体攻撃
