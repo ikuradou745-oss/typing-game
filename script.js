@@ -128,7 +128,7 @@ const NEW_SKILLS = {
 
 // スキルのデータ定義 (新スキル追加)
 const SKILL_DB = {
-    nashi: { id: "punch", name: "なし", cost: 0, cooldown: 0, desc: "なし。" },
+    nashi: { id: "nashi", name: "なし", cost: 0, cooldown: 0, desc: "なし。" },
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 10, desc: "3秒間爆速で自動タイピング" },
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
