@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V7.0 (Multi-Skill & Advanced Effects Integrated)
+// FIREBASE & TYPING ENGINE V7.5 (Voice Chat & Multi-Skill Integrated)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -52,6 +52,12 @@ let gameInterval;
 
 let isCustomGame = false;
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
+
+// --- ボイスチャット関連変数 ---
+let localStream = null;
+let peerConnections = {}; // 他プレイヤーごとのRTCPeerConnection
+const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+let isVoiceMuted = true;
 
 // --- スキルシステム用グローバル変数 ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
@@ -120,7 +126,6 @@ function updateButtonStates() {
     buttons.forEach(id => {
         const target = el(id);
         if (target) {
-            // パーティーボタンだけはマッチメイキング中以外は押せるように調整
             if (id === "btn-party") {
                 target.disabled = isMatchmaking;
             } else {
@@ -129,6 +134,27 @@ function updateButtonStates() {
         }
     });
 }
+
+// --- ボイスチャット制御用関数 ---
+window.toggleVoice = async () => {
+    if (!localStream) {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            isVoiceMuted = false;
+            el("btn-voice-toggle").innerText = "🎤 ON";
+            el("btn-voice-toggle").classList.add("active");
+        } catch (err) {
+            alert("マイクの許可が必要です。");
+            return;
+        }
+    } else {
+        isVoiceMuted = !isVoiceMuted;
+        localStream.getAudioTracks()[0].enabled = !isVoiceMuted;
+        el("btn-voice-toggle").innerText = isVoiceMuted ? "🎤 OFF" : "🎤 ON";
+        if(isVoiceMuted) el("btn-voice-toggle").classList.remove("active");
+        else el("btn-voice-toggle").classList.add("active");
+    }
+};
 
 // --- リアルタイム名前更新 ---
 window.updateMyName = () => {
@@ -263,6 +289,11 @@ window.leaveParty = () => {
     update(ref(db, `users/${myId}`), { partyId: null });
     myPartyId = null;
     isLeader = false;
+    // ボイチャ接続も切断
+    Object.keys(peerConnections).forEach(id => {
+        peerConnections[id].close();
+        delete peerConnections[id];
+    });
     updateButtonStates();
 };
 
@@ -476,6 +507,9 @@ function startGame(sec) {
                 });
             }
         });
+        
+        // ボイスチャットの初期化（パーティー参加時）
+        if (typeof initVoiceSystem === "function") initVoiceSystem();
     }
 
     nextQuestion(); 
@@ -528,7 +562,6 @@ function endGame() {
     if (isCustomGame) {
         earnedCoins = 0;
     } else {
-        // パッシブ倍率計算
         if (equippedSkill === "godfundraiser") {
             earnedCoins *= 4;
             multiplierText = " (神資金稼ぎ4倍適用!)";
@@ -595,17 +628,14 @@ function setupSkillUI() {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = skill.name;
         
-        // パッシブスキルの表示制御
         if (equippedSkill === "fundraiser" || equippedSkill === "godfundraiser") {
             statusText.innerText = `【パッシブ】${skill.desc}`;
             skillBtn.classList.add("hidden");
         } 
-        // 複数キー持ちスキルの表示制御
         else if (equippedSkill === "hacker" || equippedSkill === "accelerator") {
             skillBtn.classList.add("hidden");
-            updateCooldownText();
+            if (typeof updateCooldownText === "function") updateCooldownText();
         } 
-        // アクティブスキルの表示
         else {
             skillBtn.classList.remove("hidden");
             statusText.innerText = "準備完了！(Spaceキー)";
@@ -614,6 +644,112 @@ function setupSkillUI() {
         actionBox.classList.add("hidden");
     }
 }
+
+// --- ボイスチャット・システム (WebRTC) ---
+
+/**
+ * ボイスチャットの初期化とシグナリング待機
+ * パーティー参加時またはゲーム開始時に呼び出されます
+ */
+window.initVoiceSystem = async () => {
+    if (!myPartyId) return;
+
+    // シグナリング用パスの定義
+    const signalingRef = ref(db, `parties/${myPartyId}/signaling`);
+
+    // 他のプレイヤーからのオファー/アンサーを監視
+    onValue(signalingRef, async (snap) => {
+        const data = snap.val();
+        if (!data) return;
+
+        for (const senderId in data) {
+            if (senderId === myId) continue; // 自分自身のデータはスキップ
+
+            const signal = data[senderId][myId];
+            if (!signal) continue;
+
+            // 1. オファーを受け取った場合
+            if (signal.offer && !peerConnections[senderId]) {
+                await handleOffer(senderId, signal.offer);
+                // 処理済み信号を削除
+                remove(ref(db, `parties/${myPartyId}/signaling/${senderId}/${myId}`));
+            } 
+            // 2. アンサーを受け取った場合
+            else if (signal.answer && peerConnections[senderId]) {
+                await peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(signal.answer));
+                remove(ref(db, `parties/${myPartyId}/signaling/${senderId}/${myId}`));
+            }
+            // 3. ICE Candidateを受け取った場合
+            else if (signal.candidate && peerConnections[senderId]) {
+                try {
+                    await peerConnections[senderId].addIceCandidate(new RTCIceCandidate(signal.candidate));
+                } catch (e) { console.error("ICE追加失敗", e); }
+                remove(ref(db, `parties/${myPartyId}/signaling/${senderId}/${myId}`));
+            }
+        }
+    });
+
+    // 既存メンバーがいれば自分から接続を仕掛ける
+    const partySnap = await get(ref(db, `parties/${myPartyId}/members`));
+    const members = partySnap.val();
+    if (members) {
+        Object.keys(members).forEach(targetId => {
+            if (targetId < myId) { // IDの大小で役割（Offer側/Answer側）を固定して重複接続を防ぐ
+                createOffer(targetId);
+            }
+        });
+    }
+};
+
+async function createPeer(targetId) {
+    if (peerConnections[targetId]) return peerConnections[targetId];
+
+    const pc = new RTCPeerConnection(rtcConfig);
+    peerConnections[targetId] = pc;
+
+    // 自分のマイク音声をトラックに追加
+    if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+
+    // 相手の音声を受け取った時の処理
+    pc.ontrack = (event) => {
+        let remoteAudio = el(`audio-${targetId}`);
+        if (!remoteAudio) {
+            remoteAudio = document.createElement("audio");
+            remoteAudio.id = `audio-${targetId}`;
+            remoteAudio.autoplay = true;
+            document.body.appendChild(remoteAudio);
+        }
+        remoteAudio.srcObject = event.streams[0];
+    };
+
+    // ICE Candidateが発生した時にFirebase経由で相手に送る
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            set(ref(db, `parties/${myPartyId}/signaling/${myId}/${targetId}/candidate`), event.candidate.toJSON());
+        }
+    };
+
+    return pc;
+}
+
+async function createOffer(targetId) {
+    const pc = await createPeer(targetId);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    set(ref(db, `parties/${myPartyId}/signaling/${myId}/${targetId}/offer`), { type: offer.type, sdp: offer.sdp });
+}
+
+async function handleOffer(targetId, offer) {
+    const pc = await createPeer(targetId);
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    set(ref(db, `parties/${myPartyId}/signaling/${myId}/${targetId}/answer`), { type: answer.type, sdp: answer.sdp });
+}
+
+// --- 以下、既存スキルのロジック維持 ---
 
 function updateCooldownText() {
     if (equippedSkill === "none" || equippedSkill === "fundraiser" || equippedSkill === "godfundraiser") return;
@@ -636,7 +772,6 @@ function updateCooldownText() {
 }
 
 function resetSkillState() {
-    // 全タイマーの停止
     Object.values(cooldownTimers).forEach(t => clearInterval(t));
     clearInterval(autoTypeTimer);
     clearTimeout(jammingTimer);
@@ -651,7 +786,6 @@ function resetSkillState() {
     isGodfatherMissionActive = false;
     hackerTabsActive = 0;
     
-    // エフェクトの除去
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
     
@@ -676,7 +810,6 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    // 単一スキルのプログレスバー表示
     const isMainSlot = (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator");
     if (isMainSlot) {
         el("in-game-skill-btn").classList.add("cooldown");
@@ -710,11 +843,9 @@ function showBattleAlert(text, color) {
     alertEl.style.color = color;
     alertEl.style.textShadow = `0 0 20px ${color}`;
     alertEl.classList.remove("hidden");
-    
     alertEl.style.animation = 'none';
     alertEl.offsetHeight; 
     alertEl.style.animation = null; 
-    
     setTimeout(() => alertEl.classList.add("hidden"), 4000);
 }
 
@@ -764,34 +895,27 @@ window.activateSkill = (keySlot = "space") => {
     
     const skill = SKILL_DB[equippedSkill];
 
-    // ====== SPACE KEY SKILLS ======
     if (keySlot === "space") {
         if (cooldowns.space > 0) return;
-        
         if (skill.id === "punch") {
             sendAttackToOthers("jam", 3000, 0);
             showBattleAlert("👊 パンチ！", "var(--accent-red)");
-        } 
-        else if (skill.id === "autotype") {
+        } else if (skill.id === "autotype") {
             startAutoTypeEngine(3000, 70); 
             showBattleAlert("⚡ 自動入力！", "var(--accent-blue)");
-        } 
-        else if (skill.id === "comboUp") {
+        } else if (skill.id === "comboUp") {
             comboMultiplier = 2;
             setTimeout(() => { comboMultiplier = 1; }, 5000);
             showBattleAlert("🔥 コンボ2倍！", "var(--accent-purple)");
-        } 
-        else if (skill.id === "revolver") {
+        } else if (skill.id === "revolver") {
             sendAttackToOthers("jam", 6000, 500); 
             score += 500; 
             showBattleAlert("🔫 リボルバー！", "var(--accent-red)");
-        } 
-        else if (skill.id === "thief") {
+        } else if (skill.id === "thief") {
             sendAttackToOthers("steal", 0, 1200);
             score += 1200;
             showBattleAlert("💰 泥棒成功！", "var(--accent-green)");
-        } 
-        else if (skill.id === "timeslip") {
+        } else if (skill.id === "timeslip") {
             if (timeSlipUsed) return;
             sendAttackToOthers("timeslip", 3000, 0);
             startAutoTypeEngine(6000, 60); 
@@ -800,17 +924,14 @@ window.activateSkill = (keySlot = "space") => {
             el("skill-status-text").innerText = "使用済み";
             showBattleAlert("⏳ タイムスリップ！", "#FFD700");
             return;
-        }
-        else if (skill.id === "godfather") {
+        } else if (skill.id === "godfather") {
             isGodfatherMissionActive = true;
             setTimeout(() => { isGodfatherMissionActive = false; }, 10000);
             showBattleAlert("🕴 ゴッドファザー任務開始！", "#ffd700");
         }
-
         if (skill.cooldown > 0) startSpecificCooldown("space", skill.cooldown);
     }
 
-    // ====== KEY 1 (Hacker / Accelerator) ======
     if (keySlot === "key1") {
         if (cooldowns.key1 > 0) return;
         if (skill.id === "hacker") {
@@ -824,7 +945,6 @@ window.activateSkill = (keySlot = "space") => {
         }
     }
 
-    // ====== KEY 2 (Hacker / Accelerator) ======
     if (keySlot === "key2") {
         if (cooldowns.key2 > 0) return;
         if (skill.id === "hacker") {
@@ -838,7 +958,6 @@ window.activateSkill = (keySlot = "space") => {
         }
     }
 
-    // ====== KEY 3 (Accelerator Only) ======
     if (keySlot === "key3") {
         if (cooldowns.key3 > 0 || skill.id !== "accelerator") return;
         score = Math.max(0, score - 3000);
@@ -863,7 +982,6 @@ function startAutoTypeEngine(durationMs, intervalMs) {
 function createHackerTabs() {
     if (hackerTabsActive > 0) return;
     hackerTabsActive = 10;
-    
     const container = document.createElement('div');
     container.id = 'hacker-tabs-container';
     container.style = 'position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:9999;';
@@ -894,7 +1012,6 @@ function applyBlurEffect() {
     const playScreen = el("screen-play");
     let blurAmount = 20;
     clearInterval(blurIntervalTimer);
-    
     blurIntervalTimer = setInterval(() => {
         blurAmount -= 1; 
         if (blurAmount <= 0) {
@@ -908,12 +1025,10 @@ function applyBlurEffect() {
 
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
-
     if (attack.stealAmount > 0) {
         score = Math.max(0, score - attack.stealAmount);
         el("stat-score").innerText = score;
     }
-
     switch(attack.type) {
         case "timeslip":
             score = Math.floor(score / 2);
