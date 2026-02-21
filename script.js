@@ -109,6 +109,23 @@ async function callMember(targetId, partyId) {
     });
 }
 
+// パーティーメンバー全員に接続を試みる関数
+function startVoiceChatWithAll() {
+    if (!myPartyId) return;
+    
+    // パーティーのメンバーリストを取得して全員にcallMemberを実行
+    get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
+        const members = snap.val();
+        if (members) {
+            Object.keys(members).forEach(memberId => {
+                if (memberId !== myId) {
+                    callMember(memberId, myPartyId);
+                }
+            });
+        }
+    });
+}
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
