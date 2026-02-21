@@ -3,129 +3,6 @@
 // FIREBASE & TYPING ENGINE V7.0 (Multi-Skill & Advanced Effects Integrated)
 // =========================================
 
-// ==========================================
-// VOICE CHAT ENGINE (WebRTC & Firebase)
-// ==========================================
-
-let localStream = null;
-const peers = {}; // 接続中の全ユーザーのRTCPeerConnection
-const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-
-// 1. マイクの使用を許可して自分の声を準備する
-async function setupMyVoice() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        console.log("🎤 マイク準備完了");
-    } catch (err) {
-        console.error("マイクの取得に失敗しました:", err);
-    }
-}
-
-// 2. 相手からの接続（Offer）を監視・応答する
-function listenForIncomingVoices(partyId) {
-    if (!partyId) return;
-    const voiceRef = ref(db, `parties/${partyId}/voice_signals/${myId}`);
-
-    onValue(voiceRef, async (snap) => {
-        const data = snap.val();
-        if (!data) return;
-
-        // 接続要求(Offer)が来たら
-        if (data.type === "offer" && !peers[data.from]) {
-            const pc = createPeerConnection(data.from, partyId);
-            peers[data.from] = pc;
-            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-            
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            
-            // 応答を返す
-            update(ref(db, `parties/${partyId}/voice_signals/${data.from}`), {
-                type: "answer",
-                answer: answer,
-                from: myId
-            });
-        } 
-        // 応答(Answer)が返ってきたら
-        else if (data.type === "answer" && peers[data.from]) {
-            await peers[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
-        }
-        // 経路情報(Candidate)が届いたら
-        else if (data.type === "candidate" && peers[data.from]) {
-            await peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-    });
-}
-
-// 3. 接続（PeerConnection）の作成と音声の受け取り
-function createPeerConnection(targetId, partyId) {
-    const pc = new RTCPeerConnection(rtcConfig);
-
-    // 自分の声をのせる
-    if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-    }
-
-    // 重要：相手の声が届いた瞬間の処理
-    pc.ontrack = (event) => {
-        let audio = document.getElementById(`audio-${targetId}`);
-        if (!audio) {
-            audio = document.createElement("audio");
-            audio.id = `audio-${targetId}`;
-            audio.autoplay = true;
-            document.body.appendChild(audio); // 見えないけど音は流れる
-        }
-        audio.srcObject = event.streams[0];
-        console.log(`🔊 ${targetId} の声が聞こえるようになりました！`);
-    };
-
-    // 自分のネットワーク情報を相手に送る
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            update(ref(db, `parties/${partyId}/voice_signals/${targetId}`), {
-                type: "candidate",
-                candidate: event.candidate.toJSON(),
-                from: myId
-            });
-        }
-    };
-
-    return pc;
-}
-
-// 4. 自分から相手に接続をかける（パーティー開始時などに呼ぶ）
-async function callMember(targetId, partyId) {
-    if (peers[targetId]) return;
-    const pc = createPeerConnection(targetId, partyId);
-    peers[targetId] = pc;
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    update(ref(db, `parties/${partyId}/voice_signals/${targetId}`), {
-        type: "offer",
-        offer: offer,
-        from: myId
-    });
-}
-
-// パーティーメンバー全員に接続を試みる関数
-function startVoiceChatWithAll() {
-    if (!myPartyId) return;
-    
-    // パーティーのメンバーリストを取得して全員にcallMemberを実行
-    get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
-        const members = snap.val();
-        if (members) {
-            Object.keys(members).forEach(memberId => {
-                if (memberId !== myId) {
-                    callMember(memberId, myPartyId);
-                }
-            });
-        }
-    });
-}
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
@@ -342,16 +219,6 @@ window.inviteToParty = (fid) => {
     }
     set(ref(db, `users/${fid}/invite`), { from: myName, partyId: myPartyId });
 };
-
-// ユーザーのpartyIdを監視している場所に追加
-onValue(ref(db, `users/${myId}/partyId`), snap => {
-    const pId = snap.val();
-    if (pId) {
-        myPartyId = pId;
-        // 相手からの接続待ちを開始！
-        listenForIncomingVoices(pId); 
-    }
-});
 
 onValue(ref(db, `users/${myId}/invite`), snap => {
     const inv = snap.val();
@@ -1274,7 +1141,6 @@ get(userRef).then(snap => {
         }
     }
     saveAndDisplayData(); 
-    setupMyVoice();
 });
 
 update(userRef, { name: myName, status: "online", partyId: null });
