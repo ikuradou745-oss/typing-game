@@ -84,6 +84,7 @@ let mazeGoalPos = { x: 9, y: 9 };
 let mazeGrid = [];
 let poisonActive = false;
 let hackingActive = false;
+let partyStoryProgress = {}; // パーティーメンバーの進行状況を保存
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -121,7 +122,7 @@ const NEW_SKILLS = {
         name: "ハッカーマイルストーン4", 
         cost: 0, 
         cooldown: 0, 
-        desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態" 
+        desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成（10秒間タイピング不可）\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態" 
     }
 };
 
@@ -130,7 +131,6 @@ const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 10, desc: "3秒間爆速で自動タイピング" },
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
-    com: { id: "com", name: "コン10000000倍ボアップ", cost: 10000000000, cooldown: 1, desc: "5秒間コンボ増加量が2倍" },
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
     timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は6秒爆速自動入力" },
@@ -139,8 +139,8 @@ const SKILL_DB = {
     fundraiser: { id: "fundraiser", name: "資金稼ぎ", cost: 15000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に2倍になる" },
     godfundraiser: { id: "godfundraiser", name: "神資金稼ぎ", cost: 100000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に4倍になる" },
     godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×20)のコインを直接獲得" },
-    hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
-    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を20秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
+    hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す（10秒間妨害）\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
+    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
     
     // --- ストーリーモード報酬スキル ---
     ...NEW_SKILLS
@@ -354,7 +354,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                     isStoryMode = true;
                     storyTargetScore = p.storyTarget;
                     currentStage = { chapter: p.storyChapter, stage: p.storyStage };
-                    isCustomGame = true;
+                    isCustomGame = false; // スキル使用可能にするためfalse
                     currentWords = WORD_DB[p.diff] || WORD_DB.normal;
                     
                     // スコアバー表示
@@ -507,13 +507,32 @@ function processCorrectType() {
     
     // ストーリーモードならプログレスバー更新
     if (isStoryMode) {
-        updateProgressBar(score);
-        
-        // クリア条件達成
-        if (score >= storyTargetScore && gameActive) {
-            clearInterval(gameInterval);
-            gameActive = false;
-            storyClear();
+        // パーティープレイの場合は自分のスコアを人数で割った値をプログレスバーに反映
+        if (myPartyId) {
+            get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
+                const members = snap.val();
+                if (members) {
+                    const memberCount = Object.keys(members).length;
+                    const contributionScore = Math.floor(score / memberCount);
+                    updateProgressBar(contributionScore);
+                    
+                    // 誰かがクリア条件を達成したかチェック
+                    if (contributionScore >= storyTargetScore && gameActive) {
+                        clearInterval(gameInterval);
+                        gameActive = false;
+                        storyClear();
+                    }
+                }
+            });
+        } else {
+            updateProgressBar(score);
+            
+            // クリア条件達成
+            if (score >= storyTargetScore && gameActive) {
+                clearInterval(gameInterval);
+                gameActive = false;
+                storyClear();
+            }
         }
     }
     
@@ -542,8 +561,6 @@ function storyClear() {
             if (!members) return;
             
             const memberCount = Object.keys(members).length;
-            const totalScore = Object.values(members).reduce((sum, m) => sum + (m.score || 0), 0);
-            const averageScore = Math.floor(totalScore / memberCount);
             
             // 進行状況を全員分更新
             const updates = {};
@@ -563,7 +580,7 @@ function storyClear() {
                 }
             }
             
-            // コイン付与（平均スコアを基準に）
+            // コイン付与
             earnedCoins = Math.floor(earnedCoins / memberCount);
             coins += earnedCoins;
             
@@ -812,12 +829,7 @@ function setupSkillUI() {
     const skillNameText = el("skill-btn-name");
     const statusText = el("skill-status-text");
     
-    // ストーリーモードではスキル無効
-    if (isStoryMode) {
-        actionBox.classList.add("hidden");
-        return;
-    }
-    
+    // ストーリーモードでもスキル使用可能に（isCustomGameをfalseにしたため）
     if (equippedSkill && equippedSkill !== "none") {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = SKILL_DB[equippedSkill].name;
@@ -995,7 +1007,6 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
     if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
-    if (isStoryMode) return; // ストーリーモードではスキル使用不可
     
     const skill = SKILL_DB[equippedSkill];
 
@@ -1013,11 +1024,6 @@ window.activateSkill = (keySlot = "space") => {
         } 
         else if (skill.id === "comboUp") {
             comboMultiplier = 2;
-            setTimeout(() => { comboMultiplier = 1; }, 5000);
-            showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
-        } 
-                    else if (skill.id === "com") {
-            comboMultiplier = 100000000;
             setTimeout(() => { comboMultiplier = 1; }, 5000);
             showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
         } 
@@ -1061,12 +1067,12 @@ window.activateSkill = (keySlot = "space") => {
         if (cooldowns.key1 > 0) return;
         
         if (skill.id === "hacker") {
-            sendAttackToOthers("hacker_tabs", 0, 0);
+            sendAttackToOthers("hacker_tabs", 10000, 0); // 10秒間妨害
             showBattleAlert("💻 タブ追加攻撃！", "var(--accent-green)");
             startSpecificCooldown("key1", 30);
         }
         else if (skill.id === "accelerator") {
-            sendAttackToOthers("blur", 0, 0);
+            sendAttackToOthers("blur", 10000, 0); // 10秒間ぼやけ
             showBattleAlert("🔥 熱い温度発動！", "var(--accent-red)");
             startSpecificCooldown("key1", 40);
         }
@@ -1087,7 +1093,7 @@ window.activateSkill = (keySlot = "space") => {
             startSpecificCooldown("key2", 70);
         }
         else if (skill.id === "accelerator") {
-            sendAttackToOthers("special_heat", 0, 0);
+            sendAttackToOthers("special_heat", 3000, 500);
             showBattleAlert("☄️ 特別加熱！", "var(--accent-red)");
             startSpecificCooldown("key2", 70);
         }
@@ -1612,7 +1618,7 @@ window.startStorySolo = () => {
     
     isStoryMode = true;
     storyTargetScore = stageData.target;
-    isCustomGame = true;
+    isCustomGame = false; // スキル使用可能にするためfalse
     
     const progressBar = el("story-progress-bar");
     progressBar.classList.remove("hidden");
