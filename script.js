@@ -326,6 +326,16 @@ window.inviteToParty = (fid) => {
     set(ref(db, `users/${fid}/invite`), { from: myName, partyId: myPartyId });
 };
 
+// ユーザーのpartyIdを監視している場所に追加
+onValue(ref(db, `users/${myId}/partyId`), snap => {
+    const pId = snap.val();
+    if (pId) {
+        myPartyId = pId;
+        // 相手からの接続待ちを開始！
+        listenForIncomingVoices(pId); 
+    }
+});
+
 onValue(ref(db, `users/${myId}/invite`), snap => {
     const inv = snap.val();
     if (inv) {
