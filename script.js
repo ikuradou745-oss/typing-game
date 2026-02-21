@@ -53,6 +53,20 @@ let gameInterval;
 let isCustomGame = false;
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
 
+// --- デイリーボーナスシステム ---
+function checkDailyBonus() {
+    const lastLogin = localStorage.getItem("ramo_last_login");
+    const today = new Date().toLocaleDateString("ja-JP", {timeZone: "Asia/Tokyo"});
+    if (lastLogin !== today) {
+        coins += 500; // デイリーボーナスの額（調整可能）
+        localStorage.setItem("ramo_last_login", today);
+        saveAndDisplayData();
+        alert(`🎉 デイリーボーナス獲得！ 500🪙をプレゼントしました！\n現在の所持コイン: ${coins}🪙`);
+    }
+}
+// 初期化時にデイリーボーナスを確認
+checkDailyBonus();
+
 // --- スキルシステム用グローバル変数 ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
 let equippedSkill = localStorage.getItem("ramo_equipped") || "none";
@@ -213,7 +227,14 @@ window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`))
 window.inviteToParty = (fid) => {
     if (!myPartyId) {
         myPartyId = myId;
-        set(ref(db, `parties/${myPartyId}`), { leader: myId, state: "lobby", members: { [myId]: { name: myName, score: 0, ready: false } } });
+        set(ref(db, `parties/${myPartyId}`), { 
+            leader: myId, 
+            state: "lobby",
+            diff: "normal",
+            time: 30, // デフォルト30秒
+            mode: "individual", // individual (個人戦) または team (チーム戦)
+            members: { [myId]: { name: myName, score: 0, ready: false, team: "A" } } 
+        });
         update(ref(db, `users/${myId}`), { partyId: myPartyId });
     }
     set(ref(db, `users/${fid}/invite`), { from: myName, partyId: myPartyId });
@@ -237,7 +258,7 @@ window.acceptInvite = () => {
     get(ref(db, `users/${myId}/invite`)).then(s => {
         if(!s.exists()) return;
         const pId = s.val().partyId;
-        update(ref(db, `parties/${pId}/members/${myId}`), { name: myName, score: 0, ready: false });
+        update(ref(db, `parties/${pId}/members/${myId}`), { name: myName, score: 0, ready: false, team: "A" });
         update(ref(db, `users/${myId}`), { partyId: pId });
         remove(ref(db, `users/${myId}/invite`));
     });
@@ -259,6 +280,22 @@ window.leaveParty = () => {
     updateButtonStates();
 };
 
+// --- パーティー設定用関数 (リーダー専用) ---
+window.updatePartyMode = (mode) => {
+    if (myPartyId && isLeader) update(ref(db, `parties/${myPartyId}`), { mode: mode });
+};
+
+window.updatePartyTime = (time) => {
+    let t = parseInt(time);
+    if (t < 10) t = 10;
+    if (t > 180) t = 180;
+    if (myPartyId && isLeader) update(ref(db, `parties/${myPartyId}`), { time: t });
+};
+
+window.assignTeam = (uid, team) => {
+    if (myPartyId && isLeader) update(ref(db, `parties/${myPartyId}/members/${uid}`), { team: team });
+};
+
 onValue(ref(db, `users/${myId}/partyId`), snap => {
     myPartyId = snap.val();
     updateButtonStates();
@@ -275,7 +312,51 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
-            el("party-list-ui").innerHTML = Object.values(p.members).map(m => `<div class="friend-item">${m.name} ${m.ready?'✅':''}</div>`).join("");
+            
+            // --- パーティーメンバーUI生成 (チーム戦対応) ---
+            let pListHtml = "";
+            Object.keys(p.members).forEach(uid => {
+                const m = p.members[uid];
+                let teamUI = "";
+                if (p.mode === "team") {
+                    if (isLeader) {
+                        teamUI = `<select class="team-select" onchange="window.assignTeam('${uid}', this.value)">
+                                    <option value="A" ${m.team==='A'?'selected':''}>チームA</option>
+                                    <option value="B" ${m.team==='B'?'selected':''}>チームB</option>
+                                  </select>`;
+                    } else {
+                        teamUI = `<span class="team-badge">チーム${m.team}</span>`;
+                    }
+                }
+                pListHtml += `<div class="friend-item">${m.name} ${teamUI} ${m.ready?'✅':''}</div>`;
+            });
+            el("party-list-ui").innerHTML = pListHtml;
+
+            // --- パーティー設定UI生成 (HTML側にid="party-settings-ui"を用意してください) ---
+            if (el("party-settings-ui")) {
+                if (isLeader) {
+                    el("party-settings-ui").innerHTML = `
+                        <div class="party-settings-box">
+                            <label>モード: 
+                                <select onchange="window.updatePartyMode(this.value)">
+                                    <option value="individual" ${p.mode==='individual'?'selected':''}>個人戦</option>
+                                    <option value="team" ${p.mode==='team'?'selected':''}>チーム戦</option>
+                                </select>
+                            </label>
+                            <label>タイマー(10〜180秒): 
+                                <input type="number" min="10" max="180" value="${p.time || 30}" onchange="window.updatePartyTime(this.value)">
+                            </label>
+                        </div>
+                    `;
+                } else {
+                    el("party-settings-ui").innerHTML = `
+                        <div class="party-settings-box">
+                            <div>現在のモード: ${p.mode === 'team' ? 'チーム戦' : '個人戦'}</div>
+                            <div>タイマー設定: ${p.time || 30}秒</div>
+                        </div>
+                    `;
+                }
+            }
             
             if (p.state === "ready_check" && !gameActive) {
                 openScreen("screen-play"); 
@@ -289,7 +370,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                 el("ready-overlay").classList.add("hidden");
                 currentWords = WORD_DB[p.diff]; 
                 isCustomGame = false;
-                startGame(p.time);
+                startGame(p.time || 30); // 変更された時間を反映
             }
             if (p.state === "lobby" && gameActive) {
                 endGame();
@@ -299,6 +380,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
         el("party-actions").classList.add("hidden"); 
         el("party-label").innerText = "パーティー (未参加)"; 
         el("party-list-ui").innerHTML = ""; 
+        if(el("party-settings-ui")) el("party-settings-ui").innerHTML = "";
     }
 });
 
@@ -490,11 +572,14 @@ function syncRivals() {
     if (!myPartyId) return;
     el("rival-display").classList.remove("hidden");
     const isHidden = timer < (duration / 2);
-    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-        const val = s.val();
-        if(val) {
-            el("rival-list").innerHTML = Object.values(val).map(m => `
-                <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
+    get(ref(db, `parties/${myPartyId}`)).then(s => {
+        const p = s.val();
+        if(p && p.members) {
+            el("rival-list").innerHTML = Object.values(p.members).map(m => `
+                <div class="friend-item">
+                    <span>${m.name} ${p.mode === 'team' ? `[チーム${m.team}]` : ''}</span>
+                    <span>${isHidden?'わからないよ！':m.score}</span>
+                </div>
             `).join("");
         }
     });
@@ -526,25 +611,56 @@ function endGame() {
     }
 
     if (myPartyId) {
-        get(ref(db, `parties/${myPartyId}/members`)).then(s => {
-            const val = s.val();
-            if(val) {
-                const res = Object.entries(val).sort((a,b) => b[1].score - a[1].score);
+        get(ref(db, `parties/${myPartyId}`)).then(s => {
+            const p = s.val();
+            if(p && p.members) {
+                const membersArr = Object.values(p.members);
                 
-                if (!isCustomGame && res[0][0] === myId && res.length > 1) {
-                    earnedCoins *= 2;
-                    isWinner = true;
-                }
+                // チーム戦か個人戦かで結果計算を分岐
+                if (p.mode === "team") {
+                    let scoreA = 0;
+                    let scoreB = 0;
+                    membersArr.forEach(m => {
+                        if (m.team === "A") scoreA += m.score;
+                        if (m.team === "B") scoreB += m.score;
+                    });
+                    
+                    const myTeam = p.members[myId].team;
+                    const myTeamScore = myTeam === "A" ? scoreA : scoreB;
+                    const enemyTeamScore = myTeam === "A" ? scoreB : scoreA;
+                    
+                    if (!isCustomGame && myTeamScore > enemyTeamScore) {
+                        earnedCoins *= 2; // 勝利ボーナス
+                        isWinner = true;
+                    } else if (myTeamScore === enemyTeamScore) {
+                        isWinner = false; // 引き分けはボーナスなし
+                    }
 
+                    el("ranking-box").innerHTML = `
+                        <div class="ranking-row" style="font-weight:bold;"><span>チームA 合計</span><span>${scoreA} pts</span></div>
+                        <div class="ranking-row" style="font-weight:bold;"><span>チームB 合計</span><span>${scoreB} pts</span></div>
+                        <hr style="border: 1px dashed #ccc; margin: 10px 0;">
+                        <div style="font-size: 0.9em;">
+                            ${membersArr.sort((a,b)=>b.score - a.score).map(m => `<div>${m.name}(${m.team}): ${m.score}pts</div>`).join("")}
+                        </div>
+                    `;
+                } else {
+                    // 個人戦処理
+                    const res = Object.entries(p.members).sort((a,b) => b[1].score - a[1].score);
+                    if (!isCustomGame && res[0][0] === myId && res.length > 1) {
+                        earnedCoins *= 2;
+                        isWinner = true;
+                    }
+                    el("ranking-box").innerHTML = res.map((item, i) => {
+                        const m = item[1];
+                        return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
+                    }).join("");
+                }
+                
                 if (earnedCoins > 0) {
                     coins += earnedCoins;
                     saveAndDisplayData();
                 }
-
-                el("ranking-box").innerHTML = res.map((item, i) => {
-                    const m = item[1];
-                    return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
-                }).join("");
                 
                 let coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
                 if (equippedSkill === "fundraiser" && !isCustomGame) coinText += " (資金稼ぎ2倍適用!)";
@@ -574,6 +690,10 @@ function endGame() {
 }
 
 // --- スキル・バトルエフェクト処理 ---
+let minionCount = 0; // ネクロマンサー用の子分カウント
+let necromancerGathering = false; // 子分収集中フラグ
+let dodgeTimer = null; // 花火の回避用タイマー
+
 function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
@@ -586,7 +706,7 @@ function setupSkillUI() {
         if (equippedSkill === "fundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン2倍";
             el("in-game-skill-btn").classList.add("hidden");
-        } else if (equippedSkill === "hacker" || equippedSkill === "accelerator") {
+        } else if (["hacker", "accelerator", "necromancer"].includes(equippedSkill)) {
             el("in-game-skill-btn").classList.add("hidden");
             updateCooldownText();
         } else {
@@ -612,6 +732,10 @@ function updateCooldownText() {
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]特別加熱OK";
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]自爆OK";
         txt = `${k1} | ${k2} | ${k3}`;
+    } else if (skill.id === "necromancer") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]子分を出すOK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : `[2]アタックOK (子分:${minionCount})`;
+        txt = `${k1} | ${k2}`;
     } else {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     }
@@ -623,6 +747,7 @@ function resetSkillState() {
     clearInterval(autoTypeTimer);
     clearTimeout(jammingTimer);
     clearInterval(blurIntervalTimer);
+    clearTimeout(dodgeTimer);
     
     cooldownTimers = { space: null, key1: null, key2: null, key3: null };
     cooldowns = { space: 0, key1: 0, key2: 0, key3: 0 };
@@ -632,9 +757,14 @@ function resetSkillState() {
     timeSlipUsed = false;
     isGodfatherMissionActive = false;
     hackerTabsActive = 0;
+    minionCount = 0;
+    necromancerGathering = false;
     
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
+
+    const dodgeOverlay = document.getElementById("dodge-overlay");
+    if (dodgeOverlay) dodgeOverlay.classList.add("hidden");
     
     const playScreen = el("screen-play");
     if (playScreen) {
@@ -655,7 +785,8 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+    const isSpecialSkill = ["hacker", "accelerator", "necromancer"].includes(equippedSkill);
+    if (slot === "space" && !isSpecialSkill) {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -666,12 +797,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+            if (slot === "space" && !isSpecialSkill) {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator") {
+            if (slot === "space" && !isSpecialSkill) {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -694,8 +825,13 @@ function showBattleAlert(text, color) {
     setTimeout(() => alertEl.classList.add("hidden"), 2000);
 }
 
-// ターゲット指定なし全体攻撃
+// ターゲット指定なし全体攻撃（ストーリーCPUも対象に含める）
 function sendAttackToOthers(type, duration, stealAmount) {
+    if (isStoryMode) {
+        // CPUへの攻撃
+        handleCpuIncomingAttack(type, duration, stealAmount);
+        return;
+    }
     if (!myPartyId) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
         const members = s.val();
@@ -712,8 +848,11 @@ function sendAttackToOthers(type, duration, stealAmount) {
     });
 }
 
-// ランダムなターゲット単体攻撃 (ウイルスのため)
 function sendRandomTargetAttack(type, duration, stealAmount) {
+    if (isStoryMode) {
+        handleCpuIncomingAttack(type, duration, stealAmount);
+        return;
+    }
     if (!myPartyId) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
         const members = s.val();
@@ -764,6 +903,10 @@ window.activateSkill = (keySlot = "space") => {
             score += 500; 
             showBattleAlert("🔫 リボルバー発動！", "var(--accent-red)");
         } 
+        else if (skill.id === "hanabi") {
+            sendAttackToOthers("dodge_event", 0, 0);
+            showBattleAlert("🎆 花火「パチパチ」！", "#ff69b4");
+        }
         else if (skill.id === "thief") {
             sendAttackToOthers("steal", 0, 1200);
             score += 1200;
@@ -779,7 +922,7 @@ window.activateSkill = (keySlot = "space") => {
             el("in-game-skill-btn").classList.add("cooldown");
             el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
             showBattleAlert("⏳ タイムスリップ！", "#FFD700");
-            return; // 1回のみなのでクールダウン処理スキップ
+            return;
         }
         else if (skill.id === "godfather") {
             isGodfatherMissionActive = true;
@@ -804,6 +947,16 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🔥 熱い温度発動！", "var(--accent-red)");
             startSpecificCooldown("key1", 40);
         }
+        else if (skill.id === "necromancer") {
+            necromancerGathering = true;
+            showBattleAlert("💀 子分招集開始！(8秒間)", "#8b0000");
+            setTimeout(() => {
+                necromancerGathering = false;
+                showBattleAlert(`💀 招集終了！子分: ${minionCount}`, "#8b0000");
+                updateCooldownText();
+            }, 8000);
+            startSpecificCooldown("key1", 20);
+        }
     }
 
     // ====== KEY 2 SKILLS ======
@@ -819,6 +972,14 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOthers("special_heat", 0, 0);
             showBattleAlert("☄️ 特別加熱！", "var(--accent-red)");
             startSpecificCooldown("key2", 70);
+        }
+        else if (skill.id === "necromancer") {
+            if (minionCount <= 0) return showBattleAlert("子分がいません！", "#ccc");
+            const stunSec = Math.floor(minionCount / 5);
+            sendAttackToOthers("jam", stunSec * 1000, 0);
+            showBattleAlert(`💀 子分アタック！ ${stunSec}秒スタン！`, "#8b0000");
+            minionCount = 0;
+            startSpecificCooldown("key2", 45);
         }
     }
 
@@ -850,9 +1011,8 @@ function startAutoTypeEngine(durationMs, intervalMs) {
     }, durationMs);
 }
 
-// ハッカーのタブ生成処理
 function createHackerTabs() {
-    if (hackerTabsActive > 0) return; // 既に展開中の場合は重ねない
+    if (hackerTabsActive > 0) return; 
     hackerTabsActive = 10;
     
     const container = document.createElement('div');
@@ -864,7 +1024,6 @@ function createHackerTabs() {
     container.style.zIndex = '9999';
     document.body.appendChild(container);
 
-    // Xボタン用のグローバル削除関数
     window.removeHackerTab = () => {
         hackerTabsActive--;
         if (hackerTabsActive <= 0) {
@@ -886,7 +1045,6 @@ function createHackerTabs() {
         tab.style.display = 'flex';
         tab.style.flexDirection = 'column';
         
-        // 画面の真ん中より下側にバラバラに配置
         tab.style.top = (Math.random() * 45 + 40) + '%'; 
         tab.style.left = (Math.random() * 70 + 5) + '%';
         
@@ -902,7 +1060,6 @@ function createHackerTabs() {
     }
 }
 
-// アクセラレーターのぼかし処理
 function applyBlurEffect() {
     const playScreen = el("screen-play");
     playScreen.style.transition = "none";
@@ -920,7 +1077,7 @@ function applyBlurEffect() {
         } else {
             playScreen.style.filter = `blur(${blurAmount}px)`;
         }
-    }, 1000); // 10秒かけて0になる
+    }, 1000);
 }
 
 function handleIncomingAttack(attack) {
@@ -951,6 +1108,11 @@ function handleIncomingAttack(attack) {
         sounds.miss.play();
         return;
     }
+
+    if (attack.type === "dodge_event") {
+        showDodgeUI();
+        return;
+    }
     
     if (attack.type === "special_heat") {
         score = Math.max(0, score - 500);
@@ -973,6 +1135,26 @@ function handleIncomingAttack(attack) {
     }
 }
 
+function showDodgeUI() {
+    const overlay = el("dodge-overlay");
+    overlay.classList.remove("hidden");
+    sounds.miss.play();
+    
+    clearTimeout(dodgeTimer);
+    dodgeTimer = setTimeout(() => {
+        // 避けれなかった場合
+        overlay.classList.add("hidden");
+        showBattleAlert("💥 回避失敗！8秒スタン", "red");
+        applyJamming(8000);
+    }, 1000);
+}
+
+window.dodgeHanabi = () => {
+    clearTimeout(dodgeTimer);
+    el("dodge-overlay").classList.add("hidden");
+    showBattleAlert("✨ 回避成功！", "cyan");
+};
+
 function applyJamming(durationMs) {
     isJamming = true;
     el("jamming-overlay").classList.remove("hidden");
@@ -985,6 +1167,134 @@ function applyJamming(durationMs) {
     }, durationMs);
 }
 
+// --- ストーリーモード制御 ---
+const STORY_DB = {
+    1: [
+        { id: "1-1", speed: 1200, boss: null },
+        { id: "1-2", speed: 1000, boss: null },
+        { id: "1-3", speed: 900, boss: null },
+        { id: "1-4", speed: 800, boss: null },
+        { id: "1-5", speed: 700, boss: "punch", reward: "hanabi" }
+    ],
+    2: [
+        { id: "2-1", speed: 700, boss: null },
+        { id: "2-2", speed: 650, boss: null },
+        { id: "2-3", speed: 600, boss: null },
+        { id: "2-4", speed: 550, boss: null },
+        { id: "2-5", speed: 450, boss: "revolver", reward: "necromancer" }
+    ]
+};
+
+let currentStoryLevel = null;
+let cpuScore = 0;
+let cpuInterval = null;
+
+window.openStoryMode = () => {
+    if (myPartyId || isMatchmaking) return alert("パーティー中は利用できません");
+    openScreen("screen-story-select");
+    renderStoryMap();
+};
+
+function renderStoryMap() {
+    const container = el("story-map-container");
+    const progress = Number(localStorage.getItem("ramo_story_progress") || "1.0");
+    let html = "";
+
+    [1, 2].forEach(world => {
+        html += `<h3>ワールド ${world}</h3><div class="story-world-row">`;
+        STORY_DB[world].forEach((lv, index) => {
+            const lvNum = world + (index / 10 + 0.1); // 1.1, 1.2...
+            const isLocked = lvNum > progress + 0.05; 
+            const isCleared = lvNum < progress;
+            
+            html += `
+                <button class="story-node ${isLocked ? 'locked' : ''} ${isCleared ? 'cleared' : ''}" 
+                        onclick="${isLocked ? '' : `window.startStoryLevel(${world}, ${index})`}">
+                    ${lv.id}
+                    ${isLocked ? '🔒' : ''}
+                </button>
+            `;
+        });
+        html += `</div>`;
+    });
+    container.innerHTML = html;
+}
+
+window.startStoryLevel = (world, index) => {
+    const lv = STORY_DB[world][index];
+    currentStoryLevel = lv;
+    isStoryMode = true;
+    isCustomGame = false;
+    currentWords = WORD_DB["normal"];
+    cpuScore = 0;
+    
+    openScreen("screen-play");
+    startGame(60);
+    runCPUEngine(lv.speed, lv.boss);
+};
+
+function runCPUEngine(speed, bossType) {
+    clearInterval(cpuInterval);
+    cpuInterval = setInterval(() => {
+        if (!gameActive) return;
+        
+        // CPUのスコア加算（コンボなし単純計算）
+        cpuScore += Math.floor(Math.random() * 50) + 30;
+        el("stat-cpu-score").innerText = cpuScore;
+
+        // ボススキル発動
+        if (bossType && Math.random() < 0.05) {
+            if (bossType === "punch") {
+                handleIncomingAttack({ type: "jam", duration: 3000 });
+                showBattleAlert("相手のパンチ！", "red");
+            } else if (bossType === "revolver") {
+                handleIncomingAttack({ type: "jam", duration: 6000, stealAmount: 500 });
+                showBattleAlert("相手のリボルバー！", "red");
+                cpuScore += 500;
+            }
+        }
+    }, speed);
+}
+
+function handleCpuIncomingAttack(type, duration, stealAmount) {
+    if (stealAmount > 0) cpuScore = Math.max(0, cpuScore - stealAmount);
+    
+    if (type === "jam") {
+        // CPUがスタンする（数秒間スコアが止まるイメージ）
+        clearInterval(cpuInterval);
+        setTimeout(() => {
+            if (gameActive && currentStoryLevel) runCPUEngine(currentStoryLevel.speed, currentStoryLevel.boss);
+        }, duration);
+    }
+}
+
+// 既存のendGame内またはリザルト表示時にこれを呼ぶように調整が必要
+function checkStoryResult() {
+    if (!isStoryMode) return;
+    clearInterval(cpuInterval);
+    
+    if (score > cpuScore) {
+        alert("勝利！ステージクリア！");
+        const nextProg = Number(currentStoryLevel.id.replace("-", ".")) + 0.1;
+        const currentProg = Number(localStorage.getItem("ramo_story_progress") || "1.1");
+        if (nextProg > currentProg) {
+            localStorage.setItem("ramo_story_progress", nextProg.toFixed(1));
+        }
+
+        if (currentStoryLevel.reward) {
+            const rewardId = currentStoryLevel.reward;
+            if (!ownedSkills.includes(rewardId)) {
+                ownedSkills.push(rewardId);
+                alert(`特別スキル「${SKILL_DB[rewardId].name}」をゲットしました！`);
+                saveAndDisplayData();
+            }
+        }
+    } else {
+        alert("敗北...。もう一度挑戦しよう！");
+    }
+    isStoryMode = false;
+}
+
 // --- モード制御 ---
 window.openSingleSelect = () => {
     if (myPartyId || isMatchmaking) return; 
@@ -995,6 +1305,7 @@ window.startSingle = (diff) => {
     if (myPartyId || isMatchmaking) return; 
     currentWords = WORD_DB[diff]; 
     isCustomGame = false;
+    isStoryMode = false;
     openScreen("screen-play"); 
     startGame(60); 
 };
@@ -1101,6 +1412,7 @@ window.playCustom = () => {
     customWords = savedWords; 
     currentWords = customWords; 
     isCustomGame = true;
+    isStoryMode = false;
     openScreen("screen-play"); 
     startGame(60); 
 };
@@ -1137,5 +1449,8 @@ if (timeSlider) {
         if (timeLabel) timeLabel.innerText = e.target.value;
     });
 }
+
+// ゲーム終了時のストーリー判定をフック（元々のコードにあるはずのendGameに仕込む想定）
+// もしendGameが上半分の場合は、そちらからcheckStoryResult()を呼んでください。
 
 window.goHome();
