@@ -93,7 +93,7 @@ let partyStoryProgress = {};
 
 // --- デバッグモード／ボイスチャット用 ---
 let debugMode = false;
-let secretKeyPressTime = { q: 0, 'b': 0 };
+let secretKeyPressTime = { q: 0, '1': 0 };
 let secretKeyTimer = null;
 let voiceChatActive = false;
 let voiceMuted = false;
@@ -753,27 +753,35 @@ function giveBossSkill(skillId) {
 }
 
 // キーイベントの監視（ゲーム外でも動作するように修正）
-window.addEventListener("keydown", e => {
+document.addEventListener("keydown", e => {
+    console.log("キーが押されました:", e.key); // デバッグ用
+    
     // デバッグモード用の秘密コード検出（Qと1の同時長押し）- ゲーム中以外でも動作
     if (!debugMode) {
         // Qキーまたはqキー
         if (e.key === 'q' || e.key === 'Q') {
+            console.log("Qキー押下");
             secretKeyPressTime.q = Date.now();
         }
         // 1キー
         if (e.key === '1') {
+            console.log("1キー押下");
             secretKeyPressTime['1'] = Date.now();
         }
         
         // 両方のキーが押されているかチェック
         if (secretKeyPressTime.q > 0 && secretKeyPressTime['1'] > 0) {
+            console.log("両方のキーが押されました");
             const timeDiff = Math.abs(secretKeyPressTime.q - secretKeyPressTime['1']);
             if (timeDiff < 500) { // 0.5秒以内に両方押された
+                console.log("タイマーセット");
                 if (!secretKeyTimer) {
                     secretKeyTimer = setTimeout(() => {
                         // 3秒間長押しされたかチェック
                         const now = Date.now();
+                        console.log("3秒経過チェック", now - secretKeyPressTime.q, now - secretKeyPressTime['1']);
                         if (now - secretKeyPressTime.q >= 3000 && now - secretKeyPressTime['1'] >= 3000) {
+                            console.log("秘密コード入力画面を開きます");
                             openSecretCodeInput();
                         }
                         secretKeyTimer = null;
@@ -816,15 +824,18 @@ window.addEventListener("keydown", e => {
     }
 });
 
-window.addEventListener("keyup", e => {
+document.addEventListener("keyup", e => {
     // デバッグモード用のキーリセット
     if (e.key === 'q' || e.key === 'Q') {
+        console.log("Qキーリリース");
         secretKeyPressTime.q = 0;
     }
     if (e.key === '1') {
+        console.log("1キーリリース");
         secretKeyPressTime['1'] = 0;
     }
     if (secretKeyPressTime.q === 0 && secretKeyPressTime['1'] === 0 && secretKeyTimer) {
+        console.log("タイマーキャンセル");
         clearTimeout(secretKeyTimer);
         secretKeyTimer = null;
     }
@@ -2027,8 +2038,14 @@ window.executeDodge = () => {
 
 // --- デバッグモード／ボイスチャット機能 ---
 function openSecretCodeInput() {
-    console.log("秘密コード入力画面を開きます"); // デバッグ用
-    el("secret-code-overlay").classList.remove("hidden");
+    console.log("秘密コード入力画面を開きます");
+    const overlay = el("secret-code-overlay");
+    if (overlay) {
+        overlay.classList.remove("hidden");
+    } else {
+        console.error("secret-code-overlayが見つかりません");
+        alert("秘密コード入力画面が見つかりません");
+    }
 }
 
 window.closeSecretCode = () => {
