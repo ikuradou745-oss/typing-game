@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -55,71 +54,23 @@
             </div>
 
             <div id="screen-story" class="screen hidden">
-                <h2 class="title-glow" style="color: var(--accent-red); text-shadow: 0 0 20px var(--accent-red);">STORY MODE</h2>
+                <h2 class="title-glow" style="color: var(--accent-red);">STORY MODE</h2>
                 <div class="story-container">
                     <div class="world-section">
                         <h3>WORLD 1 : はじまりの地</h3>
                         <div class="story-grid" id="story-world-1">
                             <button id="stage-1-1" class="story-stage-btn" onclick="window.startStory(1, 1)">1-1</button>
-                            <button id="stage-1-2" class="story-stage-btn locked" onclick="window.startStory(1, 2)">1-2</button>
-                            <button id="stage-1-3" class="story-stage-btn locked" onclick="window.startStory(1, 3)">1-3</button>
-                            <button id="stage-1-4" class="story-stage-btn locked" onclick="window.startStory(1, 4)">1-4</button>
-                            <button id="stage-1-5" class="story-stage-btn boss locked" onclick="window.startStory(1, 5)">1-5 BOSS</button>
-                        </div>
-                    </div>
-                    <div class="world-section">
-                        <h3>WORLD 2 : 試練の道</h3>
-                        <div class="story-grid" id="story-world-2">
-                            <button id="stage-2-1" class="story-stage-btn locked" onclick="window.startStory(2, 1)">2-1</button>
-                            <button id="stage-2-2" class="story-stage-btn locked" onclick="window.startStory(2, 2)">2-2</button>
-                            <button id="stage-2-3" class="story-stage-btn locked" onclick="window.startStory(2, 3)">2-3</button>
-                            <button id="stage-2-4" class="story-stage-btn locked" onclick="window.startStory(2, 4)">2-4</button>
-                            <button id="stage-2-5" class="story-stage-btn boss locked" onclick="window.startStory(2, 5)">2-5 BOSS</button>
-                        </div>
+                            </div>
                     </div>
                 </div>
-                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
+                <button class="action-btn gray-btn full-width" onclick="window.goHome()">戻る</button>
             </div>
 
             <div id="screen-shop" class="screen hidden">
-                <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
+                <h2 class="title-glow" style="color: #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
-                <div class="shop-grid" id="shop-list">
-                    </div>
-                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
-            </div>
-
-            <div id="screen-single-select" class="screen hidden">
-                <h2 class="title-glow">難易度選択</h2>
-                <div class="btn-group">
-                    <button class="action-btn" onclick="window.startSingle('easy')">かんたん<small>2~6文字</small></button>
-                    <button class="action-btn" onclick="window.startSingle('normal')">ちゅうきゅう<small>6~12文字</small></button>
-                    <button class="action-btn" onclick="window.startSingle('hard')">むずかしい<small>12~20文字</small></button>
-                    <button class="action-btn full-width gray-btn" onclick="window.goHome()">戻る</button>
-                </div>
-            </div>
-
-            <div id="screen-battle-setup" class="screen hidden">
-                <h2 class="title-glow">BATTLE SETUP</h2>
-                <div class="setup-panel">
-                    <div class="setup-item">
-                        <span>制限時間:</span>
-                        <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="el('time-val').innerText=this.value">
-                        <span id="time-val" class="stat-val">30</span>秒
-                    </div>
-                    <div class="setup-item">
-                        <span>難易度:</span>
-                        <select id="setup-diff" class="cyber-select">
-                            <option value="easy">かんたん</option>
-                            <option value="normal" selected>ちゅうきゅう</option>
-                            <option value="hard">むずかしい</option>
-                        </select>
-                    </div>
-                    <div class="setup-btns">
-                        <button class="action-btn" onclick="window.launchBattle()">プレイ開始</button>
-                        <button class="action-btn gray-btn" onclick="window.goHome()">メインメニューに戻る</button>
-                    </div>
-                </div>
+                <div class="shop-grid" id="shop-list"></div>
+                <button class="action-btn gray-btn full-width" onclick="window.goHome()">戻る</button>
             </div>
 
             <div id="screen-play" class="screen hidden">
@@ -132,26 +83,18 @@
                 </div>
 
                 <div id="jamming-overlay" class="hidden">
-                    <div class="jamming-text">⚠️ 通信妨害を受けています！ ⚠️</div>
+                    <div class="jamming-text">⚠️ 通信妨害中 ⚠️</div>
                 </div>
-
-                <div id="dodge-overlay" class="hidden">
-                    <button id="btn-dodge" onclick="window.executeDodge()">避ける！！</button>
-                </div>
-
-                <div id="battle-alert" class="hidden"></div>
 
                 <div id="game-core">
                     <div id="timer-display">00:30</div>
-                    
                     <div id="skill-action-box" class="hidden">
                         <button id="in-game-skill-btn" onclick="window.activateSkill()">
                             <span id="skill-btn-name">スキルなし</span>
                             <div id="skill-cooldown-bar"></div>
                         </button>
-                        <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
+                        <div id="skill-status-text">準備完了！</div>
                     </div>
-
                     <div class="word-ja" id="q-ja">準備中...</div>
                     <div class="word-roma" id="q-roma">
                         <span class="char-done" id="q-done"></span><span class="char-todo" id="q-todo"></span>
@@ -159,35 +102,25 @@
                     <div class="game-stats-row">
                         <div class="stat-box">SCORE: <span id="stat-score" class="stat-val">0</span></div>
                         <div class="stat-box">COMBO: <span id="stat-combo" class="stat-val">0</span></div>
-                        <div id="minion-display" class="stat-box hidden" style="border-color: var(--accent-purple);">
-                            子分: <span id="stat-minions" class="stat-val" style="color: var(--accent-purple);">0</span>体
-                        </div>
                     </div>
                     <div id="rival-display" class="hidden">
-                        <div class="rival-header">RIVAL SCORES</div>
                         <div id="rival-list"></div>
                     </div>
                 </div>
-            </div>
-
-            <div id="screen-result" class="screen hidden">
-                <h1 class="finish-title">FINISH!</h1>
-                <div id="ranking-box" class="ranking-panel"></div>
-                <button class="action-btn" onclick="window.goHome()">ホーム画面に戻る</button>
             </div>
 
             <div id="screen-editor" class="screen hidden">
                 <h2 class="title-glow">タイピングを作る</h2>
                 <div id="editor-list" class="editor-scroll"></div>
                 <div class="editor-controls">
-                    <button class="btn-invite" onclick="window.addEditorRow()">バーを増やす</button>
-                    <button class="btn-invite purple-btn" onclick="window.saveEditor()">完成</button>
+                    <button class="btn-invite" onclick="window.addEditorRow()">追加</button>
+                    <button class="btn-invite purple-btn" onclick="window.saveEditor()">保存</button>
                     <button class="btn-kick" onclick="window.goHome()">戻る</button>
                 </div>
             </div>
 
             <div class="footer-container">
-                <div class="footer-credit">@作った人は<span>「らも。Ωα」</span></div>
+                <div class="footer-credit">Created by <span>らも。Ωα</span></div>
                 <div class="coin-display">🪙 : <span id="coin-amount">0</span></div>
             </div>
         </main>
@@ -196,81 +129,38 @@
             <section class="side-panel">
                 <div class="panel-title">プロフィール</div>
                 <div class="profile-box">
-                    <label>名前</label>
                     <input type="text" id="my-name-input" maxlength="15" oninput="window.updateMyName()">
-                    <div class="code-display">
-                        フレンドコード: <span id="my-id-display">--------</span>
-                    </div>
+                    <div class="code-display">ID: <span id="my-id-display">--------</span></div>
                 </div>
             </section>
 
             <section class="side-panel">
-                <section class="side-panel">
-                <div class="panel-title">COMMUNICATION</div>
-                <div class="vc-panel">
-                    <div class="vc-status-row">
-                        <div id="vc-indicator" class="vc-dot dot-off"></div>
-                        <div class="vc-text-group">
-                            <span id="vc-status-label">VOICE: OFF</span>
-                            <small id="vc-mic-name">マイク未接続</small>
-                        </div>
+                <div class="panel-title">ボイスチャット (BETA)</div>
+                <div class="vc-controls">
+                    <div id="vc-status" class="vc-status-off">OFFLINE</div>
+                    <div class="vc-btns">
+                        <button id="btn-vc-join" class="btn-invite btn-s" onclick="window.toggleVC()">入室</button>
+                        <button id="btn-vc-mic" class="btn-kick btn-s hidden" onclick="window.toggleMic()">マイクON</button>
                     </div>
-
-                    <button id="btn-vc-toggle" class="vc-action-btn off" onclick="window.toggleVoiceChat()">
-                        <span id="vc-btn-icon">🎤</span>
-                        <span id="vc-btn-text">ボイスチャットをON</span>
-                    </button>
-
-                    <div id="remote-audio-container" style="display:none;"></div>
-
-                    <div class="vc-settings">
-                        <div class="vc-setting-item">
-                            <div class="vc-label-row">
-                                <label>相手の音量</label>
-                                <span id="vc-vol-num">80</span>
-                            </div>
-                            <input type="range" id="vc-volume-slider" min="0" max="100" value="80" 
-                                oninput="document.getElementById('vc-vol-num').innerText=this.value; window.updateVCVolume(this.value)">
-                        </div>
-                    </div>
-                    
-                    <div id="vc-member-list" class="vc-members-mini">
-                        </div>
-                    
-                    <div class="vc-note">※パーティーメンバー間でのみ通話可能です</div>
                 </div>
+                <div id="vc-member-list" class="side-scroll"></div>
+                <div id="remote-audio-container"></div>
             </section>
-                <div class="panel-title">フレンド機能</div>
+
+            <section class="side-panel">
+                <div class="panel-title">フレンド</div>
                 <div class="friend-add-box">
-                    <input type="text" id="friend-code-input" placeholder="コードを入力">
+                    <input type="text" id="friend-code-input" placeholder="コード">
                     <button class="btn-invite btn-s" onclick="window.addFriend()">追加</button>
                 </div>
                 <div id="friend-list-ui" class="side-scroll"></div>
             </section>
 
             <section class="side-panel">
-                <section class="side-panel">
-    <div class="panel-title-row">
-        <div class="panel-title" id="party-label">パーティー (未参加)</div>
-        <div id="vc-badge" class="vc-badge-off">VOICE OFF</div>
-    </div>
-    
-    <div id="party-list-ui" class="side-scroll party-vc-list">
-        </div>
-
-    <div id="party-actions" class="hidden">
-        <div class="vc-controls">
-            <button class="btn-invite btn-s" id="mic-toggle-btn" onclick="window.toggleMic()">
-                🎤 マイク: <span id="mic-status-text">OFF</span>
-            </button>
-        </div>
-        <button class="btn-kick btn-full" onclick="window.leaveParty()" id="party-leave-btn">パーティーを抜ける</button>
-    </div>
-</section>
-                <div class="panel-title" id="party-label">パーティー (未参加)</div>
+                <div class="panel-title" id="party-label">パーティー</div>
                 <div id="party-list-ui" class="side-scroll"></div>
                 <div id="party-actions" class="hidden">
-                    <button class="btn-kick btn-full" onclick="window.leaveParty()" id="party-leave-btn">パーティーを抜ける</button>
+                    <button class="btn-kick btn-full" onclick="window.leaveParty()">抜ける</button>
                 </div>
             </section>
         </aside>
