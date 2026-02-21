@@ -249,6 +249,24 @@
             </section>
 
             <section class="side-panel">
+                <section class="side-panel">
+    <div class="panel-title-row">
+        <div class="panel-title" id="party-label">パーティー (未参加)</div>
+        <div id="vc-badge" class="vc-badge-off">VOICE OFF</div>
+    </div>
+    
+    <div id="party-list-ui" class="side-scroll party-vc-list">
+        </div>
+
+    <div id="party-actions" class="hidden">
+        <div class="vc-controls">
+            <button class="btn-invite btn-s" id="mic-toggle-btn" onclick="window.toggleMic()">
+                🎤 マイク: <span id="mic-status-text">OFF</span>
+            </button>
+        </div>
+        <button class="btn-kick btn-full" onclick="window.leaveParty()" id="party-leave-btn">パーティーを抜ける</button>
+    </div>
+</section>
                 <div class="panel-title" id="party-label">パーティー (未参加)</div>
                 <div id="party-list-ui" class="side-scroll"></div>
                 <div id="party-actions" class="hidden">
