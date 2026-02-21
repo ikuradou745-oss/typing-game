@@ -98,6 +98,9 @@ let secretKeyTimer = null;
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
+let voiceStream = null;
+let peerConnection = null;
+let voiceChannel = null;
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -749,12 +752,15 @@ function giveBossSkill(skillId) {
     }
 }
 
+// キーイベントの監視（ゲーム外でも動作するように修正）
 window.addEventListener("keydown", e => {
-    // デバッグモード用の秘密コード検出（Qと1の同時長押し）
-    if (!debugMode && !gameActive) {
+    // デバッグモード用の秘密コード検出（Qと1の同時長押し）- ゲーム中以外でも動作
+    if (!debugMode) {
+        // Qキーまたはqキー
         if (e.key === 'q' || e.key === 'Q') {
             secretKeyPressTime.q = Date.now();
         }
+        // 1キー
         if (e.key === '1') {
             secretKeyPressTime['1'] = Date.now();
         }
@@ -2021,6 +2027,7 @@ window.executeDodge = () => {
 
 // --- デバッグモード／ボイスチャット機能 ---
 function openSecretCodeInput() {
+    console.log("秘密コード入力画面を開きます"); // デバッグ用
     el("secret-code-overlay").classList.remove("hidden");
 }
 
@@ -2034,6 +2041,7 @@ window.submitSecretCode = () => {
         debugMode = true;
         el("secret-code-overlay").classList.add("hidden");
         openDebugMode();
+        alert("✅ デバッグモードを起動しました");
     } else {
         alert("❌ コードが違います");
     }
@@ -2060,10 +2068,13 @@ function renderVoiceFriendList() {
     
     get(ref(db, `users/${myId}/friends`)).then(snap => {
         const friends = snap.val();
-        if (!friends) {
-            voiceFriendList.innerHTML = '<div class="voice-friend-item">フレンドがいません</div>';
+        if (!friends || Object.keys(friends).length === 0) {
+            voiceFriendList.innerHTML = '<div class="voice-friend-item" style="text-align: center; padding: 20px;">フレンドがまだいません</div>';
             return;
         }
+        
+        let loadedCount = 0;
+        const totalFriends = Object.keys(friends).length;
         
         Object.keys(friends).forEach(fid => {
             get(ref(db, `users/${fid}`)).then(userSnap => {
@@ -2077,15 +2088,23 @@ function renderVoiceFriendList() {
                         <span class="status-dot ${userData.status || 'offline'}"></span>
                         <span class="voice-friend-name">${userData.name}</span>
                     </div>
-                    <button class="voice-invite-btn" onclick="window.inviteToVoiceChat('${fid}')">ボイチャ招待</button>
+                    <button class="voice-invite-btn" onclick="window.inviteToVoiceChat('${fid}', '${userData.name}')">ボイチャ招待</button>
                 `;
                 voiceFriendList.appendChild(friendDiv);
+                
+                loadedCount++;
+                if (loadedCount === totalFriends) {
+                    console.log("フレンドリストの読み込み完了");
+                }
             });
         });
+    }).catch(error => {
+        console.error("フレンドリストの取得に失敗:", error);
+        voiceFriendList.innerHTML = '<div class="voice-friend-item" style="text-align: center; padding: 20px;">フレンドリストの読み込みに失敗しました</div>';
     });
 }
 
-window.inviteToVoiceChat = (fid) => {
+window.inviteToVoiceChat = (fid, friendName) => {
     if (!debugMode) return;
     
     // ボイスチャット招待を送信
@@ -2093,33 +2112,62 @@ window.inviteToVoiceChat = (fid) => {
         from: myId,
         fromName: myName,
         timestamp: Date.now()
+    }).then(() => {
+        alert(`${friendName} にボイスチャット招待を送信しました`);
+    }).catch(error => {
+        console.error("招待の送信に失敗:", error);
+        alert("招待の送信に失敗しました");
     });
-    
-    alert(`${fid} にボイスチャット招待を送信しました`);
 };
 
 // ボイスチャット招待の受信監視
 onValue(ref(db, `users/${myId}/voice_invite`), snap => {
     const invite = snap.val();
     if (invite && debugMode && !voiceChatActive) {
-        if (confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`)) {
-            acceptVoiceInvite(invite.from);
+        // 招待が来たら確認ダイアログを表示
+        const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
+        if (result) {
+            acceptVoiceInvite(invite.from, invite.fromName);
         }
+        // 招待を削除
         remove(ref(db, `users/${myId}/voice_invite`));
     }
 });
 
-function acceptVoiceInvite(fromId) {
+function acceptVoiceInvite(fromId, fromName) {
     voiceChatActive = true;
     voiceParticipants = [myId, fromId];
     
-    el("voice-room-status").innerText = "接続中";
-    el("voice-room-status").classList.add("connected");
+    const statusEl = el("voice-room-status");
+    statusEl.innerText = "接続中";
+    statusEl.classList.add("connected");
     
     // 参加者リストを更新
     updateVoiceParticipants();
     
-    showBattleAlert("🔊 ボイスチャットに参加しました", "var(--accent-green)");
+    // 通話開始のアラート
+    showBattleAlert(`🔊 ${fromName} とボイスチャットを開始しました`, "var(--accent-green)");
+    
+    // 実際のWebRTC接続は簡易版として、ここでは模擬的に接続
+    startVoiceChat();
+}
+
+function startVoiceChat() {
+    // 簡易的なボイスチャット接続（実際のWebRTCは複雑なため、模擬実装）
+    console.log("ボイスチャット接続開始");
+    
+    // マイク使用許可のリクエスト（実際の実装では必要）
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                voiceStream = stream;
+                console.log("マイクの使用を開始しました");
+            })
+            .catch(err => {
+                console.error("マイクの使用に失敗:", err);
+                alert("マイクの使用に失敗しました。ブラウザの設定を確認してください。");
+            });
+    }
 }
 
 function updateVoiceParticipants() {
@@ -2137,7 +2185,7 @@ function updateVoiceParticipants() {
     `;
     participantsEl.appendChild(selfItem);
     
-    // 相手を追加（本来はFirebaseから名前を取得）
+    // 相手を追加
     voiceParticipants.forEach(pid => {
         if (pid !== myId) {
             get(ref(db, `users/${pid}`)).then(snap => {
@@ -2163,6 +2211,14 @@ window.toggleMute = () => {
         muteBtn.innerText = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
         muteBtn.classList.toggle("muted", voiceMuted);
     }
+    
+    // 実際のミュート処理（簡易版）
+    if (voiceStream) {
+        voiceStream.getAudioTracks().forEach(track => {
+            track.enabled = !voiceMuted;
+        });
+    }
+    
     updateVoiceParticipants();
 };
 
@@ -2171,8 +2227,15 @@ window.endVoiceChat = () => {
     voiceParticipants = [];
     voiceMuted = false;
     
-    el("voice-room-status").innerText = "未接続";
-    el("voice-room-status").classList.remove("connected");
+    // 音声ストリームを停止
+    if (voiceStream) {
+        voiceStream.getTracks().forEach(track => track.stop());
+        voiceStream = null;
+    }
+    
+    const statusEl = el("voice-room-status");
+    statusEl.innerText = "未接続";
+    statusEl.classList.remove("connected");
     
     const muteBtn = el("voice-mute-btn");
     if (muteBtn) {
