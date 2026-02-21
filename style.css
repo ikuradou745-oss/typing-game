@@ -142,7 +142,7 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
 .btn-invite { background: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 .btn-kick { background: var(--accent-red); color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
-.game-stats-row { display: flex; gap: 20px; margin-top: 20px; justify-content: center; }
+.game-stats-row { display: flex; gap: 20px; margin-top: 20px; justify-content: center; flex-wrap: wrap; }
 .stat-box { background: rgba(0,0,0,0.5); border: 1px solid var(--accent-blue); padding: 10px 20px; border-radius: 10px; font-size: 1.2rem; font-weight: bold; }
 .stat-val { color: var(--accent-green); font-family: 'JetBrains Mono'; }
 
@@ -171,6 +171,8 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .chapter-tab {
@@ -419,6 +421,10 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
     height: 30px;
     background: #222;
     border: 1px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
 }
 
 .maze-cell.wall {
@@ -555,4 +561,404 @@ body.poisoned .word-roma {
     0% { opacity: 0.3; }
     50% { opacity: 0.7; }
     100% { opacity: 0.3; }
+}
+
+/* =========================================
+   秘密コード入力オーバーレイ
+   ========================================= */
+#secret-code-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.8);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.secret-code-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-purple);
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.secret-code-container h3 {
+    color: var(--accent-purple);
+    margin-bottom: 20px;
+}
+
+#secret-code-input {
+    width: 100%;
+    padding: 15px;
+    font-size: 2rem;
+    text-align: center;
+    letter-spacing: 10px;
+    background: #000;
+    border: 2px solid var(--accent-blue);
+    color: var(--accent-green);
+    margin-bottom: 20px;
+}
+
+.secret-code-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.secret-code-btns button {
+    padding: 10px 30px;
+    font-size: 1.2rem;
+}
+
+#secret-code-hint {
+    margin-top: 15px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   デバッグモード／ボイスチャットUI
+   ========================================= */
+#debug-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.9);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.debug-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-purple);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 1000px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--glass);
+}
+
+.debug-header h2 {
+    color: var(--accent-purple);
+    margin: 0;
+}
+
+.debug-close {
+    background: none;
+    border: none;
+    color: var(--accent-red);
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0 10px;
+}
+
+.debug-close:hover {
+    color: #fff;
+}
+
+.voice-chat-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* フレンドリスト（ボイチャ招待用） */
+.voice-friend-list {
+    width: 300px;
+    border-right: 1px solid var(--glass);
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+}
+
+.voice-friend-list h3 {
+    color: var(--accent-blue);
+    margin: 0 0 15px 0;
+}
+
+.voice-friend-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.voice-friend-item {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--glass);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.voice-friend-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.voice-friend-name {
+    font-weight: bold;
+}
+
+.voice-invite-btn {
+    background: var(--accent-green);
+    color: #000;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.voice-invite-btn:hover {
+    background: #fff;
+}
+
+/* ボイスチャットルーム */
+.voice-room {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+}
+
+.voice-room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.voice-room-header h3 {
+    color: var(--accent-green);
+    margin: 0;
+}
+
+.voice-status {
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    background: rgba(255,0,0,0.2);
+    color: var(--accent-red);
+}
+
+.voice-status.connected {
+    background: rgba(0,255,0,0.2);
+    color: var(--accent-green);
+}
+
+.voice-participants {
+    flex: 1;
+    background: rgba(0,0,0,0.3);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+    overflow-y: auto;
+}
+
+.participant-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.participant-name {
+    font-weight: bold;
+}
+
+.participant-status {
+    font-size: 0.9rem;
+    padding: 3px 10px;
+    border-radius: 15px;
+}
+
+.participant-status.talking {
+    background: var(--accent-green);
+    color: #000;
+}
+
+.participant-status.muted {
+    background: #666;
+    color: #fff;
+}
+
+.voice-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.voice-btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.voice-btn:hover {
+    transform: scale(1.05);
+}
+
+#voice-mute-btn {
+    background: var(--accent-blue);
+    color: #000;
+}
+
+#voice-mute-btn.muted {
+    background: #666;
+    color: #fff;
+}
+
+.voice-end {
+    background: var(--accent-red);
+    color: #fff;
+}
+
+/* =========================================
+   スタン解除オーバーレイ（墓地強化スキル用）
+   ========================================= */
+#stun-release-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 15000;
+    text-align: center;
+}
+
+.stun-release-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-purple);
+    border-radius: 20px;
+    padding: 30px;
+    animation: stun-pulse 1s infinite;
+}
+
+.stun-release-text {
+    color: var(--accent-red);
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px var(--accent-red);
+}
+
+.stun-release-btn {
+    background: var(--accent-green);
+    color: #000;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    animation: btn-pulse 0.5s infinite;
+}
+
+.stun-release-btn:hover {
+    background: #fff;
+}
+
+@keyframes stun-pulse {
+    0% { box-shadow: 0 0 20px var(--accent-red); }
+    50% { box-shadow: 0 0 50px var(--accent-red); }
+    100% { box-shadow: 0 0 20px var(--accent-red); }
+}
+
+@keyframes btn-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* =========================================
+   トラップ表示用スタイル
+   ========================================= */
+#trap-display {
+    border-color: #ff6b6b !important;
+    animation: trap-glow 2s infinite;
+}
+
+#trap-display .stat-val {
+    color: #ff6b6b !important;
+}
+
+@keyframes trap-glow {
+    0% { box-shadow: 0 0 5px #ff6b6b; }
+    50% { box-shadow: 0 0 20px #ff6b6b; }
+    100% { box-shadow: 0 0 5px #ff6b6b; }
+}
+
+/* =========================================
+   レスポンシブ対応
+   ========================================= */
+@media (max-width: 768px) {
+    #sidebar {
+        width: 280px;
+    }
+    
+    .header-logo {
+        font-size: 2rem;
+    }
+    
+    .word-ja {
+        font-size: 3rem;
+    }
+    
+    .word-roma {
+        font-size: 2rem;
+        padding: 10px 20px;
+    }
+    
+    .story-map {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .voice-chat-container {
+        flex-direction: column;
+    }
+    
+    .voice-friend-list {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--glass);
+        max-height: 200px;
+    }
+    
+    .maze-grid {
+        grid-template-columns: repeat(10, 20px);
+    }
+    
+    .maze-cell {
+        width: 20px;
+        height: 20px;
+    }
 }
