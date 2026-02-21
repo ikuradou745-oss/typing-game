@@ -162,3 +162,394 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
 #skill-action-box { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
 #in-game-skill-btn { width: 100px; height: 100px; border-radius: 50%; background: var(--bg-dark); border: 3px solid var(--accent-purple); color: white; font-weight: bold; cursor: pointer; position: relative; overflow: hidden; }
 #skill-cooldown-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(255, 49, 49, 0.5); transition: height 1s linear; }
+
+/* =========================================
+   ストーリーモード用スタイル
+   ========================================= */
+.story-chapter-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.chapter-tab {
+    background: var(--panel-bg);
+    border: 2px solid var(--accent-purple);
+    color: white;
+    padding: 10px 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.chapter-tab.active {
+    background: var(--accent-purple);
+    box-shadow: 0 0 20px var(--accent-purple);
+}
+
+.chapter-tab:hover {
+    background: var(--accent-purple);
+}
+
+.story-chapter {
+    width: 100%;
+    max-width: 700px;
+}
+
+.story-map {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    padding: 20px;
+    background: var(--panel-bg);
+    border-radius: 20px;
+    border: 1px solid var(--glass);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.stage-node {
+    background: linear-gradient(145deg, #1a1a2a, #0a0a1a);
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+    position: relative;
+}
+
+.stage-node.completed {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 15px var(--accent-green);
+}
+
+.stage-node.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+}
+
+.stage-node.boss-stage {
+    border-color: #FFD700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.stage-node.current {
+    border-color: var(--accent-blue);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--accent-blue);
+}
+
+.stage-number {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.stage-target {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-top: 5px;
+}
+
+.stage-complete-mark {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    color: var(--accent-green);
+    font-size: 1rem;
+}
+
+.stage-locked-mark {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    color: var(--accent-red);
+    font-size: 0.8rem;
+}
+
+/* ステージ詳細画面 */
+.stage-detail-panel {
+    background: var(--panel-bg);
+    border: 2px solid var(--accent-purple);
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 500px;
+    width: 100%;
+}
+
+.stage-condition {
+    background: rgba(0,0,0,0.3);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.condition-item {
+    font-size: 1.2rem;
+    margin: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--glass);
+    padding-bottom: 5px;
+}
+
+.condition-item span {
+    color: var(--accent-green);
+    font-weight: bold;
+    font-size: 1.4rem;
+}
+
+.stage-boss-info {
+    background: linear-gradient(145deg, #2a1a1a, #1a0a0a);
+    border: 2px solid #FFD700;
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.boss-badge {
+    color: #FFD700;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px #FFD700;
+}
+
+.boss-reward {
+    color: #fff;
+    font-size: 1.1rem;
+}
+
+.boss-reward span {
+    color: #FFD700;
+    font-weight: bold;
+}
+
+.stage-play-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.restriction-msg {
+    background: rgba(255, 49, 49, 0.2);
+    border: 2px solid var(--accent-red);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    color: var(--accent-red);
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+/* スコアプログレスバー */
+#story-progress-bar {
+    width: 80%;
+    max-width: 500px;
+    margin: 10px auto;
+}
+
+.progress-label {
+    text-align: center;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.progress-label span {
+    color: var(--accent-green);
+    font-weight: bold;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 20px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 10px;
+    border: 1px solid var(--accent-blue);
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+    transition: width 0.3s ease;
+}
+
+/* 迷路オーバーレイ */
+#maze-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.9);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.maze-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-purple);
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+}
+
+.maze-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 30px);
+    gap: 2px;
+    margin: 20px 0;
+    justify-content: center;
+}
+
+.maze-cell {
+    width: 30px;
+    height: 30px;
+    background: #222;
+    border: 1px solid #444;
+}
+
+.maze-cell.wall {
+    background: #333;
+    border-color: #555;
+}
+
+.maze-cell.path {
+    background: #0a0a1a;
+}
+
+.maze-cell.player {
+    background: var(--accent-blue);
+    box-shadow: 0 0 10px var(--accent-blue);
+}
+
+.maze-cell.goal {
+    background: var(--accent-green);
+    box-shadow: 0 0 10px var(--accent-green);
+}
+
+.maze-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.maze-btn {
+    width: 50px;
+    height: 50px;
+    background: var(--accent-purple);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.maze-btn:hover {
+    background: var(--accent-blue);
+}
+
+/* ハッキングオーバーレイ */
+#hacking-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hacking-screen {
+    text-align: center;
+}
+
+.hacking-text {
+    color: #0f0;
+    font-size: 3rem;
+    font-family: 'JetBrains Mono';
+    text-shadow: 0 0 20px #0f0;
+    margin-bottom: 20px;
+    animation: glitch 0.1s infinite;
+}
+
+.hacking-progress {
+    color: #0f0;
+    font-size: 5rem;
+    font-family: 'JetBrains Mono';
+    text-shadow: 0 0 30px #0f0;
+}
+
+/* 毒状態オーバーレイ */
+#poison-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.poison-effect {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,255,0,0.3) 100%);
+    animation: poison-pulse 2s infinite;
+    mix-blend-mode: overlay;
+}
+
+@keyframes glitch {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(-2px, -2px); }
+    60% { transform: translate(2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    100% { transform: translate(0); }
+}
+
+@keyframes poison-pulse {
+    0% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+    100% { opacity: 0.3; }
+}
+
+/* 花火スキル用「避ける」ボタン */
+#dodge-overlay button {
+    font-size: 3rem;
+    padding: 30px 60px;
+    background: var(--accent-red);
+    border: 3px solid #fff;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    animation: dodge-pulse 0.5s infinite;
+}
+
+@keyframes dodge-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* 毒状態のテキストぼかし効果 */
+body.poisoned .word-ja,
+body.poisoned .word-roma {
+    filter: blur(3px);
+    opacity: 0.7;
+}
