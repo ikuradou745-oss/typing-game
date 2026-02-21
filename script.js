@@ -1161,4 +1161,116 @@ if (timeSlider) {
     });
 }
 
+/**
+ * VoiceChatService
+ * ボイスチャットの開始、停止、音量設定を管理するクラス
+ */
+class VoiceChatService {
+    constructor() {
+        this.indicator = document.getElementById('vc-indicator');
+        this.btnText = document.getElementById('vc-btn-text');
+        this.btnIcon = document.getElementById('vc-btn-icon');
+        this.btnToggle = document.getElementById('btn-vc-toggle');
+        this.statusLabel = document.getElementById('vc-status-label');
+        this.micNameLabel = document.getElementById('vc-mic-name');
+    }
+
+    // VCの切り替えメインロジック
+    async toggle() {
+        if (!isVCOn) {
+            await this.start();
+        } else {
+            this.stop();
+        }
+    }
+
+    // マイクを開始する
+    async start() {
+        try {
+            // ユーザーにマイクの使用をリクエスト
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            
+            // 音声処理のセットアップ（自分の声をモニタリングしない設定）
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(localStream);
+            gainNode = audioContext.createGain();
+            source.connect(gainNode);
+            // 自分の声がスピーカーから出ないように目的地には接続しない（ハウリング防止）
+
+            // UIの更新
+            isVCOn = true;
+            this.updateUI(true);
+            
+            // 使用中のマイク名を取得して表示
+            const audioTrack = localStream.getAudioTracks()[0];
+            this.micNameLabel.innerText = audioTrack.label || "マイク使用中";
+            
+            console.log("🎤 ボイスチャットを開始しました");
+        } catch (err) {
+            console.error("マイクのアクセスに失敗しました:", err);
+            alert("マイクの使用が許可されていないか、デバイスが見つかりません。");
+            this.stop();
+        }
+    }
+
+    // マイクを停止する
+    stop() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
+        
+        isVCOn = false;
+        this.updateUI(false);
+        this.micNameLabel.innerText = "マイク未接続";
+        console.log("🔇 ボイスチャットを停止しました");
+    }
+
+    // 見た目を切り替える
+    updateUI(active) {
+        if (active) {
+            this.indicator.classList.remove('dot-off');
+            this.indicator.classList.add('dot-on');
+            this.btnToggle.classList.remove('off');
+            this.btnToggle.classList.add('on');
+            this.btnText.innerText = "ボイスチャットをOFF";
+            this.btnIcon.innerText = "🔇";
+            this.statusLabel.innerText = "VOICE: ON";
+        } else {
+            this.indicator.classList.remove('dot-on');
+            this.indicator.classList.add('dot-off');
+            this.btnToggle.classList.remove('on');
+            this.btnToggle.classList.add('off');
+            this.btnText.innerText = "ボイスチャットをON";
+            this.btnIcon.innerText = "🎤";
+            this.statusLabel.innerText = "VOICE: OFF";
+        }
+    }
+
+    // 音量を更新する
+    setVolume(value) {
+        if (gainNode) {
+            // 0.0 ～ 1.0 の範囲に変換
+            gainNode.gain.value = value / 100;
+        }
+    }
+}
+
+// インスタンス化
+const vcService = new VoiceChatService();
+
+// --- グローバルに公開する関数 ---
+
+window.toggleVoiceChat = () => {
+    vcService.toggle();
+};
+
+window.updateVCVolume = (value) => {
+    vcService.setVolume(value);
+};
+
 window.goHome();
