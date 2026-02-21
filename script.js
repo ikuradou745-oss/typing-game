@@ -556,6 +556,11 @@ function endGame() {
                     <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
                         <span>結果</span><span>${coinText}</span>
                     </div>`;
+                                if (equippedSkill === "godfundraiser" && !isCustomGame) coinText += " (資金稼ぎ4倍適用!)";
+                el("ranking-box").innerHTML += `
+                    <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                        <span>結果</span><span>${coinText}</span>
+                    </div>`;
 
                 if (isLeader && !myPartyId.startsWith("match_")) {
                     update(ref(db, `parties/${myPartyId}`), { state: "lobby" });
