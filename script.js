@@ -709,11 +709,19 @@ window.addEventListener("keydown", e => {
     if (e.code === "Digit2") { e.preventDefault(); window.activateSkill("key2"); return; }
     if (e.code === "Digit3") { e.preventDefault(); window.activateSkill("key3"); return; }
     
+    // 迷路アクティブ時は矢印キーで移動
+    if (mazeActive) {
+        if (e.code === "ArrowUp") { e.preventDefault(); window.moveMaze('up'); return; }
+        if (e.code === "ArrowDown") { e.preventDefault(); window.moveMaze('down'); return; }
+        if (e.code === "ArrowLeft") { e.preventDefault(); window.moveMaze('left'); return; }
+        if (e.code === "ArrowRight") { e.preventDefault(); window.moveMaze('right'); return; }
+    }
+    
     if (isJamming) return;
 
     if (e.key === currentRoma[romaIdx]) {
         processCorrectType();
-    } else if (!["Shift","Alt","Control","Space","1","2","3"].includes(e.key)) {
+    } else if (!["Shift","Alt","Control","Space","1","2","3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
         combo = 0; 
         sounds.miss.currentTime = 0; sounds.miss.play();
         el("stat-combo").innerText = combo;
@@ -1250,29 +1258,49 @@ function applyBlurEffect() {
     }, 1000);
 }
 
-// 迷路生成
+// 迷路生成（必ず解ける迷路）
 function generateMaze() {
     const size = 10;
     const maze = Array(size).fill().map(() => Array(size).fill(1));
     
+    // 穴掘り法で必ず解ける迷路を生成
     function carve(x, y) {
-        const dirs = [[0,1],[1,0],[0,-1],[-1,0]];
+        const dirs = [
+            [0, 2], [2, 0], [0, -2], [-2, 0]
+        ];
         dirs.sort(() => Math.random() - 0.5);
         
         for (let [dx, dy] of dirs) {
-            const nx = x + dx*2;
-            const ny = y + dy*2;
+            const nx = x + dx;
+            const ny = y + dy;
             if (nx >= 0 && nx < size && ny >= 0 && ny < size && maze[ny][nx] === 1) {
-                maze[y+dy][x+dx] = 0;
+                // 壁を壊す
+                maze[y + dy/2][x + dx/2] = 0;
                 maze[ny][nx] = 0;
                 carve(nx, ny);
             }
         }
     }
     
+    // スタート地点を道にする
     maze[0][0] = 0;
     carve(0, 0);
+    
+    // ゴールを設定（右下）
     maze[size-1][size-1] = 2;
+    
+    // ゴールへの道が確保されているか確認
+    let hasPath = false;
+    for (let y = size-2; y >= 0; y--) {
+        if (maze[y][size-1] === 0) hasPath = true;
+        if (maze[size-1][y] === 0) hasPath = true;
+    }
+    
+    // ゴールへの道がない場合は強制的に道を作る
+    if (!hasPath) {
+        maze[size-2][size-1] = 0;
+        maze[size-1][size-2] = 0;
+    }
     
     return maze;
 }
@@ -1281,6 +1309,9 @@ function generateMaze() {
 function renderMaze() {
     const grid = el("maze-grid");
     grid.innerHTML = "";
+    
+    // ゴールまでの距離を計算して表示
+    let distance = Math.abs(mazeGoalPos.x - mazePlayerPos.x) + Math.abs(mazeGoalPos.y - mazePlayerPos.y);
     
     for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 10; x++) {
@@ -1293,12 +1324,23 @@ function renderMaze() {
                 cell.classList.add("player");
             } else if (x === mazeGoalPos.x && y === mazeGoalPos.y) {
                 cell.classList.add("goal");
-            } else {
+                cell.innerHTML = "🏁";
+            } else if (mazeGrid[y][x] === 0) {
                 cell.classList.add("path");
+                // 近くの道にヒントを表示
+                if (Math.abs(x - mazePlayerPos.x) + Math.abs(y - mazePlayerPos.y) < 3) {
+                    cell.style.opacity = "0.8";
+                }
             }
             
             grid.appendChild(cell);
         }
+    }
+    
+    // 距離を表示
+    const status = el("maze-status");
+    if (status) {
+        status.innerHTML = `ゴールまで: ${distance}マス`;
     }
 }
 
@@ -1316,17 +1358,27 @@ window.moveMaze = (direction) => {
         case 'right': newX++; break;
     }
     
+    // 範囲チェックと壁チェック
     if (newX >= 0 && newX < 10 && newY >= 0 && newY < 10) {
         if (mazeGrid[newY][newX] !== 1) {
             mazePlayerPos.x = newX;
             mazePlayerPos.y = newY;
             renderMaze();
             
+            // ゴールチェック
             if (newX === mazeGoalPos.x && newY === mazeGoalPos.y) {
                 mazeActive = false;
                 el("maze-overlay").classList.add("hidden");
                 showBattleAlert("✅ 迷路クリア！", "var(--accent-green)");
+                sounds.correct.play();
+            } else {
+                sounds.type.currentTime = 0;
+                sounds.type.play();
             }
+        } else {
+            // 壁にぶつかったときの効果音
+            sounds.miss.currentTime = 0;
+            sounds.miss.play();
         }
     }
 };
@@ -1361,16 +1413,43 @@ function startHacking(duration) {
     }, 1000);
 }
 
-// 毒状態開始
+// 毒状態開始（テキストを見えづらくする）
 function startPoison(duration) {
     poisonActive = true;
     el("poison-overlay").classList.remove("hidden");
     document.body.classList.add("poisoned");
     
+    // テキストにも直接エフェクトを適用
+    const wordJa = el("q-ja");
+    const wordRoma = el("q-roma");
+    
+    if (wordJa) {
+        wordJa.style.filter = "blur(2px) brightness(1.5)";
+        wordJa.style.opacity = "0.7";
+        wordJa.style.textShadow = "0 0 10px #0f0, 0 0 20px #0f0";
+    }
+    if (wordRoma) {
+        wordRoma.style.filter = "blur(2px) brightness(1.5)";
+        wordRoma.style.opacity = "0.7";
+        wordRoma.style.textShadow = "0 0 10px #0f0, 0 0 20px #0f0";
+    }
+    
     setTimeout(() => {
         poisonActive = false;
         el("poison-overlay").classList.add("hidden");
         document.body.classList.remove("poisoned");
+        
+        // エフェクトを解除
+        if (wordJa) {
+            wordJa.style.filter = "";
+            wordJa.style.opacity = "";
+            wordJa.style.textShadow = "";
+        }
+        if (wordRoma) {
+            wordRoma.style.filter = "";
+            wordRoma.style.opacity = "";
+            wordRoma.style.textShadow = "";
+        }
     }, duration);
 }
 
@@ -1450,6 +1529,9 @@ function handleIncomingAttack(attack) {
         renderMaze();
         el("maze-overlay").classList.remove("hidden");
         sounds.miss.play();
+        
+        // 迷路のヒントを表示
+        showBattleAlert("🔍 矢印キーかボタンで移動！", "var(--accent-blue)");
         return;
     }
     
