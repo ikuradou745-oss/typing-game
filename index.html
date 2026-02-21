@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -22,6 +21,32 @@
         </div>
     </div>
 
+    <div id="story-modal-overlay" class="hidden">
+        <div class="story-modal-panel">
+            <h2 id="story-modal-title" class="title-glow" style="color: var(--accent-green);">STAGE 1-1</h2>
+            <div class="story-modal-info">
+                <p id="story-modal-desc">目標: 60秒以内に <span id="story-modal-target">8000</span> スコア</p>
+                <p id="story-modal-party-desc" class="hidden" style="color: var(--accent-purple); font-size: 0.9rem;">パーティープレイ時: 目標スコア ÷ 人数</p>
+            </div>
+            <div class="btn-group" style="margin-top: 20px;">
+                <button id="btn-story-single" class="action-btn" onclick="window.confirmStorySingle()">一人でプレイ</button>
+                <button id="btn-story-party" class="action-btn" onclick="window.confirmStoryParty()">パーティーでプレイ</button>
+                <button class="action-btn full-width gray-btn" onclick="window.closeStoryModal()">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="hack-overlay" class="hidden">
+        <div class="hack-text">⚠️ WARNING: SCREEN HACKED ⚠️</div>
+    </div>
+
+    <div id="maze-overlay" class="hidden">
+        <div class="maze-panel">
+            <h2 style="color: var(--accent-blue); text-shadow: 0 0 10px var(--accent-blue);">迷路を脱出しろ！ (矢印キー)</h2>
+            <div id="maze-container"></div>
+        </div>
+    </div>
+
     <div id="app">
         <main id="main-area">
             <div class="header-logo">ULTIMATE TYPING</div>
@@ -35,6 +60,10 @@
                     <button id="btn-party" class="action-btn" onclick="window.openFriendBattle()">
                         <span>フレンドと遊ぶ</span>
                         <small>PARTY BATTLE</small>
+                    </button>
+                    <button id="btn-story-mode" class="action-btn full-width" style="border-color: var(--accent-green);" onclick="window.openStoryMode()">
+                        <span>ストーリーモード</span>
+                        <small>STORY MODE</small>
                     </button>
                     <button id="btn-match" class="action-btn" onclick="window.openOnlineMatch()">
                         <span>オンラインで遊ぶ</span>
@@ -60,21 +89,25 @@
                     <div class="world-section">
                         <h3>WORLD 1 : はじまりの地</h3>
                         <div class="story-grid" id="story-world-1">
-                            <button id="stage-1-1" class="story-stage-btn" onclick="window.startStory(1, 1)">1-1</button>
-                            <button id="stage-1-2" class="story-stage-btn locked" onclick="window.startStory(1, 2)">1-2</button>
-                            <button id="stage-1-3" class="story-stage-btn locked" onclick="window.startStory(1, 3)">1-3</button>
-                            <button id="stage-1-4" class="story-stage-btn locked" onclick="window.startStory(1, 4)">1-4</button>
-                            <button id="stage-1-5" class="story-stage-btn boss locked" onclick="window.startStory(1, 5)">1-5 BOSS</button>
+                            <button id="stage-1-1" class="story-stage-btn" onclick="window.selectStoryStage(1, 1)">1-1</button>
+                            <button id="stage-1-2" class="story-stage-btn locked" onclick="window.selectStoryStage(1, 2)">1-2</button>
+                            <button id="stage-1-3" class="story-stage-btn locked" onclick="window.selectStoryStage(1, 3)">1-3</button>
+                            <button id="stage-1-4" class="story-stage-btn locked" onclick="window.selectStoryStage(1, 4)">1-4</button>
+                            <button id="stage-1-5" class="story-stage-btn locked" onclick="window.selectStoryStage(1, 5)">1-5</button>
+                            <button id="stage-1-6" class="story-stage-btn locked" onclick="window.selectStoryStage(1, 6)">1-6</button>
+                            <button id="stage-1-7" class="story-stage-btn boss locked" onclick="window.selectStoryStage(1, 7)">1-7 BOSS</button>
                         </div>
                     </div>
                     <div class="world-section">
                         <h3>WORLD 2 : 試練の道</h3>
                         <div class="story-grid" id="story-world-2">
-                            <button id="stage-2-1" class="story-stage-btn locked" onclick="window.startStory(2, 1)">2-1</button>
-                            <button id="stage-2-2" class="story-stage-btn locked" onclick="window.startStory(2, 2)">2-2</button>
-                            <button id="stage-2-3" class="story-stage-btn locked" onclick="window.startStory(2, 3)">2-3</button>
-                            <button id="stage-2-4" class="story-stage-btn locked" onclick="window.startStory(2, 4)">2-4</button>
-                            <button id="stage-2-5" class="story-stage-btn boss locked" onclick="window.startStory(2, 5)">2-5 BOSS</button>
+                            <button id="stage-2-1" class="story-stage-btn locked" onclick="window.selectStoryStage(2, 1)">2-1</button>
+                            <button id="stage-2-2" class="story-stage-btn locked" onclick="window.selectStoryStage(2, 2)">2-2</button>
+                            <button id="stage-2-3" class="story-stage-btn locked" onclick="window.selectStoryStage(2, 3)">2-3</button>
+                            <button id="stage-2-4" class="story-stage-btn locked" onclick="window.selectStoryStage(2, 4)">2-4</button>
+                            <button id="stage-2-5" class="story-stage-btn locked" onclick="window.selectStoryStage(2, 5)">2-5</button>
+                            <button id="stage-2-6" class="story-stage-btn locked" onclick="window.selectStoryStage(2, 6)">2-6</button>
+                            <button id="stage-2-7" class="story-stage-btn boss locked" onclick="window.selectStoryStage(2, 7)">2-7 BOSS</button>
                         </div>
                     </div>
                 </div>
@@ -144,6 +177,11 @@
                 <div id="game-core">
                     <div id="timer-display">00:30</div>
                     
+                    <div id="story-progress-container" class="hidden">
+                        <div id="story-progress-bar"></div>
+                        <div class="progress-text">目標スコア到達度 <span id="story-progress-text">0 / 8000</span></div>
+                    </div>
+
                     <div id="skill-action-box" class="hidden">
                         <button id="in-game-skill-btn" onclick="window.activateSkill()">
                             <span id="skill-btn-name">スキルなし</span>
@@ -173,6 +211,7 @@
             <div id="screen-result" class="screen hidden">
                 <h1 class="finish-title">FINISH!</h1>
                 <div id="ranking-box" class="ranking-panel"></div>
+                <div id="story-reward-box" class="hidden" style="margin-bottom: 20px; font-size: 1.5rem; color: #FFD700; text-shadow: 0 0 10px #FFD700;"></div>
                 <button class="action-btn" onclick="window.goHome()">ホーム画面に戻る</button>
             </div>
 
@@ -193,7 +232,7 @@
         </main>
 
         <aside id="sidebar">
-            <section class="side-panel">
+            <section class="side-panel profile-panel">
                 <div class="panel-title">プロフィール</div>
                 <div class="profile-box">
                     <label>名前</label>
@@ -204,7 +243,7 @@
                 </div>
             </section>
 
-            <section class="side-panel">
+            <section class="side-panel flex-half">
                 <div class="panel-title">フレンド機能</div>
                 <div class="friend-add-box">
                     <input type="text" id="friend-code-input" placeholder="コードを入力">
@@ -213,7 +252,7 @@
                 <div id="friend-list-ui" class="side-scroll"></div>
             </section>
 
-            <section class="side-panel">
+            <section class="side-panel flex-half">
                 <div class="panel-title" id="party-label">パーティー (未参加)</div>
                 <div id="party-list-ui" class="side-scroll"></div>
                 <div id="party-actions" class="hidden">
