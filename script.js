@@ -1155,4 +1155,705 @@ if (timeSlider) {
     });
 }
 
+// =========================================
+// ストーリーモード追加機能
+// =========================================
+
+// --- ストーリーモード用グローバル変数 ---
+let storyProgress = JSON.parse(localStorage.getItem("ramo_story_progress")) || { chapter1: 0, chapter2: 0 };
+let currentStage = { chapter: 1, stage: 1 };
+let isStoryMode = false;
+let storyTargetScore = 8000;
+let dodgeTimer = null;
+let mazeActive = false;
+let mazePlayerPos = { x: 0, y: 0 };
+let mazeGoalPos = { x: 9, y: 9 };
+let mazeGrid = [];
+let poisonActive = false;
+let hackingActive = false;
+
+// ストーリーモードのステージデータ
+const STORY_STAGES = {
+    chapter1: [
+        { stage: 1, target: 8000, reward: 100 },
+        { stage: 2, target: 9000, reward: 200 },
+        { stage: 3, target: 10000, reward: 300 },
+        { stage: 4, target: 11000, reward: 400 },
+        { stage: 5, target: 12000, reward: 500 },
+        { stage: 6, target: 13000, reward: 600 },
+        { stage: 7, target: 25000, reward: 700, boss: true, skill: "hanabi" }
+    ],
+    chapter2: [
+        { stage: 1, target: 26000, reward: 800 },
+        { stage: 2, target: 27000, reward: 900 },
+        { stage: 3, target: 28000, reward: 1000 },
+        { stage: 4, target: 29000, reward: 1100 },
+        { stage: 5, target: 30000, reward: 1200 },
+        { stage: 6, target: 31000, reward: 1300 },
+        { stage: 7, target: 45000, reward: 1400, boss: true, skill: "hacker_milestone4" }
+    ]
+};
+
+// 新しいスキルの追加
+const NEW_SKILLS = {
+    hanabi: { 
+        id: "hanabi", 
+        name: "花火", 
+        cost: 0, 
+        cooldown: 40, 
+        desc: "【パチパチ】使用すると相手に1秒間「避ける」ボタンを表示。避けられなかったら8秒間スタン" 
+    },
+    hacker_milestone4: { 
+        id: "hacker_milestone4", 
+        name: "ハッカーマイルストーン4", 
+        cost: 0, 
+        cooldown: 0, 
+        desc: "【迷路/キー:1】CT45秒: 10x10迷路を生成\n【高度なハック/キー:2】1回のみ: 相手を3秒ハッキング＆15秒スキル不可\n【状態変異/キー:3】CT35秒: 相手を3秒スタン＆10秒毒状態" 
+    }
+};
+
+// 既存のSKILL_DBに新しいスキルを追加
+Object.assign(SKILL_DB, NEW_SKILLS);
+
+// --- ストーリーモード画面表示 ---
+window.openStoryMode = () => {
+    if (myPartyId || isMatchmaking) return;
+    openScreen("screen-story");
+    renderStoryMap();
+};
+
+// ストーリーマップの描画
+function renderStoryMap() {
+    // 第1章のマップ描画
+    const map1 = el("story-map-1");
+    map1.innerHTML = "";
+    STORY_STAGES.chapter1.forEach((stage, index) => {
+        const stageNum = index + 1;
+        const isCompleted = storyProgress.chapter1 >= stageNum;
+        const isLocked = storyProgress.chapter1 < stageNum - 1;
+        const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
+        
+        const node = document.createElement("div");
+        node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+        node.onclick = () => !isLocked && selectStage(1, stageNum);
+        
+        node.innerHTML = `
+            <div class="stage-number">1-${stageNum}</div>
+            <div class="stage-target">${stage.target}</div>
+            ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+            ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+        `;
+        map1.appendChild(node);
+    });
+
+    // 第2章のマップ描画
+    const map2 = el("story-map-2");
+    map2.innerHTML = "";
+    STORY_STAGES.chapter2.forEach((stage, index) => {
+        const stageNum = index + 1;
+        const isCompleted = storyProgress.chapter2 >= stageNum;
+        const isLocked = (storyProgress.chapter1 < 7) || (storyProgress.chapter2 < stageNum - 1);
+        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && storyProgress.chapter1 >= 7;
+        
+        const node = document.createElement("div");
+        node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+        node.onclick = () => !isLocked && selectStage(2, stageNum);
+        
+        node.innerHTML = `
+            <div class="stage-number">2-${stageNum}</div>
+            <div class="stage-target">${stage.target}</div>
+            ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+            ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+        `;
+        map2.appendChild(node);
+    });
+}
+
+// ステージ選択
+function selectStage(chapter, stage) {
+    currentStage = { chapter, stage };
+    const stageData = chapter === 1 ? 
+        STORY_STAGES.chapter1[stage - 1] : 
+        STORY_STAGES.chapter2[stage - 1];
+    
+    el("stage-title").innerText = `${chapter}-${stage}`;
+    el("stage-time").innerText = "60";
+    el("stage-target").innerText = stageData.target;
+    el("stage-reward").innerText = stageData.reward;
+    
+    if (stageData.boss) {
+        el("boss-info").classList.remove("hidden");
+        el("boss-skill-name").innerText = stageData.skill === "hanabi" ? "花火" : "ハッカーマイルストーン4";
+    } else {
+        el("boss-info").classList.add("hidden");
+    }
+    
+    // ボタン状態の更新
+    updateStageButtons();
+    
+    openScreen("screen-stage-detail");
+}
+
+// ステージボタンの状態更新
+function updateStageButtons() {
+    const soloBtn = el("story-solo-btn");
+    const partyBtn = el("story-party-btn");
+    const restrictionMsg = el("party-restriction-msg");
+    
+    // ソロボタン: パーティー参加中は無効
+    soloBtn.disabled = myPartyId !== null;
+    
+    // パーティーボタン: パーティー未参加またはリーダーでない場合は無効
+    if (myPartyId && isLeader) {
+        partyBtn.disabled = false;
+        // メンバーの進行状況チェック（本来はFirebaseで管理する必要あり）
+        checkPartyProgress();
+    } else {
+        partyBtn.disabled = true;
+        restrictionMsg.classList.add("hidden");
+    }
+}
+
+// パーティーメンバーの進行状況チェック（簡易版）
+async function checkPartyProgress() {
+    if (!myPartyId) return;
+    
+    const snap = await get(ref(db, `parties/${myPartyId}/members`));
+    const members = snap.val();
+    if (!members) return;
+    
+    const memberIds = Object.keys(members).filter(id => id !== myId);
+    let allCleared = true;
+    
+    // 各メンバーの進行状況を確認（実際はFirebaseに保存する必要あり）
+    for (const mid of memberIds) {
+        const userSnap = await get(ref(db, `users/${mid}/story_progress`));
+        const progress = userSnap.val() || { chapter1: 0, chapter2: 0 };
+        
+        if (currentStage.chapter === 1) {
+            if (progress.chapter1 < currentStage.stage - 1) {
+                allCleared = false;
+                break;
+            }
+        } else {
+            if (progress.chapter2 < currentStage.stage - 1) {
+                allCleared = false;
+                break;
+            }
+        }
+    }
+    
+    const msg = el("party-restriction-msg");
+    if (!allCleared) {
+        msg.classList.remove("hidden");
+        el("story-party-btn").disabled = true;
+    } else {
+        msg.classList.add("hidden");
+        el("story-party-btn").disabled = false;
+    }
+}
+
+// ストーリーモードソロプレイ開始
+window.startStorySolo = () => {
+    if (myPartyId) {
+        alert("パーティー参加中は一人プレイできません");
+        return;
+    }
+    
+    const stageData = currentStage.chapter === 1 ?
+        STORY_STAGES.chapter1[currentStage.stage - 1] :
+        STORY_STAGES.chapter2[currentStage.stage - 1];
+    
+    // 難易度をランダムに選択
+    const diffs = ["easy", "normal", "hard"];
+    const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
+    currentWords = WORD_DB[randomDiff];
+    
+    isStoryMode = true;
+    storyTargetScore = stageData.target;
+    isCustomGame = true; // スキル無効化
+    
+    // スコアバー表示
+    const progressBar = el("story-progress-bar");
+    progressBar.classList.remove("hidden");
+    el("progress-target").innerText = storyTargetScore;
+    updateProgressBar(0);
+    
+    openScreen("screen-play");
+    startGame(60);
+};
+
+// ストーリーモードパーティープレイ開始
+window.startStoryParty = () => {
+    if (!myPartyId || !isLeader) {
+        alert("パーティーリーダーのみ開始できます");
+        return;
+    }
+    
+    const stageData = currentStage.chapter === 1 ?
+        STORY_STAGES.chapter1[currentStage.stage - 1] :
+        STORY_STAGES.chapter2[currentStage.stage - 1];
+    
+    isStoryMode = true;
+    storyTargetScore = stageData.target;
+    isCustomGame = true;
+    
+    // パーティー準備画面へ
+    update(ref(db, `parties/${myPartyId}`), {
+        state: "ready_check",
+        time: 60,
+        diff: "normal",
+        storyMode: true,
+        storyTarget: stageData.target,
+        storyChapter: currentStage.chapter,
+        storyStage: currentStage.stage
+    });
+};
+
+// プログレスバー更新
+function updateProgressBar(currentScore) {
+    const percentage = Math.min(100, (currentScore / storyTargetScore) * 100);
+    el("progress-bar-fill").style.width = percentage + "%";
+    el("progress-score").innerText = currentScore;
+}
+
+// 既存のprocessCorrectTypeを拡張
+const originalProcessCorrectType = processCorrectType;
+processCorrectType = function() {
+    originalProcessCorrectType();
+    
+    if (isStoryMode) {
+        updateProgressBar(score);
+        
+        // クリア条件達成
+        if (score >= storyTargetScore && gameActive) {
+            clearInterval(gameInterval);
+            gameActive = false;
+            storyClear();
+        }
+    }
+};
+
+// ストーリークリア処理
+function storyClear() {
+    const stageData = currentStage.chapter === 1 ?
+        STORY_STAGES.chapter1[currentStage.stage - 1] :
+        STORY_STAGES.chapter2[currentStage.stage - 1];
+    
+    let earnedCoins = stageData.reward;
+    
+    // パーティープレイ時は人数で割る
+    if (myPartyId) {
+        get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
+            const members = snap.val();
+            const memberCount = Object.keys(members).length;
+            earnedCoins = Math.floor(earnedCoins / memberCount);
+            
+            // 進行状況を保存
+            updateStoryProgress();
+            
+            // コイン付与
+            coins += earnedCoins;
+            saveAndDisplayData();
+            
+            // ボスステージならスキル付与
+            if (stageData.boss) {
+                giveBossSkill(stageData.skill);
+            }
+            
+            endGame();
+        });
+    } else {
+        // ソロプレイ
+        updateStoryProgress();
+        coins += earnedCoins;
+        saveAndDisplayData();
+        
+        if (stageData.boss) {
+            giveBossSkill(stageData.skill);
+        }
+        
+        endGame();
+    }
+}
+
+// 進行状況更新
+function updateStoryProgress() {
+    if (currentStage.chapter === 1) {
+        if (storyProgress.chapter1 < currentStage.stage) {
+            storyProgress.chapter1 = currentStage.stage;
+        }
+    } else {
+        if (storyProgress.chapter2 < currentStage.stage) {
+            storyProgress.chapter2 = currentStage.stage;
+        }
+    }
+    
+    localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
+    update(ref(db, `users/${myId}/story_progress`), storyProgress);
+}
+
+// ボススキル付与
+function giveBossSkill(skillId) {
+    if (!ownedSkills.includes(skillId)) {
+        ownedSkills.push(skillId);
+        equippedSkill = skillId;
+        saveAndDisplayData();
+        alert(`ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
+    }
+}
+
+// ストーリー画面に戻る
+window.backToStory = () => {
+    openScreen("screen-story");
+    renderStoryMap();
+};
+
+// --- 花火スキル処理 ---
+function executeDodge() {
+    // この関数は既存のexecuteDodgeを想定
+    if (window.dodgeCallback) {
+        window.dodgeCallback(true);
+    }
+}
+
+// 花火スキルの攻撃処理拡張
+const originalActivateSkill = window.activateSkill;
+window.activateSkill = function(keySlot = "space") {
+    if (!gameActive) return;
+    if (!equippedSkill || equippedSkill === "none") return;
+    
+    const skill = SKILL_DB[equippedSkill];
+    
+    if (skill.id === "hanabi" && keySlot === "space") {
+        if (cooldowns.space > 0) return;
+        
+        // 相手に「避ける」ボタンを表示
+        sendDodgeAttack();
+        startSpecificCooldown("space", skill.cooldown);
+        showBattleAlert("🎆 パチパチ発動！", "#FFD700");
+        return;
+    }
+    
+    if (skill.id === "hacker_milestone4") {
+        if (keySlot === "key1" && cooldowns.key1 <= 0) {
+            // 迷路攻撃
+            sendMazeAttack();
+            startSpecificCooldown("key1", 45);
+            showBattleAlert("🔷 迷路を送信！", "#00ff00");
+        }
+        else if (keySlot === "key2" && cooldowns.key2 <= 0) {
+            // 高度なハック（1回のみ）
+            if (!skill.used) {
+                sendHackingAttack();
+                skill.used = true;
+                showBattleAlert("💻 高度なハック！", "#ff0000");
+            }
+        }
+        else if (keySlot === "key3" && cooldowns.key3 <= 0) {
+            // 状態変異
+            sendPoisonAttack();
+            startSpecificCooldown("key3", 35);
+            showBattleAlert("🧪 状態変異！", "#00ff00");
+        }
+        return;
+    }
+    
+    originalActivateSkill(keySlot);
+};
+
+// 花火の「避ける」攻撃
+function sendDodgeAttack() {
+    if (!myPartyId) return;
+    
+    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
+        const members = s.val();
+        if (members) {
+            Object.keys(members).forEach(targetId => {
+                if (targetId !== myId) {
+                    const attackId = generateId();
+                    update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
+                        type: "dodge",
+                        duration: 1000,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+        }
+    });
+}
+
+// 迷路攻撃
+function sendMazeAttack() {
+    if (!myPartyId) return;
+    
+    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
+        const members = s.val();
+        if (members) {
+            Object.keys(members).forEach(targetId => {
+                if (targetId !== myId) {
+                    const attackId = generateId();
+                    const maze = generateMaze();
+                    update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
+                        type: "maze",
+                        maze: maze,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+        }
+    });
+}
+
+// ハッキング攻撃
+function sendHackingAttack() {
+    if (!myPartyId) return;
+    
+    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
+        const members = s.val();
+        if (members) {
+            Object.keys(members).forEach(targetId => {
+                if (targetId !== myId) {
+                    const attackId = generateId();
+                    update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
+                        type: "hacking",
+                        duration: 3000,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+        }
+    });
+}
+
+// 毒状態攻撃
+function sendPoisonAttack() {
+    if (!myPartyId) return;
+    
+    get(ref(db, `parties/${myPartyId}/members`)).then(s => {
+        const members = s.val();
+        if (members) {
+            Object.keys(members).forEach(targetId => {
+                if (targetId !== myId) {
+                    const attackId = generateId();
+                    update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
+                        type: "poison",
+                        duration: 3000,
+                        poisonDuration: 10000,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+        }
+    });
+}
+
+// 迷路生成
+function generateMaze() {
+    const size = 10;
+    const maze = Array(size).fill().map(() => Array(size).fill(1));
+    
+    // 簡単な迷路生成（穴掘り法）
+    function carve(x, y) {
+        const dirs = [[0,1],[1,0],[0,-1],[-1,0]];
+        dirs.sort(() => Math.random() - 0.5);
+        
+        for (let [dx, dy] of dirs) {
+            const nx = x + dx*2;
+            const ny = y + dy*2;
+            if (nx >= 0 && nx < size && ny >= 0 && ny < size && maze[ny][nx] === 1) {
+                maze[y+dy][x+dx] = 0;
+                maze[ny][nx] = 0;
+                carve(nx, ny);
+            }
+        }
+    }
+    
+    maze[0][0] = 0;
+    carve(0, 0);
+    maze[size-1][size-1] = 2; // ゴール
+    
+    return maze;
+}
+
+// 受信攻撃処理の拡張
+const originalHandleIncomingAttack = handleIncomingAttack;
+handleIncomingAttack = function(attack) {
+    if (!gameActive) return;
+    
+    if (attack.type === "dodge") {
+        // 避けるボタン表示
+        el("dodge-overlay").classList.remove("hidden");
+        
+        let dodged = false;
+        window.dodgeCallback = (success) => {
+            dodged = success;
+        };
+        
+        setTimeout(() => {
+            el("dodge-overlay").classList.add("hidden");
+            if (!dodged) {
+                // 避けられなかったら8秒スタン
+                applyJamming(8000);
+                showBattleAlert("💥 花火直撃！8秒スタン！", "var(--accent-red)");
+            }
+            window.dodgeCallback = null;
+        }, 1000);
+        
+        sounds.miss.play();
+        return;
+    }
+    
+    if (attack.type === "maze") {
+        startMaze(attack.maze);
+        return;
+    }
+    
+    if (attack.type === "hacking") {
+        startHacking(attack.duration);
+        return;
+    }
+    
+    if (attack.type === "poison") {
+        applyJamming(attack.duration);
+        setTimeout(() => {
+            startPoison(attack.poisonDuration);
+        }, attack.duration);
+        return;
+    }
+    
+    originalHandleIncomingAttack(attack);
+};
+
+// 迷路開始
+function startMaze(maze) {
+    mazeActive = true;
+    mazeGrid = maze;
+    mazePlayerPos = { x: 0, y: 0 };
+    mazeGoalPos = { x: 9, y: 9 };
+    
+    renderMaze();
+    el("maze-overlay").classList.remove("hidden");
+}
+
+// 迷路描画
+function renderMaze() {
+    const grid = el("maze-grid");
+    grid.innerHTML = "";
+    
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+            const cell = document.createElement("div");
+            cell.className = "maze-cell";
+            
+            if (mazeGrid[y][x] === 1) {
+                cell.classList.add("wall");
+            } else if (x === mazePlayerPos.x && y === mazePlayerPos.y) {
+                cell.classList.add("player");
+            } else if (x === mazeGoalPos.x && y === mazeGoalPos.y) {
+                cell.classList.add("goal");
+            } else {
+                cell.classList.add("path");
+            }
+            
+            grid.appendChild(cell);
+        }
+    }
+}
+
+// 迷路移動
+window.moveMaze = (direction) => {
+    if (!mazeActive) return;
+    
+    let newX = mazePlayerPos.x;
+    let newY = mazePlayerPos.y;
+    
+    switch(direction) {
+        case 'up': newY--; break;
+        case 'down': newY++; break;
+        case 'left': newX--; break;
+        case 'right': newX++; break;
+    }
+    
+    // 範囲チェックと壁チェック
+    if (newX >= 0 && newX < 10 && newY >= 0 && newY < 10) {
+        if (mazeGrid[newY][newX] !== 1) {
+            mazePlayerPos.x = newX;
+            mazePlayerPos.y = newY;
+            renderMaze();
+            
+            // ゴールチェック
+            if (newX === mazeGoalPos.x && newY === mazeGoalPos.y) {
+                mazeActive = false;
+                el("maze-overlay").classList.add("hidden");
+                showBattleAlert("✅ 迷路クリア！", "var(--accent-green)");
+            }
+        }
+    }
+};
+
+// ハッキング開始
+function startHacking(duration) {
+    hackingActive = true;
+    const overlay = el("hacking-overlay");
+    const progress = el(".hacking-progress");
+    
+    overlay.classList.remove("hidden");
+    
+    let count = 3;
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            progress.innerText = count;
+        } else {
+            clearInterval(interval);
+            overlay.classList.add("hidden");
+            hackingActive = false;
+            
+            // 15秒間スキル不可
+            const originalSkillState = equippedSkill;
+            equippedSkill = "none";
+            setupSkillUI();
+            
+            setTimeout(() => {
+                equippedSkill = originalSkillState;
+                setupSkillUI();
+            }, 15000);
+        }
+    }, 1000);
+}
+
+// 毒状態開始
+function startPoison(duration) {
+    poisonActive = true;
+    el("poison-overlay").classList.remove("hidden");
+    document.body.classList.add("poisoned");
+    
+    setTimeout(() => {
+        poisonActive = false;
+        el("poison-overlay").classList.add("hidden");
+        document.body.classList.remove("poisoned");
+    }, duration);
+}
+
+// リセット関数の拡張
+const originalResetSkillState = resetSkillState;
+resetSkillState = function() {
+    originalResetSkillState();
+    
+    mazeActive = false;
+    hackingActive = false;
+    poisonActive = false;
+    
+    el("maze-overlay").classList.add("hidden");
+    el("hacking-overlay").classList.add("hidden");
+    el("poison-overlay").classList.add("hidden");
+    document.body.classList.remove("poisoned");
+    
+    if (isStoryMode) {
+        el("story-progress-bar").classList.add("hidden");
+        isStoryMode = false;
+    }
+};
+
 window.goHome();
