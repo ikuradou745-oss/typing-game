@@ -594,7 +594,7 @@ function setupSkillUI() {
             el("in-game-skill-btn").classList.add("hidden");
             updateCooldownText();
         }
-            else if (equippedSkill === "fundraiser") {
+            else if (equippedSkill === "godfundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
             el("in-game-skill-btn").classList.add("hidden");
         } else {
