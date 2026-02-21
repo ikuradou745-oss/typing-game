@@ -11,6 +11,17 @@
 
     <div class="bg-grid"></div>
 
+    <div id="daily-bonus-overlay" class="hidden">
+        <div class="daily-bonus-panel">
+            <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">DAILY BONUS!</h2>
+            <p>今日のログインボーナスを受け取ろう！</p>
+            <div class="daily-item">
+                <span id="daily-reward-amount">500</span> 🪙
+            </div>
+            <button class="action-btn purple-btn" onclick="window.claimDailyBonus()">受け取る</button>
+        </div>
+    </div>
+
     <div id="invite-toast" class="hidden">
         <div class="toast-content">
             <span id="invite-msg">パーティーの招待が来ています！</span>
@@ -53,33 +64,6 @@
                 </div>
             </div>
 
-            <div id="screen-story" class="screen hidden">
-                <h2 class="title-glow" style="color: var(--accent-red); text-shadow: 0 0 20px var(--accent-red);">STORY MODE</h2>
-                <div class="story-container">
-                    <div class="world-section">
-                        <h3>WORLD 1 : はじまりの地</h3>
-                        <div class="story-grid" id="story-world-1">
-                            <button id="stage-1-1" class="story-stage-btn" onclick="window.startStory(1, 1)">1-1</button>
-                            <button id="stage-1-2" class="story-stage-btn locked" onclick="window.startStory(1, 2)">1-2</button>
-                            <button id="stage-1-3" class="story-stage-btn locked" onclick="window.startStory(1, 3)">1-3</button>
-                            <button id="stage-1-4" class="story-stage-btn locked" onclick="window.startStory(1, 4)">1-4</button>
-                            <button id="stage-1-5" class="story-stage-btn boss locked" onclick="window.startStory(1, 5)">1-5 BOSS</button>
-                        </div>
-                    </div>
-                    <div class="world-section">
-                        <h3>WORLD 2 : 試練の道</h3>
-                        <div class="story-grid" id="story-world-2">
-                            <button id="stage-2-1" class="story-stage-btn locked" onclick="window.startStory(2, 1)">2-1</button>
-                            <button id="stage-2-2" class="story-stage-btn locked" onclick="window.startStory(2, 2)">2-2</button>
-                            <button id="stage-2-3" class="story-stage-btn locked" onclick="window.startStory(2, 3)">2-3</button>
-                            <button id="stage-2-4" class="story-stage-btn locked" onclick="window.startStory(2, 4)">2-4</button>
-                            <button id="stage-2-5" class="story-stage-btn boss locked" onclick="window.startStory(2, 5)">2-5 BOSS</button>
-                        </div>
-                    </div>
-                </div>
-                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
-            </div>
-
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
@@ -103,7 +87,7 @@
                 <div class="setup-panel">
                     <div class="setup-item">
                         <span>制限時間:</span>
-                        <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="el('time-val').innerText=this.value">
+                        <input type="range" id="setup-time" min="10" max="180" step="10" value="30" oninput="el('time-val').innerText=this.value">
                         <span id="time-val" class="stat-val">30</span>秒
                     </div>
                     <div class="setup-item">
@@ -113,6 +97,18 @@
                             <option value="normal" selected>ちゅうきゅう</option>
                             <option value="hard">むずかしい</option>
                         </select>
+                    </div>
+                    <div class="setup-item">
+                        <span>バトル形式:</span>
+                        <select id="setup-match-type" class="cyber-select" onchange="window.toggleTeamSetup()">
+                            <option value="individual" selected>個人戦</option>
+                            <option value="team">チーム戦</option>
+                        </select>
+                    </div>
+                    <div id="team-setup-area" class="hidden">
+                        <h3 class="team-setup-title">チーム振り分け (リーダー専用)</h3>
+                        <div id="team-assignment-list">
+                            </div>
                     </div>
                     <div class="setup-btns">
                         <button class="action-btn" onclick="window.launchBattle()">プレイ開始</button>
