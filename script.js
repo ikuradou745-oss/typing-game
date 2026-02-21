@@ -1,7 +1,111 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V7.0 (Multi-Skill & Advanced Effects Integrated)
+// VOICE CHAT & GAME ENGINE (PART 2 - INTEGRATED)
 // =========================================
+
+/**
+ * BrainrotVoiceService
+ * 相手の声を聞き、自分の声を届けるためのWebRTCシグナリング管理
+ */
+class BrainrotVoiceService {
+    constructor() {
+        this.peers = {}; // 接続中の全ユーザー
+        this.config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    }
+
+    // パーティー内で自分のボイス準備ができたら信号を待機
+    initPartyCall(partyId) {
+        if (!partyId) return;
+        const signalsRef = ref(db, `parties/${partyId}/voice_signals/${myId}`);
+        
+        // 相手からの接続要求(Offer)を監視
+        onValue(signalsRef, async (snap) => {
+            const data = snap.val();
+            if (!data) return;
+
+            if (data.type === "offer" && !this.peers[data.from]) {
+                await this.handleOffer(data.from, data.offer, partyId);
+            } else if (data.type === "candidate" && this.peers[data.from]) {
+                await this.peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+    }
+
+    async startCallWith(targetId, partyId) {
+        if (this.peers[targetId]) return;
+        const pc = this.createPeerConnection(targetId, partyId);
+        this.peers[targetId] = pc;
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        // Firebase経由でOfferを送信
+        update(ref(db, `parties/${partyId}/voice_signals/${targetId}`), {
+            type: "offer",
+            offer: offer,
+            from: myId
+        });
+    }
+
+    async handleOffer(fromId, offer, partyId) {
+        const pc = this.createPeerConnection(fromId, partyId);
+        this.peers[fromId] = pc;
+
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        // 応答(Answer)を返す（簡易化のため同じパスに）
+        update(ref(db, `parties/${partyId}/voice_signals/${fromId}/answer`), {
+            answer: answer,
+            from: myId
+        });
+    }
+
+    createPeerConnection(targetId, partyId) {
+        const pc = new RTCPeerConnection(this.config);
+
+        // 自分の声をストリームに追加
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
+
+        // 相手の音響を受信した時の処理
+        pc.ontrack = (event) => {
+            let audio = el(`audio-${targetId}`);
+            if (!audio) {
+                audio = document.createElement("audio");
+                audio.id = `audio-${targetId}`;
+                audio.autoplay = true;
+                el("remote-audio-container").appendChild(audio);
+            }
+            audio.srcObject = event.streams[0];
+            console.log(`🔊 ${targetId} の声を受信中`);
+        };
+
+        // ICE Candidate(経路情報)の交換
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                update(ref(db, `parties/${partyId}/voice_signals/${targetId}`), {
+                    type: "candidate",
+                    candidate: event.candidate.toJSON(),
+                    from: myId
+                });
+            }
+        };
+
+        return pc;
+    }
+}
+
+const brainrotVoice = new BrainrotVoiceService();
+
+// --- スキル処理の続き (提供された部分の統合) ---
+window.activateSkill = (keySlot = "space") => {
+    if (!gameActive) return;
+    if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
+    
+    const skill = SKILL_DB[equippedSkill];
 
 // --- ボイスチャット関連の状態管理 ---
 let localStream = null;       // 自分のマイク音声を保持する変数
