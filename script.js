@@ -1247,6 +1247,7 @@ get(userRef).then(snap => {
         }
     }
     saveAndDisplayData(); 
+    setupMyVoice();
 });
 
 update(userRef, { name: myName, status: "online", partyId: null });
