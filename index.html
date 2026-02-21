@@ -21,6 +21,59 @@
         </div>
     </div>
 
+    <!-- 秘密コード入力オーバーレイ -->
+    <div id="secret-code-overlay" class="hidden">
+        <div class="secret-code-container">
+            <h3>🔐 秘密コードを入力</h3>
+            <input type="text" id="secret-code-input" maxlength="4" placeholder="例: 1x4x">
+            <div class="secret-code-btns">
+                <button class="btn-invite" onclick="window.submitSecretCode()">入力</button>
+                <button class="btn-kick" onclick="window.closeSecretCode()">キャンセル</button>
+            </div>
+            <div id="secret-code-hint">ヒント: Qと1を3秒長押し</div>
+        </div>
+    </div>
+
+    <!-- デバッグモード／ボイスチャットUI -->
+    <div id="debug-overlay" class="hidden">
+        <div class="debug-container">
+            <div class="debug-header">
+                <h2>🔧 デバッグモード - ボイスチャット</h2>
+                <button class="debug-close" onclick="window.closeDebugMode()">✕</button>
+            </div>
+            
+            <div class="voice-chat-container">
+                <!-- フレンドリスト（ボイチャ招待用） -->
+                <div class="voice-friend-list">
+                    <h3>👥 フレンド一覧</h3>
+                    <div id="voice-friend-list" class="voice-friend-scroll"></div>
+                </div>
+                
+                <!-- ボイスチャットルーム -->
+                <div class="voice-room">
+                    <div class="voice-room-header">
+                        <h3>🎤 ボイスチャットルーム</h3>
+                        <div id="voice-room-status" class="voice-status">未接続</div>
+                    </div>
+                    
+                    <!-- 参加者リスト -->
+                    <div id="voice-participants" class="voice-participants">
+                        <div class="participant-item">
+                            <span class="participant-name">自分</span>
+                            <span class="participant-status talking">話す</span>
+                        </div>
+                    </div>
+                    
+                    <!-- ボイスチャットコントロール -->
+                    <div class="voice-controls">
+                        <button id="voice-mute-btn" class="voice-btn" onclick="window.toggleMute()">🔊 ミュート</button>
+                        <button id="voice-end-btn" class="voice-btn voice-end" onclick="window.endVoiceChat()">📞 通話終了</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="app">
         <main id="main-area">
             <div class="header-logo">ULTIMATE TYPING</div>
@@ -63,6 +116,7 @@
                 <div class="story-chapter-selector">
                     <button class="chapter-tab active" data-chapter="1">第1章</button>
                     <button class="chapter-tab" data-chapter="2">第2章</button>
+                    <button class="chapter-tab" data-chapter="3">第3章</button>
                 </div>
                 
                 <div id="story-chapter-1" class="story-chapter active">
@@ -71,6 +125,10 @@
                 
                 <div id="story-chapter-2" class="story-chapter hidden">
                     <div class="story-map" id="story-map-2"></div>
+                </div>
+
+                <div id="story-chapter-3" class="story-chapter hidden">
+                    <div class="story-map" id="story-map-3"></div>
                 </div>
                 
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">戻る</button>
@@ -88,7 +146,7 @@
                     
                     <div class="stage-boss-info hidden" id="boss-info">
                         <div class="boss-badge">👑 BOSS STAGE 👑</div>
-                        <div class="boss-reward">クリア特典: <span id="boss-skill-name">花火</span></div>
+                        <div class="boss-reward">クリア特典: <span id="boss-skill-name">墓地強化</span></div>
                     </div>
                     
                     <div class="stage-play-options">
@@ -197,6 +255,10 @@
                         <div id="minion-display" class="stat-box hidden" style="border-color: var(--accent-purple);">
                             子分: <span id="stat-minions" class="stat-val" style="color: var(--accent-purple);">0</span>体
                         </div>
+                        <!-- トラップカウンター -->
+                        <div id="trap-display" class="stat-box hidden" style="border-color: #ff6b6b;">
+                            <span>⚠️ トラップ: <span id="stat-traps" class="stat-val" style="color: #ff6b6b;">0</span>個</span>
+                        </div>
                     </div>
                     <div id="rival-display" class="hidden">
                         <div class="rival-header">RIVAL SCORES</div>
@@ -284,6 +346,14 @@
     <!-- 毒状態エフェクト -->
     <div id="poison-overlay" class="hidden">
         <div class="poison-effect"></div>
+    </div>
+
+    <!-- スタン解除ボタン（墓地強化スキル用） -->
+    <div id="stun-release-overlay" class="hidden">
+        <div class="stun-release-container">
+            <div class="stun-release-text">⚠️ スタン中 ⚠️</div>
+            <button class="stun-release-btn" onclick="window.releaseStun()">💫 スタン解除 (Q)</button>
+        </div>
     </div>
 
     <script type="module" src="script.js"></script>
