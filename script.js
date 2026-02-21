@@ -91,13 +91,14 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- ボイスチャット用 ---
+// --- ボイスチャット用（修正版）---
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
-let voiceStream = null;
-let peerConnection = null;
-let voiceChannel = null;
+let localStream = null;
+let peerConnections = {};
+let voiceRoomId = null;
+let voiceInviteListener = null;
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -272,7 +273,7 @@ function getRomaPatterns(kana) {
     return patterns;
 }
 
-// --- フレンド機能（修正箇所）---
+// --- フレンド機能（修正版）---
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
     
@@ -318,6 +319,11 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 </div>`;
         });
     });
+    
+    // ボイスチャット用のフレンドリストも更新
+    if (voiceChatActive) {
+        renderVoiceFriendList();
+    }
 });
 
 window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`)); remove(ref(db, `users/${fid}/friends/${myId}`)); };
@@ -1984,24 +1990,95 @@ window.executeDodge = () => {
     }
 };
 
-// --- ボイスチャット機能（簡略化）---
+// --- ボイスチャット機能（修正版：SkyWayを使用）---
 function openVoiceChat() {
     console.log("ボイスチャットを開きます");
     const overlay = el("debug-overlay");
     if (overlay) {
         overlay.classList.remove("hidden");
+        // SkyWayライブラリを動的に読み込み
+        loadSkyWayLibrary();
         renderVoiceFriendList();
-        alert("🎤 ボイスチャットモードを起動しました");
+        alert("🎤 ボイスチャットモードを起動しました\n※音声通話にはマイクの許可が必要です");
     } else {
         console.error("debug-overlayが見つかりません");
         alert("ボイスチャット画面が見つかりません");
     }
 }
 
-window.closeDebugMode = () => {
-    if (voiceChatActive) {
-        endVoiceChat();
+// SkyWayライブラリの読み込み
+function loadSkyWayLibrary() {
+    if (!window.peer) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/skyway/4.4.4/skyway.js';
+        script.onload = initVoiceChat;
+        document.head.appendChild(script);
+    } else {
+        initVoiceChat();
     }
+}
+
+// ボイスチャット初期化
+function initVoiceChat() {
+    if (voiceChatActive) return;
+    
+    // SkyWayのAPIキー（無料版を使用）
+    const peer = new Peer(myId, {
+        key: '4f8c6a0a-8b8c-4f8c-9a0a-8b8c4f8c9a0a', // ダミーキー（実際のSkyWayキーに置き換えが必要）
+        debug: 3
+    });
+    
+    peer.on('open', () => {
+        console.log('Peer ID:', peer.id);
+        voiceChannel = peer;
+        voiceChatActive = true;
+        
+        // 自分のストリームを取得
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            .then(stream => {
+                localStream = stream;
+                console.log('Local stream obtained');
+                
+                // 参加者リストに自分を追加
+                updateVoiceParticipants();
+                
+                // 発信を待機
+                peer.on('call', call => {
+                    call.answer(stream);
+                    call.on('stream', remoteStream => {
+                        addRemoteStream(remoteStream, call.peer);
+                    });
+                });
+            })
+            .catch(err => {
+                console.error('Failed to get local stream', err);
+                alert('マイクの使用が許可されていません');
+            });
+    });
+    
+    peer.on('error', err => {
+        console.error('Peer error:', err);
+        alert('ボイスチャットの接続に失敗しました');
+    });
+}
+
+// リモートストリームを追加
+function addRemoteStream(stream, peerId) {
+    const audio = document.createElement('audio');
+    audio.srcObject = stream;
+    audio.autoplay = true;
+    audio.id = `audio-${peerId}`;
+    document.body.appendChild(audio);
+    
+    // 参加者リストを更新
+    if (!voiceParticipants.includes(peerId)) {
+        voiceParticipants.push(peerId);
+        updateVoiceParticipants();
+    }
+}
+
+window.closeDebugMode = () => {
+    endVoiceChat();
     el("debug-overlay").classList.add("hidden");
 };
 
@@ -2050,10 +2127,16 @@ function renderVoiceFriendList() {
 }
 
 window.inviteToVoiceChat = (fid, friendName) => {
+    if (!voiceChatActive) {
+        alert('先にボイスチャットを起動してください');
+        return;
+    }
+    
     // ボイスチャット招待を送信
     set(ref(db, `users/${fid}/voice_invite`), {
         from: myId,
         fromName: myName,
+        roomId: myId,
         timestamp: Date.now()
     }).then(() => {
         alert(`${friendName} にボイスチャット招待を送信しました`);
@@ -2064,55 +2147,31 @@ window.inviteToVoiceChat = (fid, friendName) => {
 };
 
 // ボイスチャット招待の受信監視
-onValue(ref(db, `users/${myId}/voice_invite`), snap => {
+if (voiceInviteListener) {
+    off(voiceInviteListener);
+}
+voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
     const invite = snap.val();
     if (invite && !voiceChatActive) {
         // 招待が来たら確認ダイアログを表示
         const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
         if (result) {
-            acceptVoiceInvite(invite.from, invite.fromName);
+            // ボイスチャットを起動
+            openVoiceChat();
+            setTimeout(() => {
+                // 相手に発信
+                if (voiceChannel && localStream) {
+                    const call = voiceChannel.call(invite.from, localStream);
+                    call.on('stream', remoteStream => {
+                        addRemoteStream(remoteStream, invite.from);
+                    });
+                }
+            }, 2000);
         }
         // 招待を削除
         remove(ref(db, `users/${myId}/voice_invite`));
     }
 });
-
-function acceptVoiceInvite(fromId, fromName) {
-    voiceChatActive = true;
-    voiceParticipants = [myId, fromId];
-    
-    const statusEl = el("voice-room-status");
-    statusEl.innerText = "接続中";
-    statusEl.classList.add("connected");
-    
-    // 参加者リストを更新
-    updateVoiceParticipants();
-    
-    // 通話開始のアラート
-    alert(`🔊 ${fromName} とボイスチャットを開始しました`);
-    
-    // マイク使用許可のリクエスト
-    startVoiceChat();
-}
-
-function startVoiceChat() {
-    console.log("ボイスチャット接続開始");
-    
-    // マイク使用許可のリクエスト
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                voiceStream = stream;
-                console.log("マイクの使用を開始しました");
-            })
-            .catch(err => {
-                console.error("マイクの使用に失敗:", err);
-                alert("マイクの使用に失敗しました。ブラウザの設定を確認してください。");
-            });
-    } else {
-        alert("お使いのブラウザは音声通話に対応していません");
-    }
-}
 
 function updateVoiceParticipants() {
     const participantsEl = el("voice-participants");
@@ -2129,7 +2188,7 @@ function updateVoiceParticipants() {
     `;
     participantsEl.appendChild(selfItem);
     
-    // 相手を追加
+    // 参加者を追加
     voiceParticipants.forEach(pid => {
         if (pid !== myId) {
             get(ref(db, `users/${pid}`)).then(snap => {
@@ -2157,8 +2216,8 @@ window.toggleMute = () => {
     }
     
     // 実際のミュート処理
-    if (voiceStream) {
-        voiceStream.getAudioTracks().forEach(track => {
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
             track.enabled = !voiceMuted;
         });
     }
@@ -2166,20 +2225,32 @@ window.toggleMute = () => {
     updateVoiceParticipants();
 };
 
-window.endVoiceChat = () => {
+function endVoiceChat() {
     voiceChatActive = false;
+    
+    // 全ての接続を閉じる
+    if (voiceChannel) {
+        voiceChannel.destroy();
+        voiceChannel = null;
+    }
+    
+    // ストリームを停止
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    // オーディオ要素を削除
+    document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
+    
     voiceParticipants = [];
     voiceMuted = false;
     
-    // 音声ストリームを停止
-    if (voiceStream) {
-        voiceStream.getTracks().forEach(track => track.stop());
-        voiceStream = null;
-    }
-    
     const statusEl = el("voice-room-status");
-    statusEl.innerText = "未接続";
-    statusEl.classList.remove("connected");
+    if (statusEl) {
+        statusEl.innerText = "未接続";
+        statusEl.classList.remove("connected");
+    }
     
     const muteBtn = el("voice-mute-btn");
     if (muteBtn) {
