@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V9.0 (Code System & Combo God Skill)
+// FIREBASE & TYPING ENGINE V9.5 (Complete Code System)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -61,6 +61,7 @@ let codeTimer = null;
 // 特殊コード使用フラグ
 let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
 let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
+let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
 
 // コンボアップの神スキル
 let comboGodActive = false;
@@ -318,7 +319,7 @@ window.submitCode = () => {
     const input = el("code-input").value.trim().toUpperCase();
     if (!input) return;
     
-    // TYSMコード
+    // TYSMコード (25000コイン)
     if (input === "TYSM") {
         if (tysmUsed) {
             alert("このコードは既に使用済みです！");
@@ -326,12 +327,14 @@ window.submitCode = () => {
             coins += 25000;
             tysmUsed = true;
             localStorage.setItem("ramo_tysm_used", "true");
+            usedCodes.push("TYSM");
+            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
             sounds.coin.play();
             alert(`🎉 TYSMコード入力成功！\n25000コインを獲得しました！`);
             saveAndDisplayData();
         }
     }
-    // ByRamoコード
+    // ByRamoコード (コンボアップの神スキル)
     else if (input === "BYRAMO") {
         if (byramoUsed) {
             alert("このコードは既に使用済みです！");
@@ -340,10 +343,28 @@ window.submitCode = () => {
                 ownedSkills.push("comboGod");
                 byramoUsed = true;
                 localStorage.setItem("ramo_byramo_used", "true");
+                usedCodes.push("BYRAMO");
+                localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
                 sounds.notify.play();
                 alert(`🎉 ByRamoコード入力成功！\n「コンボアップの神」スキルを獲得しました！\n(7秒間、コンボが6倍になる 1回のみ使用可能)`);
                 saveAndDisplayData();
             }
+        }
+    }
+    // YuseSyazai2コード (2億コイン)
+    else if (input === "YUSESYAZAI2") {
+        if (yuseSyazai2Used) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            coins += 200000000; // 2億コイン
+            yuseSyazai2Used = true;
+            localStorage.setItem("ramo_yuseSyazai2_used", "true");
+            usedCodes.push("YUSESYAZAI2");
+            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+            sounds.coin.play();
+            sounds.coin.play(); // 特別感を出すために2回鳴らす
+            alert(`🎉✨ YuseSyazai2コード入力成功！\n200,000,000コインを獲得しました！ ✨🎉`);
+            saveAndDisplayData();
         }
     }
     // デイリーコード
@@ -356,7 +377,7 @@ window.submitCode = () => {
             usedCodes.push(dailyCode);
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
             sounds.coin.play();
-            alert(`🎉 デイリーコード入力成功！\n${reward}コインを獲得しました！`);
+            alert(`🎉 デイリーコード入力成功！\n${reward.toLocaleString()}コインを獲得しました！`);
             saveAndDisplayData();
         }
     } else {
@@ -410,10 +431,11 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
     localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
+    localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
     
-    if (el("coin-amount")) el("coin-amount").innerText = coins;
-    if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
-    if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins;
+    if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
+    if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
+    if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
     
     updateProfileFace();
     
@@ -558,16 +580,20 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
             
             const friendSkin = data.skin || { skin: "skin-1", face: "face-1" };
             const friendFace = FACE_DATA[friendSkin.face] || "😊";
+            const friendAccessory = data.accessory ? ACCESSORY_DB[data.accessory]?.emoji || "" : "";
             
             row.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 5px;">
+                <div class="friend-left">
                     <span class="status-dot ${data.status || 'offline'}"></span>
-                    <span style="font-size: 1.2rem;">${friendFace}</span>
-                    <span>${data.name || '不明'}</span>
+                    <div class="friend-face">
+                        <span>${friendFace}</span>
+                        ${friendAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${friendAccessory}</span>` : ''}
+                    </div>
+                    <span class="friend-name">${data.name || '不明'}</span>
                 </div>
-                <div>
-                    <button class="btn-invite" onclick="window.inviteToParty('${fid}')">招待</button>
-                    <button class="btn-kick" onclick="window.removeFriend('${fid}')">削除</button>
+                <div class="friend-actions">
+                    <button class="btn-invite btn-s" onclick="window.inviteToParty('${fid}')">招待</button>
+                    <button class="btn-kick btn-s" onclick="window.removeFriend('${fid}')">削除</button>
                 </div>`;
         });
     });
@@ -669,12 +695,16 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             const membersHtml = Object.entries(p.members || {}).map(([id, m]) => {
                 const memberSkin = m.skin || { skin: "skin-1", face: "face-1" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                 return `<div class="friend-item">
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <span style="font-size: 1.2rem;">${memberFace}</span>
-                        <span>${m.name}</span>
-                        ${m.ready ? '✅' : ''}
-                        ${id === p.leader ? '👑' : ''}
+                    <div class="friend-left">
+                        <div class="friend-face">
+                            <span>${memberFace}</span>
+                            ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
+                        </div>
+                        <span class="friend-name">${m.name}</span>
+                        ${m.ready ? '<span style="color: var(--accent-green); margin-left: 5px;">✅</span>' : ''}
+                        ${id === p.leader ? '<span style="color: var(--accent-gold); margin-left: 5px;">👑</span>' : ''}
                     </div>
                 </div>`;
             }).join("");
@@ -872,7 +902,7 @@ function buyAccessory(accessoryId) {
         saveAndDisplayData();
         sounds.notify.play();
     } else {
-        alert(`コインが足りません！\n必要: ${acc.cost}🪙\n所持: ${coins}🪙`);
+        alert(`コインが足りません！\n必要: ${acc.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
     }
 }
 
@@ -901,7 +931,7 @@ window.buySkill = (skillId) => {
         sounds.notify.play();
         alert(`${skill.name} を購入・装備しました！`);
     } else {
-        alert(`コインが足りません！\n必要: ${skill.cost}🪙\n所持: ${coins}🪙`);
+        alert(`コインが足りません！\n必要: ${skill.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
     }
 };
 
@@ -1087,7 +1117,7 @@ function processCorrectType() {
     
     if (isGodfatherMissionActive) {
         coins += (combo > 0 ? combo * 20 : 20);
-        el("coin-amount").innerText = coins;
+        el("coin-amount").innerText = coins.toLocaleString();
     }
     
     sounds.type.currentTime = 0; sounds.type.play();
@@ -1098,7 +1128,7 @@ function processCorrectType() {
         nextQuestion(); 
     }
     
-    el("stat-score").innerText = score; 
+    el("stat-score").innerText = score.toLocaleString(); 
     el("stat-combo").innerText = combo;
     renderRoma();
     
@@ -1135,7 +1165,7 @@ function processCorrectType() {
 function updateProgressBar(currentScore) {
     const percentage = Math.min(100, (currentScore / storyTargetScore) * 100);
     el("progress-bar-fill").style.width = percentage + "%";
-    el("progress-score").innerText = currentScore;
+    el("progress-score").innerText = currentScore.toLocaleString();
 }
 
 function storyClear() {
@@ -1312,13 +1342,17 @@ function syncRivals() {
             el("rival-list").innerHTML = Object.entries(val).map(([id, m]) => {
                 const memberSkin = m.skin || { face: "face-1" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                 return `
                     <div class="friend-item">
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 1.2rem;">${memberFace}</span>
-                            <span>${m.name}</span>
+                        <div class="friend-left">
+                            <div class="friend-face">
+                                <span>${memberFace}</span>
+                                ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
+                            </div>
+                            <span class="friend-name">${m.name}</span>
                         </div>
-                        <span>${isHidden ? '???' : m.score}</span>
+                        <span>${isHidden ? '???' : m.score.toLocaleString()}</span>
                     </div>
                 `;
             }).join("");
@@ -1371,12 +1405,16 @@ function endGame() {
                     const m = item[1];
                     const memberSkin = m.skin || { face: "face-1" };
                     const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                    const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                     return `<div class="ranking-row">
                         <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 1.2rem;">${memberFace}</span>
+                            <div class="friend-face">
+                                <span style="font-size: 1.2rem;">${memberFace}</span>
+                                ${memberAccessory ? `<span style="font-size: 1rem;">${memberAccessory}</span>` : ''}
+                            </div>
                             <span>${i+1}位: ${m.name}</span>
                         </div>
-                        <span>${m.score} pts</span>
+                        <span>${m.score.toLocaleString()} pts</span>
                     </div>`;
                 }).join("");
                 
@@ -1384,7 +1422,7 @@ function endGame() {
                 if (isStoryMode) {
                     const totalScore = Object.values(val).reduce((sum, m) => sum + (m.score || 0), 0);
                     const avgScore = Math.floor(totalScore / Object.keys(val).length);
-                    coinText = `チーム平均スコア: ${avgScore} pts`;
+                    coinText = `チーム平均スコア: ${avgScore.toLocaleString()} pts`;
                 } else {
                     coinText = isWinner ? `勝利ボーナス！ +${earnedCoins.toLocaleString()} 🪙` : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
                 }
@@ -1404,7 +1442,7 @@ function endGame() {
             coins += earnedCoins;
             saveAndDisplayData();
         }
-        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
+        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>`; 
         let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
         
         el("ranking-box").innerHTML += `
@@ -1587,7 +1625,7 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
                 
                 if (stealAmount > 0) {
                     score += stealAmount;
-                    el("stat-score").innerText = score;
+                    el("stat-score").innerText = score.toLocaleString();
                     update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
                 }
             }
@@ -1710,7 +1748,7 @@ window.activateSkill = (keySlot = "space") => {
         }
     }
 
-    el("stat-score").innerText = score;
+    el("stat-score").innerText = score.toLocaleString();
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 };
 
@@ -1981,13 +2019,13 @@ function handleIncomingAttack(attack) {
 
     if (attack.stealAmount > 0) {
         score = Math.max(0, score - attack.stealAmount);
-        el("stat-score").innerText = score;
+        el("stat-score").innerText = score.toLocaleString();
         if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
     }
 
     if (attack.type === "timeslip") {
         score = Math.floor(score / 2);
-        el("stat-score").innerText = score;
+        el("stat-score").innerText = score.toLocaleString();
         if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
         applyJamming(3000);
         return;
@@ -2007,7 +2045,7 @@ function handleIncomingAttack(attack) {
     
     if (attack.type === "special_heat") {
         score = Math.max(0, score - 500);
-        el("stat-score").innerText = score;
+        el("stat-score").innerText = score.toLocaleString();
         if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
         applyJamming(3000);
         return;
@@ -2114,7 +2152,7 @@ function renderStoryMap() {
         
         node.innerHTML = `
             <div class="stage-number">1-${stageNum}</div>
-            <div class="stage-target">${stage.target}</div>
+            <div class="stage-target">${stage.target.toLocaleString()}</div>
             ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
             ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
         `;
@@ -2136,7 +2174,7 @@ function renderStoryMap() {
         
         node.innerHTML = `
             <div class="stage-number">2-${stageNum}</div>
-            <div class="stage-target">${stage.target}</div>
+            <div class="stage-target">${stage.target.toLocaleString()}</div>
             ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
             ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
         `;
@@ -2170,8 +2208,8 @@ function selectStage(chapter, stage) {
     
     if (titleEl) titleEl.innerText = `${chapter}-${stage}`;
     if (timeEl) timeEl.innerText = "60";
-    if (targetEl) targetEl.innerText = stageData.target;
-    if (rewardEl) rewardEl.innerText = stageData.reward;
+    if (targetEl) targetEl.innerText = stageData.target.toLocaleString();
+    if (rewardEl) rewardEl.innerText = stageData.reward.toLocaleString();
     
     if (stageData.boss && bossInfoEl && bossSkillNameEl) {
         bossInfoEl.classList.remove("hidden");
@@ -2277,7 +2315,7 @@ window.startStorySolo = () => {
     if (progressBar) {
         progressBar.classList.remove("hidden");
         const targetEl = el("progress-target");
-        if (targetEl) targetEl.innerText = storyTargetScore;
+        if (targetEl) targetEl.innerText = storyTargetScore.toLocaleString();
         updateProgressBar(0);
     }
     
