@@ -47,7 +47,6 @@ let currentWords = [];
 let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
-let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
 let gameInterval; 
 
 let isCustomGame = false;
@@ -91,16 +90,14 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- WebRTC ボイスチャット用 ---
-let voiceChatActive = false;
-let voiceMuted = false;
-let voiceParticipants = [];
-let voiceInviteListener = null;
-let localStream = null;
-let peerConnections = {};
-let voiceBar = null;
-let voiceRoomId = null;
-let voiceDataChannel = null;
+// --- スキンシステム用グローバル変数 ---
+let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
+    skinColor: 1,
+    eyes: "👀",
+    mouth: "👄",
+    accessories: []
+};
+let ownedAccessories = JSON.parse(localStorage.getItem("ramo_owned_accessories")) || [];
 
 // --- ハッカーマイルストーン4 使用状態管理 ---
 let hackerMilestone4Used = false;
@@ -135,6 +132,38 @@ const STORY_STAGES = {
         { stage: 7, target: 100000, reward: 2500, boss: true, skill: "graveyard" }
     ]
 };
+
+// スキンのデータ定義
+const SKIN_COLORS = [
+    "#f5d0b0", "#e0b090", "#c98a5e", "#8b5a2b", "#6b4a2e",
+    "#4a3520", "#2a1e12", "#ffe5b4", "#ffcba4", "#ffd700"
+];
+
+const EYES_TYPES = [
+    "👀", "😊", "😎", "👁️", "👁️‍🗨️", "◉_◉", "◕‿◕", "◕◡◕", "◕ᴗ◕", "◕‿◕",
+    "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "◕‿◕", "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "◕‿◕",
+    "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "◕‿◕", "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "$_$"
+];
+
+const MOUTH_TYPES = [
+    "👄", "😃", "😮", "😐", "😏", "😋", "😛", "😜", "😝", "😒",
+    "😔", "😕", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
+    "😘", "😗", "😙", "😚", "😋", "😛", "😜", "😝", "🤑", "$"
+];
+
+// アクセサリーのデータ定義
+const ACCESSORIES = [
+    { id: "headphone", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
+    { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
+    { id: "weird_glasses", name: "変なメガネ", cost: 15000, emoji: "👓" },
+    { id: "sunglasses", name: "サングラス", cost: 30000, emoji: "🕶️" },
+    { id: "premium_headphone", name: "高級ヘッドフォン", cost: 50000, emoji: "🎧✨" },
+    { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
+    { id: "silver_trophy", name: "銀トロフィー", cost: 100000, emoji: "🏆" },
+    { id: "weird_glasses2", name: "変なメガネ2", cost: 150000, emoji: "👓✨" },
+    { id: "gold_trophy", name: "金トロフィー", cost: 1000000, emoji: "🏆👑" },
+    { id: "rich", name: "大金持ち", cost: 10000000, emoji: "👑✨", special: true }
+];
 
 // 新しいスキルの追加
 const NEW_SKILLS = {
@@ -195,16 +224,23 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
     localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
+    localStorage.setItem("ramo_skin", JSON.stringify(skinData));
+    localStorage.setItem("ramo_owned_accessories", JSON.stringify(ownedAccessories));
     
     if (el("coin-amount")) el("coin-amount").innerText = coins;
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
+    if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins;
     
     update(ref(db, `users/${myId}`), { 
         coins: coins,
         skills: ownedSkills,
         equipped: equippedSkill,
-        story_progress: storyProgress
+        story_progress: storyProgress,
+        skin: skinData,
+        owned_accessories: ownedAccessories
     });
+    
+    updateSkinPreview();
 }
 
 // --- 出題データ ---
@@ -220,18 +256,16 @@ function updateButtonStates() {
     const btnSingle = el("btn-single");
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
-    const btnEditor = el("btn-editor");
-    const btnCustom = el("btn-custom");
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
+    const btnSkin = el("btn-skin");
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
-    if (btnEditor) btnEditor.disabled = isBusy || myPartyId !== null;
-    if (btnCustom) btnCustom.disabled = isBusy || myPartyId !== null;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
     if (btnStory) btnStory.disabled = isBusy;
+    if (btnSkin) btnSkin.disabled = isBusy;
 }
 
 // --- リアルタイム名前更新 ---
@@ -278,12 +312,6 @@ function getRomaPatterns(kana) {
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
     
-    if (code === "1x4x") {
-        el("friend-code-input").value = "";
-        openVoiceChat();
-        return;
-    }
-    
     if (!code || code === myId) return;
     const snap = await get(ref(db, `users/${code}`));
     if (snap.exists()) {
@@ -319,10 +347,6 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 </div>`;
         });
     });
-    
-    if (voiceChatActive) {
-        renderVoiceFriendList();
-    }
 });
 
 window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`)); remove(ref(db, `users/${fid}/friends/${myId}`)); };
@@ -524,6 +548,197 @@ window.unlockBossSkill = (skillId) => {
         alert(`${SKILL_DB[skillId].name} を解除しました！`);
     }
 };
+
+// --- スキンショップシステム ---
+window.openSkinShop = () => {
+    openScreen("screen-skin-shop");
+    renderSkinShop('skin');
+};
+
+let currentSkinCategory = 'skin';
+
+window.switchSkinCategory = (category) => {
+    currentSkinCategory = category;
+    document.querySelectorAll('.category-tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    renderSkinShop(category);
+};
+
+function renderSkinShop(category) {
+    const skinGrid = el("skin-grid");
+    skinGrid.innerHTML = "";
+    
+    if (category === 'skin') {
+        // 肌の色（10種類、無料）
+        for (let i = 0; i < 10; i++) {
+            const isEquipped = skinData.skinColor === i + 1;
+            const isLocked = i === 9 && !ownedAccessories.includes('rich'); // 金色は大金持ちアクセサリーが必要
+            
+            const item = document.createElement("div");
+            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''}`;
+            item.innerHTML = `
+                <div class="skin-preview-small" style="background: ${SKIN_COLORS[i]};">
+                    <div class="eyes">${skinData.eyes}</div>
+                    <div class="mouth">${skinData.mouth}</div>
+                </div>
+                <div class="skin-name">肌色 ${i + 1}</div>
+                ${isLocked ? '<div class="skin-locked-tag">🔒</div>' : ''}
+                ${isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
+            `;
+            
+            if (!isLocked) {
+                item.onclick = () => selectSkinColor(i + 1);
+            }
+            skinGrid.appendChild(item);
+        }
+    } else if (category === 'face') {
+        // 顔パーツ（30種類、無料）
+        for (let i = 0; i < 30; i++) {
+            const eyes = EYES_TYPES[i % EYES_TYPES.length];
+            const mouth = MOUTH_TYPES[i % MOUTH_TYPES.length];
+            const isEquipped = skinData.eyes === eyes && skinData.mouth === mouth;
+            
+            const item = document.createElement("div");
+            item.className = `skin-item ${isEquipped ? 'equipped' : ''}`;
+            item.innerHTML = `
+                <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
+                    <div class="eyes">${eyes}</div>
+                    <div class="mouth">${mouth}</div>
+                </div>
+                <div class="skin-name">表情 ${i + 1}</div>
+                ${isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
+            `;
+            
+            item.onclick = () => selectFace(eyes, mouth);
+            skinGrid.appendChild(item);
+        }
+    } else if (category === 'accessory') {
+        // アクセサリー（10種類、有料）
+        ACCESSORIES.forEach((acc, index) => {
+            const isOwned = ownedAccessories.includes(acc.id);
+            const isEquipped = skinData.accessories.includes(acc.id);
+            const canAfford = coins >= acc.cost;
+            
+            // 大金持ちは特別処理
+            if (acc.special && !ownedAccessories.includes('rich')) {
+                const item = document.createElement("div");
+                item.className = "skin-item locked";
+                item.innerHTML = `
+                    <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
+                        <div class="eyes">${skinData.eyes}</div>
+                        <div class="mouth">${skinData.mouth}</div>
+                    </div>
+                    <div class="skin-name">${acc.name}</div>
+                    <div class="skin-price">${acc.cost.toLocaleString()}🪙</div>
+                    <div class="skin-locked-tag">🔒</div>
+                `;
+                skinGrid.appendChild(item);
+                return;
+            }
+            
+            const item = document.createElement("div");
+            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
+            item.innerHTML = `
+                <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
+                    <div class="eyes">${skinData.eyes}</div>
+                    <div class="mouth">${skinData.mouth}</div>
+                    <div class="accessories" style="font-size: 1.5rem;">${acc.emoji}</div>
+                </div>
+                <div class="skin-name">${acc.name}</div>
+                <div class="skin-price">${acc.cost.toLocaleString()}🪙</div>
+                ${isOwned ? '<div class="skin-equip-tag">✓</div>' : ''}
+                ${!isOwned && !canAfford ? '<div class="skin-locked-tag">🔒</div>' : ''}
+            `;
+            
+            if (!isOwned && canAfford) {
+                item.onclick = () => buyAccessory(acc.id);
+            } else if (isOwned && !isEquipped) {
+                item.onclick = () => equipAccessory(acc.id);
+            }
+            skinGrid.appendChild(item);
+        });
+    }
+}
+
+function selectSkinColor(colorIndex) {
+    skinData.skinColor = colorIndex;
+    saveAndDisplayData();
+    renderSkinShop(currentSkinCategory);
+}
+
+function selectFace(eyes, mouth) {
+    skinData.eyes = eyes;
+    skinData.mouth = mouth;
+    saveAndDisplayData();
+    renderSkinShop(currentSkinCategory);
+}
+
+function buyAccessory(accessoryId) {
+    const accessory = ACCESSORIES.find(a => a.id === accessoryId);
+    if (!accessory) return;
+    
+    if (coins >= accessory.cost) {
+        coins -= accessory.cost;
+        ownedAccessories.push(accessoryId);
+        
+        // 大金持ちを買ったら金色の肌と特別な目・口をアンロック
+        if (accessoryId === 'rich') {
+            skinData.skinColor = 10; // 金色
+            skinData.eyes = "$_$";
+            skinData.mouth = "$";
+        }
+        
+        skinData.accessories.push(accessoryId);
+        saveAndDisplayData();
+        sounds.notify.play();
+        alert(`${accessory.name} を購入しました！`);
+        renderSkinShop(currentSkinCategory);
+    } else {
+        alert("コインが足りません！");
+    }
+}
+
+function equipAccessory(accessoryId) {
+    if (!skinData.accessories.includes(accessoryId)) {
+        skinData.accessories.push(accessoryId);
+    } else {
+        skinData.accessories = skinData.accessories.filter(id => id !== accessoryId);
+    }
+    saveAndDisplayData();
+    renderSkinShop(currentSkinCategory);
+}
+
+function updateSkinPreview() {
+    // プレビューアバターの更新
+    const previewFace = el("preview-face");
+    const previewEyes = el("preview-eyes");
+    const previewMouth = el("preview-mouth");
+    const previewAccessories = el("preview-accessories");
+    
+    if (previewFace) previewFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+    if (previewEyes) previewEyes.innerText = skinData.eyes;
+    if (previewMouth) previewMouth.innerText = skinData.mouth;
+    if (previewAccessories) {
+        previewAccessories.innerHTML = skinData.accessories.map(id => 
+            ACCESSORIES.find(a => a.id === id)?.emoji || ''
+        ).join('');
+    }
+    
+    // プロフィールアバターの更新
+    const profileFace = el("profile-face");
+    const profileEyes = el("profile-eyes");
+    const profileMouth = el("profile-mouth");
+    const profileAccessories = el("profile-accessories");
+    
+    if (profileFace) profileFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+    if (profileEyes) profileEyes.innerText = skinData.eyes;
+    if (profileMouth) profileMouth.innerText = skinData.mouth;
+    if (profileAccessories) {
+        profileAccessories.innerHTML = skinData.accessories.map(id => 
+            ACCESSORIES.find(a => a.id === id)?.emoji || ''
+        ).join('');
+    }
+}
 
 // --- ゲームエンジン ---
 function openScreen(id) {
@@ -1661,7 +1876,7 @@ window.openStoryMode = () => {
     renderStoryMap();
 };
 
-// ストーリーマップの描画（完全ロック版 - 1個前のステージがクリアされてたらロック解除）
+// ストーリーマップの描画（完全ロック版）
 function renderStoryMap() {
     // 第1章のマップ描画
     const map1 = el("story-map-1");
@@ -1669,7 +1884,6 @@ function renderStoryMap() {
     STORY_STAGES.chapter1.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter1 >= stageNum;
-        // 1個前のステージがクリアされているか
         const prevStageCleared = stageNum === 1 || storyProgress.chapter1 >= stageNum - 1;
         const isLocked = !prevStageCleared;
         const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
@@ -1693,9 +1907,7 @@ function renderStoryMap() {
     STORY_STAGES.chapter2.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter2 >= stageNum;
-        // 第1章を全クリしているか
         const chapter1Completed = storyProgress.chapter1 >= 7;
-        // 前のステージがクリアされているか
         const prevStageCleared = stageNum === 1 || storyProgress.chapter2 >= stageNum - 1;
         const isLocked = !chapter1Completed || !prevStageCleared;
         const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && chapter1Completed;
@@ -1719,9 +1931,7 @@ function renderStoryMap() {
     STORY_STAGES.chapter3.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter3 >= stageNum;
-        // 第2章を全クリしているか
         const chapter2Completed = storyProgress.chapter2 >= 7;
-        // 前のステージがクリアされているか
         const prevStageCleared = stageNum === 1 || storyProgress.chapter3 >= stageNum - 1;
         const isLocked = !chapter2Completed || !prevStageCleared;
         const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && chapter2Completed;
@@ -1753,7 +1963,6 @@ function renderStoryMap() {
 
 // ステージ選択（完全ロック版）
 function selectStage(chapter, stage) {
-    // 厳格なロックチェック
     if (chapter === 1) {
         if (stage > 1 && storyProgress.chapter1 < stage - 1) {
             alert("前のステージをクリアしてください");
@@ -1839,7 +2048,7 @@ function updateStageButtons() {
     }
 }
 
-// パーティーメンバーの進行状況チェック（完全ロック版）
+// パーティーメンバーの進行状況チェック
 async function checkPartyProgress() {
     if (!myPartyId) return;
     
@@ -1960,495 +2169,6 @@ window.executeDodge = () => {
     }
 };
 
-// --- WebRTC ボイスチャット機能（完全版）---
-function openVoiceChat() {
-    console.log("ボイスチャットを開きます");
-    const overlay = el("debug-overlay");
-    if (overlay) {
-        overlay.classList.remove("hidden");
-        renderVoiceFriendList();
-        initWebRTC();
-        createVoiceChatBar();
-        alert("🎤 WebRTCボイスチャットを起動しました\nマイクの使用を許可してください");
-    } else {
-        console.error("debug-overlayが見つかりません");
-        alert("ボイスチャット画面が見つかりません");
-    }
-}
-
-// WebRTC初期化
-async function initWebRTC() {
-    try {
-        // マイクストリームを取得
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        console.log("Local stream obtained");
-        
-        voiceChatActive = true;
-        
-        // 参加者リストに自分を追加
-        if (!voiceParticipants.includes(myId)) {
-            voiceParticipants.push(myId);
-        }
-        
-        // バーの表示を更新
-        updateVoiceBarParticipants();
-        
-        // 既存のオーディオ要素を削除
-        document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
-        
-    } catch (err) {
-        console.error("Failed to get local stream", err);
-        alert("マイクの使用が許可されていません");
-    }
-}
-
-// 相手との接続を作成
-async function createPeerConnection(targetId) {
-    const configuration = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
-        ]
-    };
-    
-    const peerConnection = new RTCPeerConnection(configuration);
-    
-    // ローカルストリームのトラックを追加
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-    }
-    
-    // ICE候補をFirebase経由で送信
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            const candidateRef = ref(db, `voice_rooms/${voiceRoomId}/candidates/${targetId}`);
-            set(candidateRef, {
-                candidate: event.candidate,
-                from: myId,
-                timestamp: Date.now()
-            });
-        }
-    };
-    
-    // 相手からのストリームを受信
-    peerConnection.ontrack = (event) => {
-        console.log("Received remote stream from", targetId);
-        const audio = document.createElement('audio');
-        audio.srcObject = event.streams[0];
-        audio.autoplay = true;
-        audio.id = `audio-${targetId}`;
-        document.body.appendChild(audio);
-        
-        showBattleAlert(`🔊 ${targetId} の声が聞こえます`, "var(--accent-green)");
-    };
-    
-    // 接続状態の監視
-    peerConnection.onconnectionstatechange = () => {
-        console.log("Connection state:", peerConnection.connectionState);
-        if (peerConnection.connectionState === 'connected') {
-            showBattleAlert(`✅ ${targetId} と接続完了`, "var(--accent-green)");
-        } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-            showBattleAlert(`❌ ${targetId} との接続が切れました`, "var(--accent-red)");
-            delete peerConnections[targetId];
-            const audioElement = document.getElementById(`audio-${targetId}`);
-            if (audioElement) audioElement.remove();
-        }
-    };
-    
-    peerConnections[targetId] = peerConnection;
-    return peerConnection;
-}
-
-// 発信側
-async function callPeer(targetId) {
-    if (!voiceRoomId) {
-        voiceRoomId = generateId();
-        await set(ref(db, `voice_rooms/${voiceRoomId}`), {
-            participants: [myId, targetId],
-            created: Date.now()
-        });
-    }
-    
-    const peerConnection = await createPeerConnection(targetId);
-    
-    // オファーを作成
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    
-    // オファーをFirebase経由で送信
-    const offerRef = ref(db, `voice_rooms/${voiceRoomId}/offers/${targetId}`);
-    await set(offerRef, {
-        offer: offer,
-        from: myId,
-        timestamp: Date.now()
-    });
-    
-    console.log("Offer sent to", targetId);
-}
-
-// 着信側
-async function answerCall(targetId, offer) {
-    const peerConnection = await createPeerConnection(targetId);
-    
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    
-    const answerRef = ref(db, `voice_rooms/${voiceRoomId}/answers/${targetId}`);
-    await set(answerRef, {
-        answer: answer,
-        from: myId,
-        timestamp: Date.now()
-    });
-    
-    console.log("Answer sent to", targetId);
-}
-
-// ボイスチャット招待の受信監視（修正版）
-if (voiceInviteListener) {
-    off(voiceInviteListener);
-}
-voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
-    const invite = snap.val();
-    if (invite) {
-        const fromId = invite.from;
-        const fromName = invite.fromName;
-        
-        if (!voiceChatActive) {
-            const result = confirm(`${fromName} からボイスチャットの招待が来ています。参加しますか？`);
-            if (result) {
-                openVoiceChat();
-                setTimeout(async () => {
-                    if (!voiceParticipants.includes(fromId)) {
-                        voiceParticipants.push(fromId);
-                        
-                        // ルームIDを設定
-                        voiceRoomId = invite.roomId || generateId();
-                        
-                        // 相手に応答
-                        if (invite.offer) {
-                            await answerCall(fromId, invite.offer);
-                        }
-                        
-                        updateVoiceBarParticipants();
-                        sounds.notify.play();
-                        showBattleAlert(`🔊 ${fromName} が参加しました`, "var(--accent-green)");
-                    }
-                }, 2000);
-            }
-        } else {
-            if (!voiceParticipants.includes(fromId)) {
-                voiceParticipants.push(fromId);
-                
-                // 相手に発信
-                callPeer(fromId);
-                
-                updateVoiceBarParticipants();
-                sounds.notify.play();
-                showBattleAlert(`🔊 ${fromName} が参加しました`, "var(--accent-green)");
-            }
-        }
-        // 招待を削除
-        remove(ref(db, `users/${myId}/voice_invite`));
-    }
-});
-
-// オファーの監視
-onValue(ref(db, `voice_rooms/${voiceRoomId}/offers`), snap => {
-    const offers = snap.val();
-    if (offers && voiceChatActive) {
-        Object.keys(offers).forEach(targetId => {
-            if (targetId !== myId && !peerConnections[targetId] && offers[targetId].offer) {
-                answerCall(targetId, offers[targetId].offer);
-            }
-        });
-    }
-});
-
-// アンサーの監視
-onValue(ref(db, `voice_rooms/${voiceRoomId}/answers`), snap => {
-    const answers = snap.val();
-    if (answers && voiceChatActive) {
-        Object.keys(answers).forEach(targetId => {
-            if (targetId !== myId && peerConnections[targetId] && answers[targetId].answer) {
-                peerConnections[targetId].setRemoteDescription(new RTCSessionDescription(answers[targetId].answer))
-                    .catch(err => console.error("Failed to set remote description:", err));
-            }
-        });
-    }
-});
-
-// ICE候補の監視
-onValue(ref(db, `voice_rooms/${voiceRoomId}/candidates`), snap => {
-    const candidates = snap.val();
-    if (candidates && voiceChatActive) {
-        Object.keys(candidates).forEach(targetId => {
-            if (targetId !== myId && peerConnections[targetId] && candidates[targetId].candidate) {
-                peerConnections[targetId].addIceCandidate(new RTCIceCandidate(candidates[targetId].candidate))
-                    .catch(err => console.error("Failed to add ICE candidate:", err));
-            }
-        });
-    }
-});
-
-function createVoiceChatBar() {
-    const existingBar = document.getElementById("voice-chat-bar");
-    if (existingBar) existingBar.remove();
-    
-    voiceBar = document.createElement("div");
-    voiceBar.id = "voice-chat-bar";
-    voiceBar.style.cssText = `
-        position: fixed;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.8);
-        border: 2px solid var(--accent-purple);
-        border-radius: 50px;
-        padding: 10px 20px;
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        z-index: 20001;
-        backdrop-filter: blur(5px);
-        box-shadow: 0 0 20px var(--accent-purple);
-    `;
-    
-    const participantsSpan = document.createElement("span");
-    participantsSpan.id = "voice-bar-participants";
-    participantsSpan.style.color = "white";
-    participantsSpan.style.fontWeight = "bold";
-    updateVoiceBarParticipants();
-    
-    const muteBtn = document.createElement("button");
-    muteBtn.id = "voice-bar-mute";
-    muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
-    muteBtn.style.cssText = `
-        background: ${voiceMuted ? '#666' : 'var(--accent-blue)'};
-        color: white;
-        border: none;
-        padding: 5px 15px;
-        border-radius: 20px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: 0.2s;
-    `;
-    muteBtn.onmouseover = () => {
-        muteBtn.style.transform = 'scale(1.05)';
-    };
-    muteBtn.onmouseout = () => {
-        muteBtn.style.transform = 'scale(1)';
-    };
-    muteBtn.onclick = toggleVoiceMute;
-    
-    const endBtn = document.createElement("button");
-    endBtn.innerHTML = "📞 通話終了";
-    endBtn.style.cssText = `
-        background: var(--accent-red);
-        color: white;
-        border: none;
-        padding: 5px 15px;
-        border-radius: 20px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: 0.2s;
-    `;
-    endBtn.onmouseover = () => {
-        endBtn.style.transform = 'scale(1.05)';
-    };
-    endBtn.onmouseout = () => {
-        endBtn.style.transform = 'scale(1)';
-    };
-    endBtn.onclick = () => {
-        closeDebugMode();
-    };
-    
-    voiceBar.appendChild(participantsSpan);
-    voiceBar.appendChild(muteBtn);
-    voiceBar.appendChild(endBtn);
-    
-    document.body.appendChild(voiceBar);
-}
-
-function updateVoiceBarParticipants() {
-    const participantsSpan = document.getElementById("voice-bar-participants");
-    if (participantsSpan) {
-        if (voiceParticipants.length > 1) {
-            participantsSpan.innerHTML = `👥 参加者: ${voiceParticipants.length}人`;
-        } else {
-            participantsSpan.innerHTML = `👥 参加者: 自分だけ`;
-        }
-    }
-}
-
-function toggleVoiceMute() {
-    voiceMuted = !voiceMuted;
-    
-    if (localStream) {
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = !voiceMuted;
-        });
-    }
-    
-    const muteBtn = document.getElementById("voice-bar-mute");
-    if (muteBtn) {
-        muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
-        muteBtn.style.background = voiceMuted ? '#666' : 'var(--accent-blue)';
-    }
-    
-    showBattleAlert(voiceMuted ? "🔇 ミュート中" : "🎤 ミュート解除", 
-                    voiceMuted ? "var(--accent-red)" : "var(--accent-green)");
-}
-
-window.closeDebugMode = () => {
-    endVoiceChat();
-    el("debug-overlay").classList.add("hidden");
-    if (voiceBar) {
-        voiceBar.remove();
-        voiceBar = null;
-    }
-};
-
-function endVoiceChat() {
-    voiceChatActive = false;
-    
-    // 全てのピア接続を閉じる
-    Object.keys(peerConnections).forEach(key => {
-        peerConnections[key].close();
-        delete peerConnections[key];
-    });
-    
-    // ローカルストリームを停止
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-    
-    // ルームを削除
-    if (voiceRoomId) {
-        remove(ref(db, `voice_rooms/${voiceRoomId}`));
-        voiceRoomId = null;
-    }
-    
-    // オーディオ要素を削除
-    document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
-    
-    voiceParticipants = [];
-    voiceMuted = false;
-    
-    updateVoiceBarParticipants();
-}
-
-function renderVoiceFriendList() {
-    const voiceFriendList = el("voice-friend-list");
-    if (!voiceFriendList) return;
-    
-    voiceFriendList.innerHTML = "";
-    
-    get(ref(db, `users/${myId}/friends`)).then(snap => {
-        const friends = snap.val();
-        if (!friends || Object.keys(friends).length === 0) {
-            voiceFriendList.innerHTML = '<div class="voice-friend-item" style="text-align: center; padding: 20px;">フレンドがまだいません</div>';
-            return;
-        }
-        
-        let loadedCount = 0;
-        const totalFriends = Object.keys(friends).length;
-        
-        Object.keys(friends).forEach(fid => {
-            get(ref(db, `users/${fid}`)).then(userSnap => {
-                const userData = userSnap.val();
-                if (!userData) return;
-                
-                const friendDiv = document.createElement("div");
-                friendDiv.className = "voice-friend-item";
-                friendDiv.style.cssText = `
-                    background: rgba(0,0,0,0.3);
-                    border: 1px solid var(--glass);
-                    border-radius: 10px;
-                    padding: 12px;
-                    margin-bottom: 10px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                `;
-                friendDiv.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="status-dot ${userData.status || 'offline'}"></span>
-                        <span style="font-weight: bold;">${userData.name}</span>
-                    </div>
-                    <button class="voice-invite-btn" style="
-                        background: var(--accent-green);
-                        color: #000;
-                        border: none;
-                        padding: 5px 15px;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-weight: bold;
-                    " onclick="window.inviteToVoiceChat('${fid}', '${userData.name}')">ボイチャ招待</button>
-                `;
-                voiceFriendList.appendChild(friendDiv);
-                
-                loadedCount++;
-                if (loadedCount === totalFriends) {
-                    console.log("フレンドリストの読み込み完了");
-                }
-            });
-        });
-    }).catch(error => {
-        console.error("フレンドリストの取得に失敗:", error);
-        voiceFriendList.innerHTML = '<div class="voice-friend-item" style="text-align: center; padding: 20px;">フレンドリストの読み込みに失敗しました</div>';
-    });
-}
-
-window.inviteToVoiceChat = async (fid, friendName) => {
-    if (!voiceChatActive) {
-        openVoiceChat();
-        setTimeout(() => {
-            sendVoiceInvite(fid, friendName);
-        }, 2000);
-    } else {
-        await sendVoiceInvite(fid, friendName);
-    }
-};
-
-async function sendVoiceInvite(fid, friendName) {
-    // ルームIDがなければ作成
-    if (!voiceRoomId) {
-        voiceRoomId = generateId();
-    }
-    
-    // オファーを作成して送信
-    if (!peerConnections[fid]) {
-        // 発信用のPeerConnectionを作成
-        const peerConnection = await createPeerConnection(fid);
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        
-        // 招待にオファーを含めて送信
-        await set(ref(db, `users/${fid}/voice_invite`), {
-            from: myId,
-            fromName: myName,
-            roomId: voiceRoomId,
-            offer: offer,
-            timestamp: Date.now()
-        });
-    } else {
-        // 単純な招待を送信
-        await set(ref(db, `users/${fid}/voice_invite`), {
-            from: myId,
-            fromName: myName,
-            roomId: voiceRoomId,
-            timestamp: Date.now()
-        });
-    }
-    
-    alert(`${friendName} にボイスチャット招待を送信しました`);
-}
-
 // --- モード制御 ---
 window.openSingleSelect = () => {
     if (myPartyId || isMatchmaking) return; 
@@ -2515,63 +2235,11 @@ window.openOnlineMatch = () => {
     });
 };
 
-// --- エディター ---
-window.openEditor = () => { 
-    if (myPartyId || isMatchmaking) return; 
-    openScreen("screen-editor"); 
-    renderEditor(); 
-};
-
-window.updateCustomWord = (index, value) => {
-    customWords[index] = value;
-};
-
-window.removeCustomWord = (index) => {
-    customWords.splice(index, 1);
-    renderEditor();
-};
-
-function renderEditor() {
-    el("editor-list").innerHTML = customWords.map((w, i) => `
-        <div class="editor-row">
-            <input type="text" class="editor-input" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="2~20文字のひらがな">
-            <button class="btn-kick" onclick="window.removeCustomWord(${i})">削除</button>
-        </div>
-    `).join("");
-}
-
-window.addEditorRow = () => { 
-    if (customWords.length < 20) { 
-        customWords.push(""); 
-        renderEditor(); 
-    } 
-};
-
-window.saveEditor = () => {
-    const valid = customWords.filter(w => w && w.length >= 2 && w.length <= 20);
-    if (valid.length < 5) return alert("最低5個必要です (2~20文字で入力してください)");
-    customWords = valid; 
-    localStorage.setItem("ramo_custom", JSON.stringify(customWords));
-    alert("完成しました！"); 
-    window.goHome();
-};
-
-window.playCustom = () => { 
-    if (myPartyId || isMatchmaking) return; 
-    const savedWords = JSON.parse(localStorage.getItem("ramo_custom"));
-    if (!savedWords || savedWords.length < 5) {
-        return alert("まずはエディターで5個以上作って保存してください"); 
-    }
-    customWords = savedWords; 
-    currentWords = customWords; 
-    isCustomGame = true;
-    openScreen("screen-play"); 
-    startGame(60); 
-};
-
 // --- 初期化 ---
 el("my-id-display").innerText = myId;
 el("my-name-input").value = myName;
+updateSkinPreview();
+
 const userRef = ref(db, `users/${myId}`);
 
 get(userRef).then(snap => {
@@ -2589,11 +2257,17 @@ get(userRef).then(snap => {
         if(data.story_progress !== undefined) {
             storyProgress = data.story_progress;
         }
+        if(data.skin !== undefined) {
+            skinData = data.skin;
+        }
+        if(data.owned_accessories !== undefined) {
+            ownedAccessories = data.owned_accessories;
+        }
     }
     saveAndDisplayData(); 
 });
 
-update(userRef, { name: myName, status: "online", partyId: null, story_progress: storyProgress });
+update(userRef, { name: myName, status: "online", partyId: null, story_progress: storyProgress, skin: skinData, owned_accessories: ownedAccessories });
 onDisconnect(userRef).update({ status: "offline" });
 updateButtonStates();
 
