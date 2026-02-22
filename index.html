@@ -21,6 +21,27 @@
         </div>
     </div>
 
+    <!-- デバッグモード入力オーバーレイ -->
+    <div id="debug-overlay" class="hidden">
+        <div class="debug-container">
+            <h3>🔧 デバッグモード 🔧</h3>
+            <div class="debug-content">
+                <p class="debug-title">お金+システム</p>
+                <div class="debug-input-group">
+                    <input type="text" id="debug-friend-code" placeholder="フレンドコード">
+                    <select id="debug-operation">
+                        <option value="add">追加 (+)</option>
+                        <option value="subtract">減らす (-)</option>
+                        <option value="set">セット (=)</option>
+                    </select>
+                    <input type="number" id="debug-amount" placeholder="金額" value="0">
+                    <button class="btn-invite" onclick="window.executeDebug()">実行</button>
+                </div>
+                <button class="debug-close" onclick="window.closeDebug()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <div id="app">
         <main id="main-area">
             <div class="header-logo">ULTIMATE TYPING</div>
@@ -39,9 +60,9 @@
                         <span>オンラインで遊ぶ</span>
                         <small>MATCHMAKING</small>
                     </button>
-                    <button id="btn-editor" class="action-btn" onclick="window.openEditor()">
-                        <span>タイピングを作る</span>
-                        <small>CUSTOM EDITOR</small>
+                    <button id="btn-skin" class="action-btn" onclick="window.openSkinShop()">
+                        <span>スキンを変える</span>
+                        <small>SKIN SHOP</small>
                     </button>
                     <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
                         <span>ストーリーモード</span>
@@ -51,10 +72,38 @@
                         <span>ショップ (スキル)</span>
                         <small>SKILL SHOP</small>
                     </button>
-                    <button id="btn-custom" class="action-btn full-width" onclick="window.playCustom()">
-                        <span>作ったものを遊ぶ</span>
-                    </button>
                 </div>
+            </div>
+
+            <!-- スキンショップ画面（新規追加） -->
+            <div id="screen-skin-shop" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFD700;">SKIN SHOP</h2>
+                <div class="skin-preview" id="skin-preview">
+                    <div class="face-preview">
+                        <div id="preview-skin" class="preview-skin"></div>
+                        <div id="preview-face" class="preview-face"></div>
+                        <div id="preview-accessory" class="preview-accessory"></div>
+                    </div>
+                </div>
+                <div class="shop-coin-display">所持コイン: <span id="skin-coin-amount">0</span> 🪙</div>
+                
+                <div class="skin-categories">
+                    <button class="skin-cat-btn active" onclick="window.switchSkinCategory('skin')">肌の色</button>
+                    <button class="skin-cat-btn" onclick="window.switchSkinCategory('face')">顔</button>
+                    <button class="skin-cat-btn" onclick="window.switchSkinCategory('accessory')">アクセサリー</button>
+                </div>
+
+                <div id="skin-category-skin" class="skin-grid active">
+                    <!-- 肌の色10種類 -->
+                </div>
+                <div id="skin-category-face" class="skin-grid hidden">
+                    <!-- 顔30種類 -->
+                </div>
+                <div id="skin-category-accessory" class="skin-grid hidden">
+                    <!-- アクセサリー10種類 -->
+                </div>
+
+                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
             </div>
 
             <!-- ストーリーモード画面 -->
@@ -211,16 +260,6 @@
                 <button class="action-btn" onclick="window.goHome()">ホーム画面に戻る</button>
             </div>
 
-            <div id="screen-editor" class="screen hidden">
-                <h2 class="title-glow">タイピングを作る</h2>
-                <div id="editor-list" class="editor-scroll"></div>
-                <div class="editor-controls">
-                    <button class="btn-invite" onclick="window.addEditorRow()">バーを増やす</button>
-                    <button class="btn-invite purple-btn" onclick="window.saveEditor()">完成</button>
-                    <button class="btn-kick" onclick="window.goHome()">戻る</button>
-                </div>
-            </div>
-
             <div class="footer-container">
                 <div class="footer-credit">@作った人は<span>「らも。Ωα」</span></div>
                 <div class="coin-display">🪙 : <span id="coin-amount">0</span></div>
@@ -231,6 +270,12 @@
             <section class="side-panel profile-panel">
                 <div class="panel-title">プロフィール</div>
                 <div class="profile-box">
+                    <div class="profile-face-container" id="profile-face">
+                        <!-- ここに顔が表示される -->
+                        <div id="profile-skin" class="profile-skin"></div>
+                        <div id="profile-face-layer" class="profile-face-layer"></div>
+                        <div id="profile-accessory" class="profile-accessory"></div>
+                    </div>
                     <label>名前</label>
                     <input type="text" id="my-name-input" maxlength="15" oninput="window.updateMyName()">
                     <div class="code-display">
