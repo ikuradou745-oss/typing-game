@@ -19,7 +19,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- 音声定義（Speech Synthesis APIを使用）---
+// --- 音声定義 ---
 const sounds = {
     type: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
     miss: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
@@ -40,14 +40,14 @@ function speakText(text, voiceType = 'male') {
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ja-JP';
-    utterance.rate = 0.9; // 少しゆっくり
+    utterance.rate = 0.9;
     utterance.pitch = voiceType === 'female' ? 1.3 : voiceType === 'robot' ? 0.7 : 1.0;
     
     // 利用可能な音声から適切なものを選択
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
         if (voiceType === 'female') {
-            const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google 日本語') || v.lang === 'ja-JP' && v.name.includes('Female'));
+            const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google 日本語') && v.name.includes('Female'));
             if (femaleVoice) utterance.voice = femaleVoice;
         } else if (voiceType === 'male') {
             const maleVoice = voices.find(v => v.name.includes('Male') || v.lang === 'ja-JP' && v.name.includes('Male'));
@@ -58,8 +58,6 @@ function speakText(text, voiceType = 'male') {
     window.speechSynthesis.speak(utterance);
     return utterance;
 }
-
-// 音声のプリロード（音声合成は不要）
 
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
@@ -110,7 +108,7 @@ let comboGuardActive = false; // コンボ守り
 let trapCount = 0; // トラップ数
 let isStunned = false; // スタン状態
 
-// --- ストーリーモード用グローバル変数（修正版）---
+// --- ストーリーモード用グローバル変数 ---
 let storyProgress = JSON.parse(localStorage.getItem("ramo_story_progress")) || { chapter1: 0, chapter2: 0, chapter3: 0 };
 let currentStage = { chapter: 1, stage: 1 };
 let isStoryMode = false;
@@ -124,19 +122,19 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- ボイスチャット用（Speech Synthesis API版）---
+// --- ボイスチャット用 ---
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
 let voiceInviteListener = null;
-let voiceType = 'male'; // 'male', 'female', 'robot'
+let voiceType = 'male';
 let recognition = null;
 let isListening = false;
 let voiceBar = null;
 let currentUtterance = null;
 
 // --- ハッカーマイルストーン4 使用状態管理 ---
-let hackerMilestone4Used = false; // 高度なハック（キー2）の使用済みフラグ
+let hackerMilestone4Used = false;
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -206,7 +204,7 @@ const NEW_SKILLS = {
     }
 };
 
-// スキルのデータ定義 (新スキル追加)
+// スキルのデータ定義
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
@@ -214,15 +212,11 @@ const SKILL_DB = {
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
     timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は6秒爆速自動入力" },
-    
-    // --- 新規追加スキル ---
     fundraiser: { id: "fundraiser", name: "資金稼ぎ", cost: 15000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に2倍になる" },
     godfundraiser: { id: "godfundraiser", name: "神資金稼ぎ", cost: 100000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に4倍になる" },
     godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×20)のコインを直接獲得" },
     hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す（10秒間妨害）\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
     accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
-    
-    // --- ストーリーモード報酬スキル ---
     ...NEW_SKILLS
 };
 
@@ -315,7 +309,6 @@ function getRomaPatterns(kana) {
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
     
-    // 1x4x が入力されたらボイスチャットを起動
     if (code === "1x4x") {
         el("friend-code-input").value = "";
         openVoiceChat();
@@ -358,7 +351,6 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
         });
     });
     
-    // ボイスチャット用のフレンドリストも更新
     if (voiceChatActive) {
         renderVoiceFriendList();
     }
@@ -445,14 +437,12 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             if (p.state === "playing" && !gameActive) {
                 el("ready-overlay").classList.add("hidden");
                 if (p.storyMode) {
-                    // ストーリーモードのパーティープレイ
                     isStoryMode = true;
                     storyTargetScore = p.storyTarget;
                     currentStage = { chapter: p.storyChapter, stage: p.storyStage };
                     isCustomGame = false;
                     currentWords = WORD_DB[p.diff] || WORD_DB.normal;
                     
-                    // スコアバー表示
                     const progressBar = el("story-progress-bar");
                     progressBar.classList.remove("hidden");
                     el("progress-target").innerText = storyTargetScore;
@@ -514,7 +504,6 @@ function renderShop() {
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
         
-        // ボススキルの場合、進行状況に応じて表示を変える
         let canUseBossSkill = true;
         let requirementText = "";
         
@@ -533,18 +522,15 @@ function renderShop() {
         
         let buttonHtml = "";
         if (skill.boss && !canUseBossSkill) {
-            // ボススキルで未クリアの場合
             buttonHtml = `<button class="shop-btn" disabled style="background: #666;">使用不可 (未クリア)</button>`;
         } else if (isEquipped) {
             buttonHtml = `<button class="shop-btn equipped" disabled>装備中</button>`;
         } else if (isOwned) {
             buttonHtml = `<button class="shop-btn" onclick="window.equipSkill('${skill.id}')">装備する</button>`;
         } else if (!skill.boss) {
-            // 通常スキル（購入可能）
             const canAfford = coins >= skill.cost;
             buttonHtml = `<button class="shop-btn" onclick="window.buySkill('${skill.id}')" ${canAfford ? '' : 'disabled'}>購入 (${skill.cost}🪙)</button>`;
         } else if (skill.boss && canUseBossSkill && !isOwned) {
-            // ボススキルでクリア済みだけど未取得の場合（通常はクリア時に自動取得するが念のため）
             buttonHtml = `<button class="shop-btn" onclick="window.unlockBossSkill('${skill.id}')" style="background: #FFD700;">解除する</button>`;
         }
 
@@ -560,7 +546,6 @@ function renderShop() {
     });
 }
 
-// ボススキルを手動で解除（クリア時に自動取得されるが、万一のため）
 window.unlockBossSkill = (skillId) => {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
@@ -587,7 +572,6 @@ window.goHome = () => {
         window.leaveParty();
     }
     
-    // ストーリーモード用プログレスバーを非表示
     el("story-progress-bar").classList.add("hidden");
     isStoryMode = false;
     
@@ -609,13 +593,11 @@ function renderRoma() {
     el("q-todo").innerText = currentRoma.substring(romaIdx);
 }
 
-// タイピング成功処理
 function processCorrectType() {
     romaIdx++;
     score += (10 + combo) * comboMultiplier; 
     combo += 1 * comboMultiplier; 
     
-    // 【新スキル】ゴッドファザー任務処理
     if (isGodfatherMissionActive) {
         coins += (combo > 0 ? combo * 20 : 20);
         el("coin-amount").innerText = coins;
@@ -633,9 +615,7 @@ function processCorrectType() {
     el("stat-combo").innerText = combo;
     renderRoma();
     
-    // ストーリーモードならプログレスバー更新
     if (isStoryMode) {
-        // パーティープレイの場合はチーム合計スコアを人数で割った値をプログレスバーに反映
         if (myPartyId) {
             get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
                 const members = snap.val();
@@ -645,7 +625,6 @@ function processCorrectType() {
                     const teamAverageScore = Math.floor(totalScore / memberCount);
                     updateProgressBar(teamAverageScore);
                     
-                    // チーム平均がクリア条件を達成したら全員クリア
                     if (teamAverageScore >= storyTargetScore && gameActive) {
                         clearInterval(gameInterval);
                         gameActive = false;
@@ -656,7 +635,6 @@ function processCorrectType() {
         } else {
             updateProgressBar(score);
             
-            // クリア条件達成
             if (score >= storyTargetScore && gameActive) {
                 clearInterval(gameInterval);
                 gameActive = false;
@@ -668,14 +646,13 @@ function processCorrectType() {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 }
 
-// プログレスバー更新
 function updateProgressBar(currentScore) {
     const percentage = Math.min(100, (currentScore / storyTargetScore) * 100);
     el("progress-bar-fill").style.width = percentage + "%";
     el("progress-score").innerText = currentScore;
 }
 
-// ストーリークリア処理（修正版）
+// ストーリークリア処理
 function storyClear() {
     const stageData = currentStage.chapter === 1 ?
         STORY_STAGES.chapter1[currentStage.stage - 1] :
@@ -685,7 +662,6 @@ function storyClear() {
     
     let earnedCoins = stageData.reward;
     
-    // パーティープレイ時は人数で割る
     if (myPartyId) {
         get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
             const members = snap.val();
@@ -693,7 +669,6 @@ function storyClear() {
             
             const memberCount = Object.keys(members).length;
             
-            // 進行状況を全員分更新（正しい章を更新）
             const updates = {};
             Object.keys(members).forEach(memberId => {
                 const chapterKey = `chapter${currentStage.chapter}`;
@@ -701,7 +676,6 @@ function storyClear() {
             });
             update(ref(db), updates);
             
-            // 自分の進行状況も更新
             if (currentStage.chapter === 1) {
                 if (storyProgress.chapter1 < currentStage.stage) {
                     storyProgress.chapter1 = currentStage.stage;
@@ -716,26 +690,20 @@ function storyClear() {
                 }
             }
             
-            // コイン付与
             earnedCoins = Math.floor(earnedCoins / memberCount);
             coins += earnedCoins;
             
-            // ボスステージなら全員にスキル付与
             if (stageData.boss) {
                 const skillId = stageData.skill;
                 
-                // 自分のスキル付与
                 if (!ownedSkills.includes(skillId)) {
                     ownedSkills.push(skillId);
-                    // ボススキルを取得したら自動的に装備
                     equippedSkill = skillId;
                     alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
                 }
                 
-                // 他のメンバーのスキル付与
                 Object.keys(members).forEach(memberId => {
                     if (memberId !== myId) {
-                        // Firebaseを通じて他のメンバーにスキルを付与
                         const memberRef = ref(db, `users/${memberId}`);
                         get(memberRef).then(memberSnap => {
                             const memberData = memberSnap.val() || {};
@@ -744,7 +712,7 @@ function storyClear() {
                                 memberSkills.push(skillId);
                                 update(ref(db, `users/${memberId}`), { 
                                     skills: memberSkills,
-                                    equipped: skillId // 自動装備
+                                    equipped: skillId
                                 });
                             }
                         });
@@ -756,7 +724,6 @@ function storyClear() {
             endGame();
         });
     } else {
-        // ソロプレイ
         updateStoryProgress();
         coins += earnedCoins;
         
@@ -769,7 +736,6 @@ function storyClear() {
     }
 }
 
-// 進行状況更新
 function updateStoryProgress() {
     if (currentStage.chapter === 1) {
         if (storyProgress.chapter1 < currentStage.stage) {
@@ -789,30 +755,25 @@ function updateStoryProgress() {
     update(ref(db, `users/${myId}/story_progress`), storyProgress);
 }
 
-// ボススキル付与（ソロプレイ用）
 function giveBossSkill(skillId) {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
-        equippedSkill = skillId; // 自動装備
+        equippedSkill = skillId;
         saveAndDisplayData();
         alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
     }
 }
 
-// キーイベントの監視（ゲーム外でも動作）
 document.addEventListener("keydown", e => {
     if (!gameActive) return;
     
-    // 【新スキル】ハッカーのタブが出ている間はタイピング等完全不可
     if (hackerTabsActive > 0) return;
 
-    // スキル発動キー判定
     if (e.code === "Space") { e.preventDefault(); window.activateSkill("space"); return; }
     if (e.code === "Digit1") { e.preventDefault(); window.activateSkill("key1"); return; }
     if (e.code === "Digit2") { e.preventDefault(); window.activateSkill("key2"); return; }
     if (e.code === "Digit3") { e.preventDefault(); window.activateSkill("key3"); return; }
     
-    // 迷路アクティブ時は矢印キーで移動
     if (mazeActive) {
         if (e.code === "ArrowUp") { e.preventDefault(); window.moveMaze('up'); return; }
         if (e.code === "ArrowDown") { e.preventDefault(); window.moveMaze('down'); return; }
@@ -825,7 +786,6 @@ document.addEventListener("keydown", e => {
     if (e.key === currentRoma[romaIdx]) {
         processCorrectType();
     } else if (!["Shift","Alt","Control","Space","1","2","3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
-        // コンボ守りがアクティブならコンボを減らさない
         if (!comboGuardActive) {
             combo = 0; 
             sounds.miss.currentTime = 0; sounds.miss.play();
@@ -911,7 +871,6 @@ function endGame() {
         earnedCoins = 0;
     }
 
-    // 【新スキル】資金稼ぎパッシブ適用（ストーリーモード以外）
     if (!isStoryMode) {
         if (equippedSkill === "fundraiser") {
             earnedCoins *= 2;
@@ -944,7 +903,6 @@ function endGame() {
                 
                 let coinText = "";
                 if (isStoryMode) {
-                    // ストーリーモードの場合は平均スコアを表示
                     const totalScore = Object.values(val).reduce((sum, m) => sum + (m.score || 0), 0);
                     const avgScore = Math.floor(totalScore / Object.keys(val).length);
                     coinText = `チーム平均スコア: ${avgScore} pts`;
@@ -977,13 +935,12 @@ function endGame() {
     }
 }
 
-// --- スキル・バトルエフェクト処理（修正版）---
+// --- スキル・バトルエフェクト処理 ---
 function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
     const statusText = el("skill-status-text");
     
-    // ストーリーモードでもスキル使用可能
     if (equippedSkill && equippedSkill !== "none") {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = SKILL_DB[equippedSkill].name;
@@ -1005,7 +962,6 @@ function setupSkillUI() {
         actionBox.classList.add("hidden");
     }
     
-    // トラップ表示の更新
     updateTrapDisplay();
 }
 
@@ -1034,7 +990,6 @@ function updateCooldownText() {
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]トラップ設置OK";
         txt = `${k1} | ${k2Text} | ${k3}`;
         
-        // トラップ数の表示
         if (trapCount > 0) {
             txt += ` | トラップ: ${trapCount}個`;
         }
@@ -1061,12 +1016,10 @@ function resetSkillState() {
     comboGuardActive = false;
     isStunned = false;
     
-    // ストーリーモード関連のリセット
     mazeActive = false;
     hackingActive = false;
     poisonActive = false;
     
-    // スタン解除オーバーレイを非表示
     el("stun-release-overlay")?.classList.add("hidden");
     
     const tabsContainer = document.getElementById("hacker-tabs-container");
@@ -1136,7 +1089,6 @@ function showBattleAlert(text, color) {
     setTimeout(() => alertEl.classList.add("hidden"), 4000);
 }
 
-// ターゲット指定なし全体攻撃
 function sendAttackToOthers(type, duration, stealAmount) {
     if (!myPartyId) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
@@ -1154,7 +1106,6 @@ function sendAttackToOthers(type, duration, stealAmount) {
     });
 }
 
-// ランダムなターゲット単体攻撃 (ウイルスのため)
 function sendRandomTargetAttack(type, duration, stealAmount) {
     if (!myPartyId) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
@@ -1184,7 +1135,6 @@ window.activateSkill = (keySlot = "space") => {
     
     const skill = SKILL_DB[equippedSkill];
 
-    // ====== SPACE KEY SKILLS ======
     if (keySlot === "space") {
         if (cooldowns.space > 0) return;
         
@@ -1236,7 +1186,6 @@ window.activateSkill = (keySlot = "space") => {
         if (skill.cooldown > 0) startSpecificCooldown("space", skill.cooldown);
     }
 
-    // ====== KEY 1 SKILLS ======
     if (keySlot === "key1") {
         if (cooldowns.key1 > 0) return;
         
@@ -1256,7 +1205,6 @@ window.activateSkill = (keySlot = "space") => {
             startSpecificCooldown("key1", 45);
         }
         else if (skill.id === "graveyard") {
-            // コンボ守り発動
             comboGuardActive = true;
             setTimeout(() => { comboGuardActive = false; }, 5000);
             showBattleAlert("🛡️ コンボ守り発動！5秒間コンボ減少なし", "var(--accent-blue)");
@@ -1264,7 +1212,6 @@ window.activateSkill = (keySlot = "space") => {
         }
     }
 
-    // ====== KEY 2 SKILLS ======
     if (keySlot === "key2") {
         if (cooldowns.key2 > 0) return;
         
@@ -1279,7 +1226,6 @@ window.activateSkill = (keySlot = "space") => {
             startSpecificCooldown("key2", 70);
         }
         else if (skill.id === "hacker_milestone4") {
-            // 高度なハック（1回のみ）
             if (!hackerMilestone4Used) {
                 sendAttackToOthers("hacking", 3000, 0);
                 showBattleAlert("💻 高度なハック！", "#ff0000");
@@ -1291,7 +1237,6 @@ window.activateSkill = (keySlot = "space") => {
             }
         }
         else if (skill.id === "graveyard") {
-            // スタン解除
             if (isStunned) {
                 releaseStun();
                 showBattleAlert("✨ スタン解除！", "var(--accent-green)");
@@ -1302,7 +1247,6 @@ window.activateSkill = (keySlot = "space") => {
         }
     }
 
-    // ====== KEY 3 SKILLS ======
     if (keySlot === "key3") {
         if (cooldowns.key3 > 0) return;
         
@@ -1318,7 +1262,6 @@ window.activateSkill = (keySlot = "space") => {
             startSpecificCooldown("key3", 35);
         }
         else if (skill.id === "graveyard") {
-            // トラップ設置
             trapCount++;
             updateTrapDisplay();
             showBattleAlert("⚠️ トラップ設置！", "#ff6b6b");
@@ -1330,7 +1273,6 @@ window.activateSkill = (keySlot = "space") => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 };
 
-// トラップ表示更新
 function updateTrapDisplay() {
     const trapDisplay = el("trap-display");
     const trapCountEl = el("stat-traps");
@@ -1343,7 +1285,6 @@ function updateTrapDisplay() {
     }
 }
 
-// スタン解除
 window.releaseStun = () => {
     if (isStunned) {
         isStunned = false;
@@ -1367,7 +1308,6 @@ function startAutoTypeEngine(durationMs, intervalMs) {
     }, durationMs);
 }
 
-// ハッカーのタブ生成処理
 function createHackerTabs() {
     if (hackerTabsActive > 0) return;
     hackerTabsActive = 10;
@@ -1417,7 +1357,6 @@ function createHackerTabs() {
     }
 }
 
-// アクセラレーターのぼかし処理
 function applyBlurEffect() {
     const playScreen = el("screen-play");
     playScreen.style.transition = "none";
@@ -1438,12 +1377,10 @@ function applyBlurEffect() {
     }, 1000);
 }
 
-// 迷路生成（必ず解ける迷路）
 function generateMaze() {
     const size = 10;
     const maze = Array(size).fill().map(() => Array(size).fill(1));
     
-    // 穴掘り法で必ず解ける迷路を生成
     function carve(x, y) {
         const dirs = [
             [0, 2], [2, 0], [0, -2], [-2, 0]
@@ -1454,7 +1391,6 @@ function generateMaze() {
             const nx = x + dx;
             const ny = y + dy;
             if (nx >= 0 && nx < size && ny >= 0 && ny < size && maze[ny][nx] === 1) {
-                // 壁を壊す
                 maze[y + dy/2][x + dx/2] = 0;
                 maze[ny][nx] = 0;
                 carve(nx, ny);
@@ -1462,21 +1398,16 @@ function generateMaze() {
         }
     }
     
-    // スタート地点を道にする
     maze[0][0] = 0;
     carve(0, 0);
-    
-    // ゴールを設定（右下）
     maze[size-1][size-1] = 2;
     
-    // ゴールへの道が確保されているか確認
     let hasPath = false;
     for (let y = size-2; y >= 0; y--) {
         if (maze[y][size-1] === 0) hasPath = true;
         if (maze[size-1][y] === 0) hasPath = true;
     }
     
-    // ゴールへの道がない場合は強制的に道を作る
     if (!hasPath) {
         maze[size-2][size-1] = 0;
         maze[size-1][size-2] = 0;
@@ -1485,12 +1416,10 @@ function generateMaze() {
     return maze;
 }
 
-// 迷路描画
 function renderMaze() {
     const grid = el("maze-grid");
     grid.innerHTML = "";
     
-    // ゴールまでの距離を計算して表示
     let distance = Math.abs(mazeGoalPos.x - mazePlayerPos.x) + Math.abs(mazeGoalPos.y - mazePlayerPos.y);
     
     for (let y = 0; y < 10; y++) {
@@ -1507,7 +1436,6 @@ function renderMaze() {
                 cell.innerHTML = "🏁";
             } else if (mazeGrid[y][x] === 0) {
                 cell.classList.add("path");
-                // 近くの道にヒントを表示
                 if (Math.abs(x - mazePlayerPos.x) + Math.abs(y - mazePlayerPos.y) < 3) {
                     cell.style.opacity = "0.8";
                 }
@@ -1517,14 +1445,12 @@ function renderMaze() {
         }
     }
     
-    // 距離を表示
     const status = el("maze-status");
     if (status) {
         status.innerHTML = `ゴールまで: ${distance}マス`;
     }
 }
 
-// 迷路移動
 window.moveMaze = (direction) => {
     if (!mazeActive) return;
     
@@ -1538,14 +1464,12 @@ window.moveMaze = (direction) => {
         case 'right': newX++; break;
     }
     
-    // 範囲チェックと壁チェック
     if (newX >= 0 && newX < 10 && newY >= 0 && newY < 10) {
         if (mazeGrid[newY][newX] !== 1) {
             mazePlayerPos.x = newX;
             mazePlayerPos.y = newY;
             renderMaze();
             
-            // ゴールチェック
             if (newX === mazeGoalPos.x && newY === mazeGoalPos.y) {
                 mazeActive = false;
                 el("maze-overlay").classList.add("hidden");
@@ -1556,14 +1480,12 @@ window.moveMaze = (direction) => {
                 sounds.type.play();
             }
         } else {
-            // 壁にぶつかったときの効果音
             sounds.miss.currentTime = 0;
             sounds.miss.play();
         }
     }
 };
 
-// ハッキング開始
 function startHacking(duration) {
     hackingActive = true;
     const overlay = el("hacking-overlay");
@@ -1593,13 +1515,11 @@ function startHacking(duration) {
     }, 1000);
 }
 
-// 毒状態開始（テキストを見えづらくする）
 function startPoison(duration) {
     poisonActive = true;
     el("poison-overlay").classList.remove("hidden");
     document.body.classList.add("poisoned");
     
-    // テキストにも直接エフェクトを適用
     const wordJa = el("q-ja");
     const wordRoma = el("q-roma");
     
@@ -1619,7 +1539,6 @@ function startPoison(duration) {
         el("poison-overlay").classList.add("hidden");
         document.body.classList.remove("poisoned");
         
-        // エフェクトを解除
         if (wordJa) {
             wordJa.style.filter = "";
             wordJa.style.opacity = "";
@@ -1633,21 +1552,17 @@ function startPoison(duration) {
     }, duration);
 }
 
-// 受信攻撃処理
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
 
     if (attack.stealAmount > 0) {
-        // トラップ発動チェック（泥棒・リボルバー対策）
         if (trapCount > 0 && (attack.type === "steal" || attack.type === "jam" && attack.stealAmount > 0)) {
             trapCount--;
             updateTrapDisplay();
             
-            // 相手をスタンさせる
             sendAttackToOthers("trap_stun", 3000, 0);
             showBattleAlert("⚠️ トラップ発動！相手をスタンさせた！", "#ff6b6b");
             
-            // スコア減少を無効化
             attack.stealAmount = 0;
         } else {
             score = Math.max(0, score - attack.stealAmount);
@@ -1731,7 +1646,6 @@ function handleIncomingAttack(attack) {
         el("maze-overlay").classList.remove("hidden");
         sounds.miss.play();
         
-        // 迷路のヒントを表示
         showBattleAlert("🔍 矢印キーかボタンで移動！", "var(--accent-blue)");
         return;
     }
@@ -1768,7 +1682,7 @@ function applyJamming(durationMs) {
     }, durationMs);
 }
 
-// --- ストーリーモード制御（修正版：進行状況チェック強化）---
+// --- ストーリーモード制御（完全修正版）---
 window.openStoryMode = () => {
     if (isMatchmaking) {
         alert("マッチング待機中はストーリーモードを開けません");
@@ -1786,7 +1700,6 @@ function renderStoryMap() {
     STORY_STAGES.chapter1.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter1 >= stageNum;
-        // 前のステージをクリアしていないとロック（1-1は常にアンロック）
         const isLocked = stageNum > 1 && storyProgress.chapter1 < stageNum - 1;
         const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
         
@@ -1809,9 +1722,7 @@ function renderStoryMap() {
     STORY_STAGES.chapter2.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter2 >= stageNum;
-        // 第1章を全クリしていないと第2章全体がロック
         const chapter1Completed = storyProgress.chapter1 >= 7;
-        // 前のステージをクリアしていないとロック
         const isLocked = !chapter1Completed || (stageNum > 1 && storyProgress.chapter2 < stageNum - 1);
         const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && chapter1Completed;
         
@@ -1834,9 +1745,7 @@ function renderStoryMap() {
     STORY_STAGES.chapter3.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter3 >= stageNum;
-        // 第2章を全クリしていないと第3章全体がロック
         const chapter2Completed = storyProgress.chapter2 >= 7;
-        // 前のステージをクリアしていないとロック
         const isLocked = !chapter2Completed || (stageNum > 1 && storyProgress.chapter3 < stageNum - 1);
         const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && chapter2Completed;
         
@@ -1865,9 +1774,9 @@ function renderStoryMap() {
     });
 }
 
-// ステージ選択（修正版：ロックチェック強化）
+// ステージ選択（修正版：厳格なロックチェック）
 function selectStage(chapter, stage) {
-    // 選択可能かチェック
+    // 選択可能か厳格にチェック
     if (chapter === 1) {
         if (stage > 1 && storyProgress.chapter1 < stage - 1) {
             alert("前のステージをクリアしてください");
@@ -1915,7 +1824,6 @@ function selectStage(chapter, stage) {
             el("boss-skill-name").innerText = "墓地強化";
         }
         
-        // ボススキルの取得状態を表示
         const skillId = stageData.skill;
         if (ownedSkills.includes(skillId)) {
             el("boss-skill-name").innerHTML += ' <span style="color: var(--accent-green);">(獲得済み)</span>';
@@ -1926,19 +1834,16 @@ function selectStage(chapter, stage) {
         el("boss-info").classList.add("hidden");
     }
     
-    // ボタン状態の更新
     updateStageButtons();
     
     openScreen("screen-stage-detail");
 }
 
-// ステージボタンの状態更新（修正版）
 function updateStageButtons() {
     const soloBtn = el("story-solo-btn");
     const partyBtn = el("story-party-btn");
     const restrictionMsg = el("party-restriction-msg");
     
-    // パーティー参加中は一人プレイボタンを非表示
     if (myPartyId) {
         soloBtn.style.display = "none";
     } else {
@@ -1967,27 +1872,38 @@ async function checkPartyProgress() {
     
     const memberIds = Object.keys(members).filter(id => id !== myId);
     let allCleared = true;
+    let restrictionReason = "";
     
     for (const mid of memberIds) {
         const userSnap = await get(ref(db, `users/${mid}/story_progress`));
         const progress = userSnap.val() || { chapter1: 0, chapter2: 0, chapter3: 0 };
         
-        // 各章の前提条件チェック
         if (currentStage.chapter === 1) {
             if (progress.chapter1 < currentStage.stage - 1) {
                 allCleared = false;
+                restrictionReason = "前のステージをクリアしていません";
                 break;
             }
         } else if (currentStage.chapter === 2) {
-            // 第2章は第1章全クリが必要
-            if (progress.chapter1 < 7 || progress.chapter2 < currentStage.stage - 1) {
+            if (progress.chapter1 < 7) {
                 allCleared = false;
+                restrictionReason = "第1章を全てクリアしていません";
+                break;
+            }
+            if (progress.chapter2 < currentStage.stage - 1) {
+                allCleared = false;
+                restrictionReason = "前のステージをクリアしていません";
                 break;
             }
         } else {
-            // 第3章は第2章全クリが必要
-            if (progress.chapter2 < 7 || progress.chapter3 < currentStage.stage - 1) {
+            if (progress.chapter2 < 7) {
                 allCleared = false;
+                restrictionReason = "第2章を全てクリアしていません";
+                break;
+            }
+            if (progress.chapter3 < currentStage.stage - 1) {
+                allCleared = false;
+                restrictionReason = "前のステージをクリアしていません";
                 break;
             }
         }
@@ -1996,6 +1912,7 @@ async function checkPartyProgress() {
     const msg = el("party-restriction-msg");
     if (!allCleared) {
         msg.classList.remove("hidden");
+        msg.innerText = `⚠️ メンバーが条件を満たしていません: ${restrictionReason}`;
         el("story-party-btn").disabled = true;
     } else {
         msg.classList.add("hidden");
@@ -2003,7 +1920,6 @@ async function checkPartyProgress() {
     }
 }
 
-// ストーリーモードソロプレイ開始
 window.startStorySolo = () => {
     if (myPartyId) {
         alert("パーティー参加中は一人プレイできません");
@@ -2033,7 +1949,6 @@ window.startStorySolo = () => {
     startGame(60);
 };
 
-// ストーリーモードパーティープレイ開始
 window.startStoryParty = () => {
     if (!myPartyId || !isLeader) {
         alert("パーティーリーダーのみ開始できます");
@@ -2057,20 +1972,18 @@ window.startStoryParty = () => {
     });
 };
 
-// ストーリー画面に戻る
 window.backToStory = () => {
     openScreen("screen-story");
     renderStoryMap();
 };
 
-// 避けるボタン実行
 window.executeDodge = () => {
     if (window.dodgeCallback) {
         window.dodgeCallback(true);
     }
 };
 
-// --- ボイスチャット機能（Speech Synthesis API版）---
+// --- ボイスチャット機能（完全修正版）---
 function openVoiceChat() {
     console.log("ボイスチャットを開きます");
     const overlay = el("debug-overlay");
@@ -2086,9 +1999,7 @@ function openVoiceChat() {
     }
 }
 
-// 常時表示のボイスチャットバーを作成
 function createVoiceChatBar() {
-    // 既存のバーがあれば削除
     const existingBar = document.getElementById("voice-chat-bar");
     if (existingBar) existingBar.remove();
     
@@ -2111,14 +2022,21 @@ function createVoiceChatBar() {
         box-shadow: 0 0 20px var(--accent-purple);
     `;
     
-    // 参加者表示
     const participantsSpan = document.createElement("span");
     participantsSpan.id = "voice-bar-participants";
     participantsSpan.style.color = "white";
     participantsSpan.style.fontWeight = "bold";
-    participantsSpan.innerHTML = `👥 参加者: ${myName}`;
     
-    // 声の種類選択
+    // 参加者リストを正しく表示
+    if (voiceParticipants.length > 0) {
+        const participantsList = voiceParticipants.map(pid => 
+            pid === myId ? myName : "参加者"
+        ).join(", ");
+        participantsSpan.innerHTML = `👥 参加者: ${participantsList}`;
+    } else {
+        participantsSpan.innerHTML = `👥 参加者: ${myName}`;
+    }
+    
     const voiceSelect = document.createElement("select");
     voiceSelect.style.cssText = `
         background: #333;
@@ -2138,7 +2056,6 @@ function createVoiceChatBar() {
         voiceType = e.target.value;
     };
     
-    // ミュートボタン
     const muteBtn = document.createElement("button");
     muteBtn.id = "voice-bar-mute";
     muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
@@ -2160,7 +2077,6 @@ function createVoiceChatBar() {
     };
     muteBtn.onclick = toggleVoiceMute;
     
-    // 通話終了ボタン
     const endBtn = document.createElement("button");
     endBtn.innerHTML = "📞 通話終了";
     endBtn.style.cssText = `
@@ -2191,7 +2107,6 @@ function createVoiceChatBar() {
     document.body.appendChild(voiceBar);
 }
 
-// ミュート切り替え
 function toggleVoiceMute() {
     voiceMuted = !voiceMuted;
     
@@ -2211,7 +2126,6 @@ function toggleVoiceMute() {
     }
 }
 
-// 音声状態表示
 function showVoiceStatus(status) {
     const participantsSpan = document.getElementById("voice-bar-participants");
     if (participantsSpan) {
@@ -2223,7 +2137,6 @@ function showVoiceStatus(status) {
     }
 }
 
-// 音声認識の初期化
 function initVoiceChat() {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
         alert("お使いのブラウザは音声認識に対応していません。Chromeの使用をお勧めします。");
@@ -2251,13 +2164,11 @@ function initVoiceChat() {
             const text = result[0].transcript;
             console.log("認識結果:", text);
             
-            // 音声合成で発話
             if (currentUtterance) {
                 window.speechSynthesis.cancel();
             }
             currentUtterance = speakText(text, voiceType);
             
-            // 参加者に音声メッセージを送信
             sendVoiceMessage(text);
             
             showVoiceStatus("🗣️ 話しました");
@@ -2274,7 +2185,6 @@ function initVoiceChat() {
         recognition.onend = () => {
             console.log("音声認識終了");
             if (!voiceMuted && voiceChatActive) {
-                // 自動的に再開
                 setTimeout(() => {
                     startListening();
                 }, 500);
@@ -2283,7 +2193,6 @@ function initVoiceChat() {
             }
         };
         
-        // 音声認識開始
         startListening();
         
     } catch (e) {
@@ -2292,7 +2201,6 @@ function initVoiceChat() {
     }
 }
 
-// 音声認識開始
 function startListening() {
     if (recognition && !isListening && !voiceMuted && voiceChatActive) {
         try {
@@ -2300,18 +2208,15 @@ function startListening() {
             console.log("音声認識開始試行");
         } catch (e) {
             console.error("音声認識開始エラー:", e);
-            // 既に開始されている場合は無視
         }
     }
 }
 
-// 音声メッセージを相手に送信
 function sendVoiceMessage(text) {
     if (!voiceChatActive || voiceParticipants.length === 0) return;
     
     voiceParticipants.forEach(pid => {
         if (pid !== myId) {
-            // 音声メッセージを送信
             update(ref(db, `users/${pid}/voice_message`), {
                 from: myId,
                 fromName: myName,
@@ -2320,7 +2225,6 @@ function sendVoiceMessage(text) {
                 timestamp: Date.now()
             }).catch(error => console.error("音声メッセージ送信エラー:", error));
             
-            // 2秒後に削除
             setTimeout(() => {
                 remove(ref(db, `users/${pid}/voice_message`)).catch(() => {});
             }, 2000);
@@ -2328,21 +2232,20 @@ function sendVoiceMessage(text) {
     });
 }
 
-// 音声メッセージの受信監視
+// 音声メッセージの受信監視（修正版）
 onValue(ref(db, `users/${myId}/voice_message`), snap => {
     const message = snap.val();
     if (message && voiceChatActive) {
-        // 音声合成で発話
         if (currentUtterance) {
             window.speechSynthesis.cancel();
         }
         currentUtterance = speakText(message.text, message.voiceType);
         
-        // バーの参加者表示を更新（相手が話していることを示す）
         const participantsSpan = document.getElementById("voice-bar-participants");
         if (participantsSpan) {
             const participants = voiceParticipants.map(pid => 
-                pid === myId ? myName : message.fromName
+                pid === myId ? myName : 
+                pid === message.from ? message.fromName : "参加者"
             ).join(", ");
             participantsSpan.innerHTML = `👥 参加者: ${participants} (${message.fromName}が話しています)`;
             setTimeout(() => {
@@ -2425,7 +2328,6 @@ function renderVoiceFriendList() {
 
 window.inviteToVoiceChat = (fid, friendName) => {
     if (!voiceChatActive) {
-        // ボイスチャットが起動していない場合は自動起動
         openVoiceChat();
         setTimeout(() => {
             sendVoiceInvite(fid, friendName);
@@ -2436,7 +2338,6 @@ window.inviteToVoiceChat = (fid, friendName) => {
 };
 
 function sendVoiceInvite(fid, friendName) {
-    // ボイスチャット招待を送信
     set(ref(db, `users/${fid}/voice_invite`), {
         from: myId,
         fromName: myName,
@@ -2449,36 +2350,52 @@ function sendVoiceInvite(fid, friendName) {
     });
 }
 
-// ボイスチャット招待の受信監視（修正版：名前を正しく表示）
+// ボイスチャット招待の受信監視（修正版）
 if (voiceInviteListener) {
     off(voiceInviteListener);
 }
 voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
     const invite = snap.val();
-    if (invite && !voiceChatActive) {
-        // 招待が来たら確認ダイアログを表示
-        const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
-        if (result) {
-            // ボイスチャットを起動
-            openVoiceChat();
-            setTimeout(() => {
-                // 参加者リストに追加
-                if (!voiceParticipants.includes(invite.from)) {
-                    voiceParticipants.push(invite.from);
-                    
-                    // バーの表示を更新
-                    const participantsSpan = document.getElementById("voice-bar-participants");
-                    if (participantsSpan) {
-                        participantsSpan.innerHTML = `👥 参加者: ${myName}, ${invite.fromName}`;
+    if (invite) {
+        if (!voiceChatActive) {
+            const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
+            if (result) {
+                openVoiceChat();
+                setTimeout(() => {
+                    if (!voiceParticipants.includes(invite.from)) {
+                        voiceParticipants.push(invite.from);
+                        
+                        const participantsSpan = document.getElementById("voice-bar-participants");
+                        if (participantsSpan) {
+                            const participantsList = voiceParticipants.map(pid => 
+                                pid === myId ? myName : 
+                                pid === invite.from ? invite.fromName : "参加者"
+                            ).join(", ");
+                            participantsSpan.innerHTML = `👥 参加者: ${participantsList}`;
+                        }
+                        
+                        sounds.notify.play();
+                        showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
                     }
-                    
-                    // 参加通知を送信
-                    sounds.notify.play();
-                    showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+                }, 2000);
+            }
+        } else {
+            if (!voiceParticipants.includes(invite.from)) {
+                voiceParticipants.push(invite.from);
+                
+                const participantsSpan = document.getElementById("voice-bar-participants");
+                if (participantsSpan) {
+                    const participantsList = voiceParticipants.map(pid => 
+                        pid === myId ? myName : 
+                        pid === invite.from ? invite.fromName : "参加者"
+                    ).join(", ");
+                    participantsSpan.innerHTML = `👥 参加者: ${participantsList}`;
                 }
-            }, 2000);
+                
+                sounds.notify.play();
+                showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+            }
         }
-        // 招待を削除
         remove(ref(db, `users/${myId}/voice_invite`));
     }
 });
@@ -2488,9 +2405,7 @@ function endVoiceChat() {
     if (recognition) {
         try {
             recognition.stop();
-        } catch (e) {
-            // 無視
-        }
+        } catch (e) {}
         recognition = null;
     }
     if (currentUtterance) {
