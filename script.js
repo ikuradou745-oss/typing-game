@@ -366,7 +366,7 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
             
             row.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="friend-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: ${friendSkinColor}; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.8rem; border: 2px solid var(--accent-blue);">
+                    <div class="friend-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: ${friendSkinColor}; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.8rem; border: 2px solid var(--accent-blue); position: relative;">
                         <div style="font-size: 1rem;">${friendSkin.eyes}</div>
                         <div style="font-size: 0.9rem;">${friendSkin.mouth}</div>
                         <div class="accessories" style="position: absolute; top: -10px; font-size: 1rem;">${friendSkin.accessories.map(id => 
@@ -589,6 +589,13 @@ function renderShop() {
             </div>
         `;
     });
+    
+    // ショップ画面の戻るボタンを画面内に収めるため、スクロール調整
+    const shopScreen = el("screen-shop");
+    if (shopScreen) {
+        shopScreen.style.overflowY = "auto";
+        shopScreen.style.paddingBottom = "80px"; // 戻るボタンのスペース確保
+    }
 }
 
 window.unlockBossSkill = (skillId) => {
@@ -675,12 +682,24 @@ function renderSkinShop(category) {
             const canAfford = coins >= acc.cost;
             
             const item = document.createElement("div");
-            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${!isOwned ? 'locked' : ''}`;
+            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
             
             // 大金持ちの特別処理
             let priceDisplay = acc.cost.toLocaleString();
             if (acc.special && !isOwned) {
                 priceDisplay = "特殊";
+            }
+            
+            // 購入ボタンか装備ボタンかを判断
+            let action = "";
+            if (!isOwned && canAfford) {
+                action = "購入";
+            } else if (isOwned && !isEquipped) {
+                action = "装備";
+            } else if (isOwned && isEquipped) {
+                action = "装備中";
+            } else if (!isOwned && !canAfford) {
+                action = "コイン不足";
             }
             
             item.innerHTML = `
@@ -691,9 +710,9 @@ function renderSkinShop(category) {
                 </div>
                 <div class="skin-name">${acc.name}</div>
                 <div class="skin-price">${priceDisplay}🪙</div>
+                <div class="skin-action">${action}</div>
                 ${!isOwned && !canAfford ? '<div class="skin-locked-tag">🔒</div>' : ''}
-                ${isOwned && isEquipped ? '<div class="skin-equip-tag">装備中</div>' : ''}
-                ${isOwned && !isEquipped ? '<div class="skin-equip-tag" style="color: var(--accent-blue);">クリックで装備</div>' : ''}
+                ${isOwned && isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
             `;
             
             if (!isOwned && canAfford) {
@@ -703,6 +722,13 @@ function renderSkinShop(category) {
             }
             skinGrid.appendChild(item);
         });
+    }
+    
+    // スキンショップ画面の戻るボタンを画面内に収める
+    const skinScreen = el("screen-skin-shop");
+    if (skinScreen) {
+        skinScreen.style.overflowY = "auto";
+        skinScreen.style.paddingBottom = "80px";
     }
 }
 
@@ -780,7 +806,9 @@ function updateSkinPreview() {
     const profileMouth = el("profile-mouth");
     const profileAccessories = el("profile-accessories");
     
-    if (profileFace) profileFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+    if (profileFace) {
+        profileFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+    }
     if (profileEyes) profileEyes.innerText = skinData.eyes;
     if (profileMouth) profileMouth.innerText = skinData.mouth;
     if (profileAccessories) {
