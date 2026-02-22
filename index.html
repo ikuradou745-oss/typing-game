@@ -11,6 +11,45 @@
 
     <div class="bg-grid"></div>
 
+    <!-- 🔐 コード入力ボタン（左上） -->
+    <div id="code-button" class="code-button" onclick="window.openCodeUI()">
+        🔐
+    </div>
+
+    <!-- コード入力UI -->
+    <div id="code-ui" class="hidden">
+        <div class="code-container">
+            <div class="code-header">
+                <h3>🎫 コード入力</h3>
+                <button class="code-close" onclick="window.closeCodeUI()">✖</button>
+            </div>
+            <div class="code-content">
+                <div class="daily-code-section">
+                    <div class="daily-code-title">今日のランダムコード</div>
+                    <div class="daily-code-display" id="daily-code">???????</div>
+                    <div class="daily-code-timer" id="daily-code-timer">更新まで: --:--:--</div>
+                    <div class="daily-code-reward">500〜5000コイン ランダム</div>
+                </div>
+                
+                <div class="code-input-section">
+                    <input type="text" id="code-input" placeholder="コードを入力" maxlength="20">
+                    <button class="btn-invite" onclick="window.submitCode()">入力</button>
+                </div>
+
+                <div class="special-codes-section">
+                    <div class="special-code-item">
+                        <span class="special-code">TYSM</span>
+                        <span class="special-reward">25000コイン</span>
+                    </div>
+                    <div class="special-code-item">
+                        <span class="special-code">ByRamo</span>
+                        <span class="special-reward">コンボアップの神</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="invite-toast" class="hidden">
         <div class="toast-content">
             <span id="invite-msg">パーティーの招待が来ています！</span>
@@ -93,19 +132,21 @@
                     <button class="skin-cat-btn" onclick="window.switchSkinCategory('accessory')">アクセサリー</button>
                 </div>
 
-                <div id="skin-category-skin" class="skin-grid active">
-                    <!-- 肌の色10種類がJSで動的に生成されます -->
-                </div>
-                <div id="skin-category-face" class="skin-grid hidden">
-                    <!-- 顔30種類がJSで動的に生成されます -->
-                </div>
-                <div id="skin-category-accessory" class="skin-grid hidden">
-                    <!-- アクセサリー10種類がJSで動的に生成されます -->
+                <div class="skin-grid-container">
+                    <div id="skin-category-skin" class="skin-grid active">
+                        <!-- 肌の色10種類がJSで動的に生成されます -->
+                    </div>
+                    <div id="skin-category-face" class="skin-grid hidden">
+                        <!-- 顔30種類がJSで動的に生成されます -->
+                    </div>
+                    <div id="skin-category-accessory" class="skin-grid hidden">
+                        <!-- アクセサリー10種類がJSで動的に生成されます -->
+                    </div>
                 </div>
 
                 <div class="skin-shop-buttons">
-                    <button class="action-btn purple-btn" style="max-width: 200px;" onclick="window.saveAndExitSkinShop()">保存して戻る</button>
-                    <button class="action-btn gray-btn" style="max-width: 200px;" onclick="window.goHome()">キャンセル</button>
+                    <button class="action-btn purple-btn" onclick="window.saveAndExitSkinShop()">保存して戻る</button>
+                    <button class="action-btn gray-btn" onclick="window.goHome()">キャンセル</button>
                 </div>
             </div>
 
@@ -274,7 +315,7 @@
                 <div class="panel-title">プロフィール</div>
                 <div class="profile-box">
                     <div class="profile-face-container" id="profile-face">
-                        <div id="profile-skin" class="profile-skin" style="background: #f5d0a9;"></div>
+                        <div id="profile-skin" class="profile-skin"></div>
                         <div id="profile-face-layer" class="profile-face-layer">😊</div>
                         <div id="profile-accessory" class="profile-accessory"></div>
                     </div>
