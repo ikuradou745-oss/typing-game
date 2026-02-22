@@ -19,52 +19,47 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- 音声定義（実際の人の声のサンプル）---
+// --- 音声定義（Speech Synthesis APIを使用）---
 const sounds = {
     type: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
     miss: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
     correct: new Audio("https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"),
     finish: new Audio("https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"),
-    notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"),
-    
-    // ボイスチャット用の実際の人の声（日本語の母音・子音サンプル）
-    voiceMale: [
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/ahh.mp3"),      // あ
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/ee.mp3"),       // い
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/oo.mp3"),       // う
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/eh.mp3"),       // え
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/oh.mp3"),       // お
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/kah.mp3"),      // か
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/kee.mp3"),      // き
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/koo.mp3"),      // く
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/keh.mp3"),      // け
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/koh.mp3")       // こ
-    ],
-    voiceFemale: [
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/fah.mp3"),      // あ（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/fee.mp3"),      // い（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/foo.mp3"),      // う（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/feh.mp3"),      // え（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/foh.mp3"),      // お（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/vah.mp3"),      // か（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/vee.mp3"),      // き（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/voo.mp3"),      // く（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/veh.mp3"),      // け（女性）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/voh.mp3")       // こ（女性）
-    ],
-    voiceRobot: [
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/ahh.mp3"),      // ロボット風（簡易版）
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/ee.mp3"),
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/oo.mp3"),
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/eh.mp3"),
-        new Audio("https://www.phon.ucl.ac.uk/home/wells/ipa/oh.mp3")
-    ]
+    notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3")
 };
 
-// 各音声のプリロード
-Object.values(sounds.voiceMale).forEach(audio => audio.load());
-Object.values(sounds.voiceFemale).forEach(audio => audio.load());
-Object.values(sounds.voiceRobot).forEach(audio => audio.load());
+// 音声合成用のユーティリティ関数
+function speakText(text, voiceType = 'male') {
+    if (!window.speechSynthesis) {
+        console.warn("Speech Synthesis not supported");
+        return;
+    }
+    
+    // 既存の音声を停止
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    utterance.rate = 0.9; // 少しゆっくり
+    utterance.pitch = voiceType === 'female' ? 1.3 : voiceType === 'robot' ? 0.7 : 1.0;
+    
+    // 利用可能な音声から適切なものを選択
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+        if (voiceType === 'female') {
+            const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google 日本語') || v.lang === 'ja-JP' && v.name.includes('Female'));
+            if (femaleVoice) utterance.voice = femaleVoice;
+        } else if (voiceType === 'male') {
+            const maleVoice = voices.find(v => v.name.includes('Male') || v.lang === 'ja-JP' && v.name.includes('Male'));
+            if (maleVoice) utterance.voice = maleVoice;
+        }
+    }
+    
+    window.speechSynthesis.speak(utterance);
+    return utterance;
+}
+
+// 音声のプリロード（音声合成は不要）
 
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
@@ -115,7 +110,7 @@ let comboGuardActive = false; // コンボ守り
 let trapCount = 0; // トラップ数
 let isStunned = false; // スタン状態
 
-// --- ストーリーモード用グローバル変数 ---
+// --- ストーリーモード用グローバル変数（修正版）---
 let storyProgress = JSON.parse(localStorage.getItem("ramo_story_progress")) || { chapter1: 0, chapter2: 0, chapter3: 0 };
 let currentStage = { chapter: 1, stage: 1 };
 let isStoryMode = false;
@@ -129,7 +124,7 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- ボイスチャット用（修正版）---
+// --- ボイスチャット用（Speech Synthesis API版）---
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
@@ -138,6 +133,10 @@ let voiceType = 'male'; // 'male', 'female', 'robot'
 let recognition = null;
 let isListening = false;
 let voiceBar = null;
+let currentUtterance = null;
+
+// --- ハッカーマイルストーン4 使用状態管理 ---
+let hackerMilestone4Used = false; // 高度なハック（キー2）の使用済みフラグ
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -676,7 +675,7 @@ function updateProgressBar(currentScore) {
     el("progress-score").innerText = currentScore;
 }
 
-// ストーリークリア処理
+// ストーリークリア処理（修正版）
 function storyClear() {
     const stageData = currentStage.chapter === 1 ?
         STORY_STAGES.chapter1[currentStage.stage - 1] :
@@ -694,10 +693,11 @@ function storyClear() {
             
             const memberCount = Object.keys(members).length;
             
-            // 進行状況を全員分更新
+            // 進行状況を全員分更新（正しい章を更新）
             const updates = {};
             Object.keys(members).forEach(memberId => {
-                updates[`users/${memberId}/story_progress/chapter${currentStage.chapter}`] = currentStage.stage;
+                const chapterKey = `chapter${currentStage.chapter}`;
+                updates[`users/${memberId}/story_progress/${chapterKey}`] = currentStage.stage;
             });
             update(ref(db), updates);
             
@@ -977,7 +977,7 @@ function endGame() {
     }
 }
 
-// --- スキル・バトルエフェクト処理 ---
+// --- スキル・バトルエフェクト処理（修正版）---
 function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
@@ -1025,7 +1025,7 @@ function updateCooldownText() {
         txt = `${k1} | ${k2} | ${k3}`;
     } else if (skill.id === "hacker_milestone4") {
         let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]迷路OK";
-        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]高度なハックOK";
+        let k2 = hackerMilestone4Used ? "【使用済み】" : (cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]高度なハックOK");
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]状態変異OK";
         txt = `${k1} | ${k2} | ${k3}`;
     } else if (skill.id === "graveyard") {
@@ -1279,10 +1279,15 @@ window.activateSkill = (keySlot = "space") => {
             startSpecificCooldown("key2", 70);
         }
         else if (skill.id === "hacker_milestone4") {
-            if (!skill.used) {
+            // 高度なハック（1回のみ）
+            if (!hackerMilestone4Used) {
                 sendAttackToOthers("hacking", 3000, 0);
                 showBattleAlert("💻 高度なハック！", "#ff0000");
-                skill.used = true;
+                hackerMilestone4Used = true;
+                startSpecificCooldown("key2", 70);
+                updateCooldownText();
+            } else {
+                showBattleAlert("❌ この能力は使用済みです", "var(--accent-red)");
             }
         }
         else if (skill.id === "graveyard") {
@@ -1763,7 +1768,7 @@ function applyJamming(durationMs) {
     }, durationMs);
 }
 
-// --- ストーリーモード制御 ---
+// --- ストーリーモード制御（修正版：進行状況チェック強化）---
 window.openStoryMode = () => {
     if (isMatchmaking) {
         alert("マッチング待機中はストーリーモードを開けません");
@@ -1773,7 +1778,7 @@ window.openStoryMode = () => {
     renderStoryMap();
 };
 
-// ストーリーマップの描画
+// ストーリーマップの描画（修正版：ロック状態を正しく表示）
 function renderStoryMap() {
     // 第1章のマップ描画
     const map1 = el("story-map-1");
@@ -1781,7 +1786,8 @@ function renderStoryMap() {
     STORY_STAGES.chapter1.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter1 >= stageNum;
-        const isLocked = storyProgress.chapter1 < stageNum - 1;
+        // 前のステージをクリアしていないとロック（1-1は常にアンロック）
+        const isLocked = stageNum > 1 && storyProgress.chapter1 < stageNum - 1;
         const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
         
         const node = document.createElement("div");
@@ -1797,14 +1803,17 @@ function renderStoryMap() {
         map1.appendChild(node);
     });
 
-    // 第2章のマップ描画
+    // 第2章のマップ描画（第1章全クリが必要）
     const map2 = el("story-map-2");
     map2.innerHTML = "";
     STORY_STAGES.chapter2.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter2 >= stageNum;
-        const isLocked = (storyProgress.chapter1 < 7) || (storyProgress.chapter2 < stageNum - 1);
-        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && storyProgress.chapter1 >= 7;
+        // 第1章を全クリしていないと第2章全体がロック
+        const chapter1Completed = storyProgress.chapter1 >= 7;
+        // 前のステージをクリアしていないとロック
+        const isLocked = !chapter1Completed || (stageNum > 1 && storyProgress.chapter2 < stageNum - 1);
+        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && chapter1Completed;
         
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -1819,14 +1828,17 @@ function renderStoryMap() {
         map2.appendChild(node);
     });
     
-    // 第3章のマップ描画
+    // 第3章のマップ描画（第2章全クリが必要）
     const map3 = el("story-map-3");
     map3.innerHTML = "";
     STORY_STAGES.chapter3.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter3 >= stageNum;
-        const isLocked = (storyProgress.chapter2 < 7) || (storyProgress.chapter3 < stageNum - 1);
-        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && storyProgress.chapter2 >= 7;
+        // 第2章を全クリしていないと第3章全体がロック
+        const chapter2Completed = storyProgress.chapter2 >= 7;
+        // 前のステージをクリアしていないとロック
+        const isLocked = !chapter2Completed || (stageNum > 1 && storyProgress.chapter3 < stageNum - 1);
+        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && chapter2Completed;
         
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -1853,8 +1865,34 @@ function renderStoryMap() {
     });
 }
 
-// ステージ選択
+// ステージ選択（修正版：ロックチェック強化）
 function selectStage(chapter, stage) {
+    // 選択可能かチェック
+    if (chapter === 1) {
+        if (stage > 1 && storyProgress.chapter1 < stage - 1) {
+            alert("前のステージをクリアしてください");
+            return;
+        }
+    } else if (chapter === 2) {
+        if (storyProgress.chapter1 < 7) {
+            alert("第1章を全てクリアしてください");
+            return;
+        }
+        if (stage > 1 && storyProgress.chapter2 < stage - 1) {
+            alert("前のステージをクリアしてください");
+            return;
+        }
+    } else if (chapter === 3) {
+        if (storyProgress.chapter2 < 7) {
+            alert("第2章を全てクリアしてください");
+            return;
+        }
+        if (stage > 1 && storyProgress.chapter3 < stage - 1) {
+            alert("前のステージをクリアしてください");
+            return;
+        }
+    }
+    
     currentStage = { chapter, stage };
     const stageData = chapter === 1 ? 
         STORY_STAGES.chapter1[stage - 1] : 
@@ -1894,7 +1932,7 @@ function selectStage(chapter, stage) {
     openScreen("screen-stage-detail");
 }
 
-// ステージボタンの状態更新
+// ステージボタンの状態更新（修正版）
 function updateStageButtons() {
     const soloBtn = el("story-solo-btn");
     const partyBtn = el("story-party-btn");
@@ -1919,7 +1957,7 @@ function updateStageButtons() {
     }
 }
 
-// パーティーメンバーの進行状況チェック
+// パーティーメンバーの進行状況チェック（修正版）
 async function checkPartyProgress() {
     if (!myPartyId) return;
     
@@ -1934,18 +1972,21 @@ async function checkPartyProgress() {
         const userSnap = await get(ref(db, `users/${mid}/story_progress`));
         const progress = userSnap.val() || { chapter1: 0, chapter2: 0, chapter3: 0 };
         
+        // 各章の前提条件チェック
         if (currentStage.chapter === 1) {
             if (progress.chapter1 < currentStage.stage - 1) {
                 allCleared = false;
                 break;
             }
         } else if (currentStage.chapter === 2) {
-            if (progress.chapter2 < currentStage.stage - 1) {
+            // 第2章は第1章全クリが必要
+            if (progress.chapter1 < 7 || progress.chapter2 < currentStage.stage - 1) {
                 allCleared = false;
                 break;
             }
         } else {
-            if (progress.chapter3 < currentStage.stage - 1) {
+            // 第3章は第2章全クリが必要
+            if (progress.chapter2 < 7 || progress.chapter3 < currentStage.stage - 1) {
                 allCleared = false;
                 break;
             }
@@ -2029,7 +2070,7 @@ window.executeDodge = () => {
     }
 };
 
-// --- ボイスチャット機能（修正版：音声認識＋実際の人の声）---
+// --- ボイスチャット機能（Speech Synthesis API版）---
 function openVoiceChat() {
     console.log("ボイスチャットを開きます");
     const overlay = el("debug-overlay");
@@ -2038,7 +2079,7 @@ function openVoiceChat() {
         renderVoiceFriendList();
         initVoiceChat();
         createVoiceChatBar();
-        alert("🎤 ボイスチャットモードを起動しました\nマイクに向かって話すと、選んだ声で相手に届きます");
+        alert("🎤 ボイスチャットモードを起動しました\nマイクに向かって話すと、音声合成で相手に届きます");
     } else {
         console.error("debug-overlayが見つかりません");
         alert("ボイスチャット画面が見つかりません");
@@ -2210,11 +2251,16 @@ function initVoiceChat() {
             const text = result[0].transcript;
             console.log("認識結果:", text);
             
-            // 認識されたテキストを音声に変換して再生
-            playVoiceMessage(text);
+            // 音声合成で発話
+            if (currentUtterance) {
+                window.speechSynthesis.cancel();
+            }
+            currentUtterance = speakText(text, voiceType);
             
             // 参加者に音声メッセージを送信
             sendVoiceMessage(text);
+            
+            showVoiceStatus("🗣️ 話しました");
         };
         
         recognition.onerror = (event) => {
@@ -2259,28 +2305,6 @@ function startListening() {
     }
 }
 
-// 音声メッセージを再生（実際の人の声）
-function playVoiceMessage(text) {
-    // テキストから発音の種類を判断
-    // ここでは簡易的にランダムな音声を再生
-    const soundArray = voiceType === 'female' ? sounds.voiceFemale :
-                      voiceType === 'robot' ? sounds.voiceRobot :
-                      sounds.voiceMale;
-    
-    // ランダムな音声を再生（実際の人の声）
-    const randomIndex = Math.floor(Math.random() * soundArray.length);
-    const sound = soundArray[randomIndex];
-    
-    if (sound) {
-        sound.currentTime = 0;
-        sound.volume = 1.0;
-        sound.play().catch(e => console.log("音声再生エラー:", e));
-        
-        // 自分の声が聞こえたことを表示
-        showVoiceStatus("🗣️ 話しました");
-    }
-}
-
 // 音声メッセージを相手に送信
 function sendVoiceMessage(text) {
     if (!voiceChatActive || voiceParticipants.length === 0) return;
@@ -2292,13 +2316,14 @@ function sendVoiceMessage(text) {
                 from: myId,
                 fromName: myName,
                 voiceType: voiceType,
+                text: text,
                 timestamp: Date.now()
             }).catch(error => console.error("音声メッセージ送信エラー:", error));
             
-            // 1秒後に削除
+            // 2秒後に削除
             setTimeout(() => {
                 remove(ref(db, `users/${pid}/voice_message`)).catch(() => {});
-            }, 1000);
+            }, 2000);
         }
     });
 }
@@ -2307,30 +2332,22 @@ function sendVoiceMessage(text) {
 onValue(ref(db, `users/${myId}/voice_message`), snap => {
     const message = snap.val();
     if (message && voiceChatActive) {
-        // 相手の声の種類で音声を再生
-        const soundArray = message.voiceType === 'female' ? sounds.voiceFemale :
-                          message.voiceType === 'robot' ? sounds.voiceRobot :
-                          sounds.voiceMale;
+        // 音声合成で発話
+        if (currentUtterance) {
+            window.speechSynthesis.cancel();
+        }
+        currentUtterance = speakText(message.text, message.voiceType);
         
-        const randomIndex = Math.floor(Math.random() * soundArray.length);
-        const sound = soundArray[randomIndex];
-        
-        if (sound) {
-            sound.currentTime = 0;
-            sound.volume = 1.0;
-            sound.play().catch(e => console.log("音声再生エラー:", e));
-            
-            // バーの参加者表示を更新（相手が話していることを示す）
-            const participantsSpan = document.getElementById("voice-bar-participants");
-            if (participantsSpan) {
-                const participants = voiceParticipants.map(pid => 
-                    pid === myId ? myName : message.fromName
-                ).join(", ");
-                participantsSpan.innerHTML = `👥 参加者: ${participants} (${message.fromName}が話しています)`;
-                setTimeout(() => {
-                    participantsSpan.innerHTML = `👥 参加者: ${participants}`;
-                }, 2000);
-            }
+        // バーの参加者表示を更新（相手が話していることを示す）
+        const participantsSpan = document.getElementById("voice-bar-participants");
+        if (participantsSpan) {
+            const participants = voiceParticipants.map(pid => 
+                pid === myId ? myName : message.fromName
+            ).join(", ");
+            participantsSpan.innerHTML = `👥 参加者: ${participants} (${message.fromName}が話しています)`;
+            setTimeout(() => {
+                participantsSpan.innerHTML = `👥 参加者: ${participants}`;
+            }, 2000);
         }
     }
 });
@@ -2432,7 +2449,7 @@ function sendVoiceInvite(fid, friendName) {
     });
 }
 
-// ボイスチャット招待の受信監視
+// ボイスチャット招待の受信監視（修正版：名前を正しく表示）
 if (voiceInviteListener) {
     off(voiceInviteListener);
 }
@@ -2475,6 +2492,10 @@ function endVoiceChat() {
             // 無視
         }
         recognition = null;
+    }
+    if (currentUtterance) {
+        window.speechSynthesis.cancel();
+        currentUtterance = null;
     }
     isListening = false;
     voiceParticipants = [];
