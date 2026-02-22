@@ -96,11 +96,11 @@ let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
 let voiceInviteListener = null;
-let voiceType = 'male'; // 'male', 'female', 'robot'
 let localStream = null;
 let peerConnections = {};
 let voiceBar = null;
 let voiceRoomId = null;
+let voiceDataChannel = null;
 
 // --- ハッカーマイルストーン4 使用状態管理 ---
 let hackerMilestone4Used = false;
@@ -1661,7 +1661,7 @@ window.openStoryMode = () => {
     renderStoryMap();
 };
 
-// ストーリーマップの描画（完全ロック版）
+// ストーリーマップの描画（完全ロック版 - 1個前のステージがクリアされてたらロック解除）
 function renderStoryMap() {
     // 第1章のマップ描画
     const map1 = el("story-map-1");
@@ -1669,7 +1669,9 @@ function renderStoryMap() {
     STORY_STAGES.chapter1.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter1 >= stageNum;
-        const isLocked = stageNum > 1 && storyProgress.chapter1 < stageNum - 1;
+        // 1個前のステージがクリアされているか
+        const prevStageCleared = stageNum === 1 || storyProgress.chapter1 >= stageNum - 1;
+        const isLocked = !prevStageCleared;
         const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
         
         const node = document.createElement("div");
@@ -1685,30 +1687,18 @@ function renderStoryMap() {
         map1.appendChild(node);
     });
 
-    // 第2章のマップ描画（第1章全クリが必要）
+    // 第2章のマップ描画
     const map2 = el("story-map-2");
     map2.innerHTML = "";
     STORY_STAGES.chapter2.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter2 >= stageNum;
+        // 第1章を全クリしているか
         const chapter1Completed = storyProgress.chapter1 >= 7;
-        
-        // 第1章を全クリしていない場合は全てロック
-        if (!chapter1Completed) {
-            const node = document.createElement("div");
-            node.className = "stage-node locked";
-            node.innerHTML = `
-                <div class="stage-number">2-${stageNum}</div>
-                <div class="stage-target">${stage.target}</div>
-                <span class="stage-locked-mark">🔒</span>
-            `;
-            map2.appendChild(node);
-            return;
-        }
-        
-        // 第1章全クリ済みの場合、前のステージチェック
-        const isLocked = stageNum > 1 && storyProgress.chapter2 < stageNum - 1;
-        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted;
+        // 前のステージがクリアされているか
+        const prevStageCleared = stageNum === 1 || storyProgress.chapter2 >= stageNum - 1;
+        const isLocked = !chapter1Completed || !prevStageCleared;
+        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && chapter1Completed;
         
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -1723,30 +1713,18 @@ function renderStoryMap() {
         map2.appendChild(node);
     });
     
-    // 第3章のマップ描画（第2章全クリが必要）
+    // 第3章のマップ描画
     const map3 = el("story-map-3");
     map3.innerHTML = "";
     STORY_STAGES.chapter3.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter3 >= stageNum;
+        // 第2章を全クリしているか
         const chapter2Completed = storyProgress.chapter2 >= 7;
-        
-        // 第2章を全クリしていない場合は全てロック
-        if (!chapter2Completed) {
-            const node = document.createElement("div");
-            node.className = "stage-node locked";
-            node.innerHTML = `
-                <div class="stage-number">3-${stageNum}</div>
-                <div class="stage-target">${stage.target}</div>
-                <span class="stage-locked-mark">🔒</span>
-            `;
-            map3.appendChild(node);
-            return;
-        }
-        
-        // 第2章全クリ済みの場合、前のステージチェック
-        const isLocked = stageNum > 1 && storyProgress.chapter3 < stageNum - 1;
-        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted;
+        // 前のステージがクリアされているか
+        const prevStageCleared = stageNum === 1 || storyProgress.chapter3 >= stageNum - 1;
+        const isLocked = !chapter2Completed || !prevStageCleared;
+        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && chapter2Completed;
         
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -1982,7 +1960,7 @@ window.executeDodge = () => {
     }
 };
 
-// --- WebRTC ボイスチャット機能 ---
+// --- WebRTC ボイスチャット機能（完全版）---
 function openVoiceChat() {
     console.log("ボイスチャットを開きます");
     const overlay = el("debug-overlay");
@@ -2005,14 +1983,6 @@ async function initWebRTC() {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         console.log("Local stream obtained");
         
-        // RTCPeerConnectionの設定
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-        
         voiceChatActive = true;
         
         // 参加者リストに自分を追加
@@ -2022,6 +1992,9 @@ async function initWebRTC() {
         
         // バーの表示を更新
         updateVoiceBarParticipants();
+        
+        // 既存のオーディオ要素を削除
+        document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
         
     } catch (err) {
         console.error("Failed to get local stream", err);
@@ -2034,29 +2007,35 @@ async function createPeerConnection(targetId) {
     const configuration = {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
         ]
     };
     
     const peerConnection = new RTCPeerConnection(configuration);
     
     // ローカルストリームのトラックを追加
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-    });
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+    }
     
     // ICE候補をFirebase経由で送信
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-            update(ref(db, `voice_rooms/${voiceRoomId}/candidates/${targetId}`), {
+            const candidateRef = ref(db, `voice_rooms/${voiceRoomId}/candidates/${targetId}`);
+            set(candidateRef, {
                 candidate: event.candidate,
-                from: myId
+                from: myId,
+                timestamp: Date.now()
             });
         }
     };
     
     // 相手からのストリームを受信
     peerConnection.ontrack = (event) => {
+        console.log("Received remote stream from", targetId);
         const audio = document.createElement('audio');
         audio.srcObject = event.streams[0];
         audio.autoplay = true;
@@ -2064,6 +2043,19 @@ async function createPeerConnection(targetId) {
         document.body.appendChild(audio);
         
         showBattleAlert(`🔊 ${targetId} の声が聞こえます`, "var(--accent-green)");
+    };
+    
+    // 接続状態の監視
+    peerConnection.onconnectionstatechange = () => {
+        console.log("Connection state:", peerConnection.connectionState);
+        if (peerConnection.connectionState === 'connected') {
+            showBattleAlert(`✅ ${targetId} と接続完了`, "var(--accent-green)");
+        } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+            showBattleAlert(`❌ ${targetId} との接続が切れました`, "var(--accent-red)");
+            delete peerConnections[targetId];
+            const audioElement = document.getElementById(`audio-${targetId}`);
+            if (audioElement) audioElement.remove();
+        }
     };
     
     peerConnections[targetId] = peerConnection;
@@ -2074,7 +2066,7 @@ async function createPeerConnection(targetId) {
 async function callPeer(targetId) {
     if (!voiceRoomId) {
         voiceRoomId = generateId();
-        set(ref(db, `voice_rooms/${voiceRoomId}`), {
+        await set(ref(db, `voice_rooms/${voiceRoomId}`), {
             participants: [myId, targetId],
             created: Date.now()
         });
@@ -2087,10 +2079,14 @@ async function callPeer(targetId) {
     await peerConnection.setLocalDescription(offer);
     
     // オファーをFirebase経由で送信
-    update(ref(db, `voice_rooms/${voiceRoomId}/offers/${targetId}`), {
+    const offerRef = ref(db, `voice_rooms/${voiceRoomId}/offers/${targetId}`);
+    await set(offerRef, {
         offer: offer,
-        from: myId
+        from: myId,
+        timestamp: Date.now()
     });
+    
+    console.log("Offer sent to", targetId);
 }
 
 // 着信側
@@ -2101,53 +2097,61 @@ async function answerCall(targetId, offer) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     
-    update(ref(db, `voice_rooms/${voiceRoomId}/answers/${targetId}`), {
+    const answerRef = ref(db, `voice_rooms/${voiceRoomId}/answers/${targetId}`);
+    await set(answerRef, {
         answer: answer,
-        from: myId
+        from: myId,
+        timestamp: Date.now()
     });
+    
+    console.log("Answer sent to", targetId);
 }
 
-// ボイスチャット招待の受信監視
+// ボイスチャット招待の受信監視（修正版）
 if (voiceInviteListener) {
     off(voiceInviteListener);
 }
 voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
     const invite = snap.val();
     if (invite) {
+        const fromId = invite.from;
+        const fromName = invite.fromName;
+        
         if (!voiceChatActive) {
-            const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
+            const result = confirm(`${fromName} からボイスチャットの招待が来ています。参加しますか？`);
             if (result) {
                 openVoiceChat();
                 setTimeout(async () => {
-                    if (!voiceParticipants.includes(invite.from)) {
-                        voiceParticipants.push(invite.from);
+                    if (!voiceParticipants.includes(fromId)) {
+                        voiceParticipants.push(fromId);
                         
                         // ルームIDを設定
                         voiceRoomId = invite.roomId || generateId();
                         
                         // 相手に応答
-                        if (invite.roomId) {
-                            await answerCall(invite.from, invite.offer);
+                        if (invite.offer) {
+                            await answerCall(fromId, invite.offer);
                         }
                         
                         updateVoiceBarParticipants();
                         sounds.notify.play();
-                        showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+                        showBattleAlert(`🔊 ${fromName} が参加しました`, "var(--accent-green)");
                     }
                 }, 2000);
             }
         } else {
-            if (!voiceParticipants.includes(invite.from)) {
-                voiceParticipants.push(invite.from);
+            if (!voiceParticipants.includes(fromId)) {
+                voiceParticipants.push(fromId);
                 
                 // 相手に発信
-                callPeer(invite.from);
+                callPeer(fromId);
                 
                 updateVoiceBarParticipants();
                 sounds.notify.play();
-                showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+                showBattleAlert(`🔊 ${fromName} が参加しました`, "var(--accent-green)");
             }
         }
+        // 招待を削除
         remove(ref(db, `users/${myId}/voice_invite`));
     }
 });
@@ -2157,7 +2161,7 @@ onValue(ref(db, `voice_rooms/${voiceRoomId}/offers`), snap => {
     const offers = snap.val();
     if (offers && voiceChatActive) {
         Object.keys(offers).forEach(targetId => {
-            if (targetId !== myId && !peerConnections[targetId]) {
+            if (targetId !== myId && !peerConnections[targetId] && offers[targetId].offer) {
                 answerCall(targetId, offers[targetId].offer);
             }
         });
@@ -2169,8 +2173,9 @@ onValue(ref(db, `voice_rooms/${voiceRoomId}/answers`), snap => {
     const answers = snap.val();
     if (answers && voiceChatActive) {
         Object.keys(answers).forEach(targetId => {
-            if (targetId !== myId && peerConnections[targetId]) {
-                peerConnections[targetId].setRemoteDescription(new RTCSessionDescription(answers[targetId].answer));
+            if (targetId !== myId && peerConnections[targetId] && answers[targetId].answer) {
+                peerConnections[targetId].setRemoteDescription(new RTCSessionDescription(answers[targetId].answer))
+                    .catch(err => console.error("Failed to set remote description:", err));
             }
         });
     }
@@ -2182,7 +2187,8 @@ onValue(ref(db, `voice_rooms/${voiceRoomId}/candidates`), snap => {
     if (candidates && voiceChatActive) {
         Object.keys(candidates).forEach(targetId => {
             if (targetId !== myId && peerConnections[targetId] && candidates[targetId].candidate) {
-                peerConnections[targetId].addIceCandidate(new RTCIceCandidate(candidates[targetId].candidate));
+                peerConnections[targetId].addIceCandidate(new RTCIceCandidate(candidates[targetId].candidate))
+                    .catch(err => console.error("Failed to add ICE candidate:", err));
             }
         });
     }
@@ -2270,7 +2276,11 @@ function createVoiceChatBar() {
 function updateVoiceBarParticipants() {
     const participantsSpan = document.getElementById("voice-bar-participants");
     if (participantsSpan) {
-        participantsSpan.innerHTML = `👥 参加者: ${voiceParticipants.length}人`;
+        if (voiceParticipants.length > 1) {
+            participantsSpan.innerHTML = `👥 参加者: ${voiceParticipants.length}人`;
+        } else {
+            participantsSpan.innerHTML = `👥 参加者: 自分だけ`;
+        }
     }
 }
 
@@ -2394,29 +2404,49 @@ function renderVoiceFriendList() {
     });
 }
 
-window.inviteToVoiceChat = (fid, friendName) => {
+window.inviteToVoiceChat = async (fid, friendName) => {
     if (!voiceChatActive) {
         openVoiceChat();
         setTimeout(() => {
             sendVoiceInvite(fid, friendName);
         }, 2000);
     } else {
-        sendVoiceInvite(fid, friendName);
+        await sendVoiceInvite(fid, friendName);
     }
 };
 
-function sendVoiceInvite(fid, friendName) {
-    set(ref(db, `users/${fid}/voice_invite`), {
-        from: myId,
-        fromName: myName,
-        roomId: voiceRoomId,
-        timestamp: Date.now()
-    }).then(() => {
-        alert(`${friendName} にボイスチャット招待を送信しました`);
-    }).catch(error => {
-        console.error("招待の送信に失敗:", error);
-        alert("招待の送信に失敗しました");
-    });
+async function sendVoiceInvite(fid, friendName) {
+    // ルームIDがなければ作成
+    if (!voiceRoomId) {
+        voiceRoomId = generateId();
+    }
+    
+    // オファーを作成して送信
+    if (!peerConnections[fid]) {
+        // 発信用のPeerConnectionを作成
+        const peerConnection = await createPeerConnection(fid);
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        // 招待にオファーを含めて送信
+        await set(ref(db, `users/${fid}/voice_invite`), {
+            from: myId,
+            fromName: myName,
+            roomId: voiceRoomId,
+            offer: offer,
+            timestamp: Date.now()
+        });
+    } else {
+        // 単純な招待を送信
+        await set(ref(db, `users/${fid}/voice_invite`), {
+            from: myId,
+            fromName: myName,
+            roomId: voiceRoomId,
+            timestamp: Date.now()
+        });
+    }
+    
+    alert(`${friendName} にボイスチャット招待を送信しました`);
 }
 
 // --- モード制御 ---
