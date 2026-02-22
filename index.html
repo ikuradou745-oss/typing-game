@@ -51,6 +51,11 @@
                         <span>ショップ (スキル)</span>
                         <small>SKILL SHOP</small>
                     </button>
+                    <!-- スキンショップボタンを追加 -->
+                    <button id="btn-skin" class="action-btn full-width" onclick="window.openSkinShop()" style="border-color: var(--accent-green);">
+                        <span>スキンショップ</span>
+                        <small>SKIN SHOP</small>
+                    </button>
                     <button id="btn-custom" class="action-btn full-width" onclick="window.playCustom()">
                         <span>作ったものを遊ぶ</span>
                     </button>
@@ -109,11 +114,52 @@
                 </div>
             </div>
 
+            <!-- スキルショップ -->
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
                 <div class="shop-grid" id="shop-list"></div>
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
+            </div>
+
+            <!-- スキンショップ画面（新規追加） -->
+            <div id="screen-skin-shop" class="screen hidden">
+                <h2 class="title-glow" style="color: var(--accent-green);">SKIN SHOP</h2>
+                
+                <!-- プレビューエリア -->
+                <div class="skin-preview-container">
+                    <div class="skin-preview">
+                        <div class="skin-avatar" id="skin-preview-avatar">
+                            <div class="face" id="preview-face">
+                                <div class="eyes" id="preview-eyes">👀</div>
+                                <div class="mouth" id="preview-mouth">👄</div>
+                            </div>
+                            <div class="accessories" id="preview-accessories"></div>
+                        </div>
+                    </div>
+                    <div class="preview-name" id="preview-name">プレビュー</div>
+                </div>
+                
+                <div class="shop-coin-display">所持コイン: <span id="skin-coin-amount">0</span> 🪙</div>
+                
+                <!-- カテゴリタブ -->
+                <div class="skin-categories">
+                    <button class="category-tab active" onclick="window.switchSkinCategory('skin')">肌の色</button>
+                    <button class="category-tab" onclick="window.switchSkinCategory('face')">顔パーツ</button>
+                    <button class="category-tab" onclick="window.switchSkinCategory('accessory')">アクセサリー</button>
+                </div>
+                
+                <!-- スキングリッド -->
+                <div id="skin-grid" class="skin-grid"></div>
+                
+                <!-- アクションボタン -->
+                <div class="skin-action-buttons">
+                    <button class="action-btn green-btn" onclick="window.applySkinChanges()">
+                        <span>✨ スキンを反映</span>
+                        <small>APPLY TO PROFILE</small>
+                    </button>
+                    <button class="action-btn gray-btn" onclick="window.goHome()">戻る</button>
+                </div>
             </div>
 
             <div id="screen-single-select" class="screen hidden">
@@ -231,6 +277,14 @@
             <section class="side-panel profile-panel">
                 <div class="panel-title">プロフィール</div>
                 <div class="profile-box">
+                    <!-- 顔アイコン追加 -->
+                    <div class="profile-avatar" id="profile-avatar">
+                        <div class="face" id="profile-face">
+                            <div class="eyes" id="profile-eyes">👀</div>
+                            <div class="mouth" id="profile-mouth">👄</div>
+                        </div>
+                        <div class="accessories" id="profile-accessories"></div>
+                    </div>
                     <label>名前</label>
                     <input type="text" id="my-name-input" maxlength="15" oninput="window.updateMyName()">
                     <div class="code-display">
