@@ -171,8 +171,6 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
-
-
 }
 
 .chapter-tab {
@@ -421,10 +419,6 @@ input[type="text"], .cyber-select { background: #000; border: 1px solid var(--ac
     height: 30px;
     background: #222;
     border: 1px solid #444;
-
-
-
-
 }
 
 .maze-cell.wall {
