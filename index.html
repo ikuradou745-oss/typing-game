@@ -75,7 +75,7 @@
                 </div>
             </div>
 
-            <!-- スキンショップ画面（新規追加） -->
+            <!-- スキンショップ画面 -->
             <div id="screen-skin-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">SKIN SHOP</h2>
                 <div class="skin-preview" id="skin-preview">
@@ -94,16 +94,19 @@
                 </div>
 
                 <div id="skin-category-skin" class="skin-grid active">
-                    <!-- 肌の色10種類 -->
+                    <!-- 肌の色10種類がJSで動的に生成されます -->
                 </div>
                 <div id="skin-category-face" class="skin-grid hidden">
-                    <!-- 顔30種類 -->
+                    <!-- 顔30種類がJSで動的に生成されます -->
                 </div>
                 <div id="skin-category-accessory" class="skin-grid hidden">
-                    <!-- アクセサリー10種類 -->
+                    <!-- アクセサリー10種類がJSで動的に生成されます -->
                 </div>
 
-                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
+                <div class="skin-shop-buttons">
+                    <button class="action-btn purple-btn" style="max-width: 200px;" onclick="window.saveAndExitSkinShop()">保存して戻る</button>
+                    <button class="action-btn gray-btn" style="max-width: 200px;" onclick="window.goHome()">キャンセル</button>
+                </div>
             </div>
 
             <!-- ストーリーモード画面 -->
@@ -180,7 +183,7 @@
                 <div class="setup-panel">
                     <div class="setup-item">
                         <span>制限時間:</span>
-                        <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="el('time-val').innerText=this.value">
+                        <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="document.getElementById('time-val').innerText=this.value">
                         <span id="time-val" class="stat-val">30</span>秒
                     </div>
                     <div class="setup-item">
@@ -271,13 +274,12 @@
                 <div class="panel-title">プロフィール</div>
                 <div class="profile-box">
                     <div class="profile-face-container" id="profile-face">
-                        <!-- ここに顔が表示される -->
-                        <div id="profile-skin" class="profile-skin"></div>
-                        <div id="profile-face-layer" class="profile-face-layer"></div>
+                        <div id="profile-skin" class="profile-skin" style="background: #f5d0a9;"></div>
+                        <div id="profile-face-layer" class="profile-face-layer">😊</div>
                         <div id="profile-accessory" class="profile-accessory"></div>
                     </div>
                     <label>名前</label>
-                    <input type="text" id="my-name-input" maxlength="15" oninput="window.updateMyName()">
+                    <input type="text" id="my-name-input" maxlength="15" value="プレイヤー" oninput="window.updateMyName()">
                     <div class="code-display">
                         コード: <span id="my-id-display">--------</span>
                     </div>
