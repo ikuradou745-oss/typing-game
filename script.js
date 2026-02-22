@@ -50,7 +50,7 @@ let romaIdx = 0;
 let gameInterval; 
 
 let isCustomGame = false;
-let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
+let coins = 0; // 初期化は後でFirebaseから読み込む
 
 // --- スキルシステム用グローバル変数 ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
@@ -237,10 +237,12 @@ function saveAndDisplayData() {
         equipped: equippedSkill,
         story_progress: storyProgress,
         skin: skinData,
-        owned_accessories: ownedAccessories
+        owned_accessories: ownedAccessories,
+        name: myName
     });
     
     updateSkinPreview();
+    updateAllFriendAvatars(); // フレンド一覧のアバターも更新
 }
 
 // --- 出題データ ---
@@ -323,6 +325,24 @@ window.addFriend = async () => {
     }
 };
 
+// フレンドリストのアバター表示を更新
+function updateAllFriendAvatars() {
+    const friendItems = document.querySelectorAll('.friend-item');
+    friendItems.forEach(item => {
+        const avatarDiv = item.querySelector('.friend-avatar');
+        if (avatarDiv) {
+            avatarDiv.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+            avatarDiv.innerHTML = `
+                <div class="eyes">${skinData.eyes}</div>
+                <div class="mouth">${skinData.mouth}</div>
+                <div class="accessories">${skinData.accessories.map(id => 
+                    ACCESSORIES.find(a => a.id === id)?.emoji || ''
+                ).join('')}</div>
+            `;
+        }
+    });
+}
+
 onValue(ref(db, `users/${myId}/friends`), (snap) => {
     const ui = el("friend-list-ui");
     const friends = snap.val();
@@ -339,12 +359,27 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 row.className = "friend-item";
                 ui.appendChild(row);
             }
+            
+            // フレンドのスキンデータを取得
+            const friendSkin = data.skin || { skinColor: 1, eyes: "👀", mouth: "👄", accessories: [] };
+            const friendSkinColor = SKIN_COLORS[friendSkin.skinColor - 1] || SKIN_COLORS[0];
+            
             row.innerHTML = `
-                <div><span class="status-dot ${data.status}"></span>${data.name}</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="friend-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: ${friendSkinColor}; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.8rem; border: 2px solid var(--accent-blue);">
+                        <div style="font-size: 1rem;">${friendSkin.eyes}</div>
+                        <div style="font-size: 0.9rem;">${friendSkin.mouth}</div>
+                        <div class="accessories" style="position: absolute; top: -10px; font-size: 1rem;">${friendSkin.accessories.map(id => 
+                            ACCESSORIES.find(a => a.id === id)?.emoji || ''
+                        ).join('')}</div>
+                    </div>
+                    <div><span class="status-dot ${data.status}"></span>${data.name}</div>
+                </div>
                 <div>
                     <button class="btn-invite" onclick="window.inviteToParty('${fid}')">招待</button>
                     <button class="btn-kick" onclick="window.removeFriend('${fid}')">削除</button>
-                </div>`;
+                </div>
+            `;
         });
     });
 });
@@ -417,7 +452,24 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
-            el("party-list-ui").innerHTML = Object.values(p.members).map(m => `<div class="friend-item">${m.name} ${m.ready?'✅':''}</div>`).join("");
+            
+            // パーティーリストにアバターを表示
+            let membersHtml = "";
+            Object.values(p.members).forEach(m => {
+                // メンバーのスキンデータを取得（本来はFirebaseから取得する必要あり）
+                const memberSkin = { skinColor: 1, eyes: "👀", mouth: "👄", accessories: [] };
+                const memberSkinColor = SKIN_COLORS[memberSkin.skinColor - 1];
+                
+                membersHtml += `
+                    <div class="friend-item" style="display: flex; align-items: center; gap: 10px;">
+                        <div class="party-avatar" style="width: 30px; height: 30px; border-radius: 50%; background: ${memberSkinColor}; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
+                            ${memberSkin.eyes}
+                        </div>
+                        <span>${m.name} ${m.ready?'✅':''}</span>
+                    </div>
+                `;
+            });
+            el("party-list-ui").innerHTML = membersHtml;
             
             if (p.state === "ready_check" && !gameActive) {
                 openScreen("screen-play"); 
@@ -566,13 +618,16 @@ window.switchSkinCategory = (category) => {
 
 function renderSkinShop(category) {
     const skinGrid = el("skin-grid");
+    if (!skinGrid) return;
+    
     skinGrid.innerHTML = "";
     
     if (category === 'skin') {
         // 肌の色（10種類、無料）
         for (let i = 0; i < 10; i++) {
             const isEquipped = skinData.skinColor === i + 1;
-            const isLocked = i === 9 && !ownedAccessories.includes('rich'); // 金色は大金持ちアクセサリーが必要
+            // 金色（10番目）は大金持ちアクセサリーが必要
+            const isLocked = i === 9 && !ownedAccessories.includes('rich');
             
             const item = document.createElement("div");
             item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''}`;
@@ -619,41 +674,32 @@ function renderSkinShop(category) {
             const isEquipped = skinData.accessories.includes(acc.id);
             const canAfford = coins >= acc.cost;
             
-            // 大金持ちは特別処理
-            if (acc.special && !ownedAccessories.includes('rich')) {
-                const item = document.createElement("div");
-                item.className = "skin-item locked";
-                item.innerHTML = `
-                    <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
-                        <div class="eyes">${skinData.eyes}</div>
-                        <div class="mouth">${skinData.mouth}</div>
-                    </div>
-                    <div class="skin-name">${acc.name}</div>
-                    <div class="skin-price">${acc.cost.toLocaleString()}🪙</div>
-                    <div class="skin-locked-tag">🔒</div>
-                `;
-                skinGrid.appendChild(item);
-                return;
+            const item = document.createElement("div");
+            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${!isOwned ? 'locked' : ''}`;
+            
+            // 大金持ちの特別処理
+            let priceDisplay = acc.cost.toLocaleString();
+            if (acc.special && !isOwned) {
+                priceDisplay = "特殊";
             }
             
-            const item = document.createElement("div");
-            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
             item.innerHTML = `
-                <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
+                <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]}; position: relative;">
                     <div class="eyes">${skinData.eyes}</div>
                     <div class="mouth">${skinData.mouth}</div>
-                    <div class="accessories" style="font-size: 1.5rem;">${acc.emoji}</div>
+                    <div class="accessories" style="position: absolute; top: -15px; font-size: 1.5rem;">${acc.emoji}</div>
                 </div>
                 <div class="skin-name">${acc.name}</div>
-                <div class="skin-price">${acc.cost.toLocaleString()}🪙</div>
-                ${isOwned ? '<div class="skin-equip-tag">✓</div>' : ''}
+                <div class="skin-price">${priceDisplay}🪙</div>
                 ${!isOwned && !canAfford ? '<div class="skin-locked-tag">🔒</div>' : ''}
+                ${isOwned && isEquipped ? '<div class="skin-equip-tag">装備中</div>' : ''}
+                ${isOwned && !isEquipped ? '<div class="skin-equip-tag" style="color: var(--accent-blue);">クリックで装備</div>' : ''}
             `;
             
             if (!isOwned && canAfford) {
                 item.onclick = () => buyAccessory(acc.id);
-            } else if (isOwned && !isEquipped) {
-                item.onclick = () => equipAccessory(acc.id);
+            } else if (isOwned) {
+                item.onclick = () => toggleAccessory(acc.id);
             }
             skinGrid.appendChild(item);
         });
@@ -688,7 +734,11 @@ function buyAccessory(accessoryId) {
             skinData.mouth = "$";
         }
         
-        skinData.accessories.push(accessoryId);
+        // 購入したアクセサリーを自動装備
+        if (!skinData.accessories.includes(accessoryId)) {
+            skinData.accessories.push(accessoryId);
+        }
+        
         saveAndDisplayData();
         sounds.notify.play();
         alert(`${accessory.name} を購入しました！`);
@@ -698,11 +748,11 @@ function buyAccessory(accessoryId) {
     }
 }
 
-function equipAccessory(accessoryId) {
-    if (!skinData.accessories.includes(accessoryId)) {
-        skinData.accessories.push(accessoryId);
-    } else {
+function toggleAccessory(accessoryId) {
+    if (skinData.accessories.includes(accessoryId)) {
         skinData.accessories = skinData.accessories.filter(id => id !== accessoryId);
+    } else {
+        skinData.accessories.push(accessoryId);
     }
     saveAndDisplayData();
     renderSkinShop(currentSkinCategory);
@@ -721,7 +771,7 @@ function updateSkinPreview() {
     if (previewAccessories) {
         previewAccessories.innerHTML = skinData.accessories.map(id => 
             ACCESSORIES.find(a => a.id === id)?.emoji || ''
-        ).join('');
+        ).join(' ');
     }
     
     // プロフィールアバターの更新
@@ -736,7 +786,7 @@ function updateSkinPreview() {
     if (profileAccessories) {
         profileAccessories.innerHTML = skinData.accessories.map(id => 
             ACCESSORIES.find(a => a.id === id)?.emoji || ''
-        ).join('');
+        ).join(' ');
     }
 }
 
@@ -1029,7 +1079,15 @@ function syncRivals() {
         const val = s.val();
         if(val) {
             el("rival-list").innerHTML = Object.values(val).map(m => `
-                <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
+                <div class="friend-item">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="rival-avatar" style="width: 30px; height: 30px; border-radius: 50%; background: ${SKIN_COLORS[skinData.skinColor - 1]}; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
+                            ${skinData.eyes}
+                        </div>
+                        <span>${m.name}</span>
+                    </div>
+                    <span>${isHidden?'わからないよ！':m.score}</span>
+                </div>
             `).join("");
         }
     });
@@ -1866,7 +1924,7 @@ function applyJamming(durationMs) {
     }, durationMs);
 }
 
-// --- ストーリーモード制御（完全ロック版）---
+// --- ストーリーモード制御 ---
 window.openStoryMode = () => {
     if (isMatchmaking) {
         alert("マッチング待機中はストーリーモードを開けません");
@@ -1876,7 +1934,6 @@ window.openStoryMode = () => {
     renderStoryMap();
 };
 
-// ストーリーマップの描画（完全ロック版）
 function renderStoryMap() {
     // 第1章のマップ描画
     const map1 = el("story-map-1");
@@ -1961,7 +2018,6 @@ function renderStoryMap() {
     });
 }
 
-// ステージ選択（完全ロック版）
 function selectStage(chapter, stage) {
     if (chapter === 1) {
         if (stage > 1 && storyProgress.chapter1 < stage - 1) {
@@ -2048,7 +2104,6 @@ function updateStageButtons() {
     }
 }
 
-// パーティーメンバーの進行状況チェック
 async function checkPartyProgress() {
     if (!myPartyId) return;
     
@@ -2245,7 +2300,7 @@ const userRef = ref(db, `users/${myId}`);
 get(userRef).then(snap => {
     if(snap.exists()) {
         let data = snap.val();
-        if(data.coins !== undefined && data.coins > coins) {
+        if(data.coins !== undefined) {
             coins = data.coins; 
         }
         if(data.skills !== undefined) {
