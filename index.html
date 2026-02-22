@@ -21,59 +21,6 @@
         </div>
     </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     <div id="app">
         <main id="main-area">
             <div class="header-logo">ULTIMATE TYPING</div>
@@ -116,21 +63,16 @@
                 <div class="story-chapter-selector">
                     <button class="chapter-tab active" data-chapter="1">第1章</button>
                     <button class="chapter-tab" data-chapter="2">第2章</button>
-
                 </div>
-
+                
                 <div id="story-chapter-1" class="story-chapter active">
                     <div class="story-map" id="story-map-1"></div>
                 </div>
-
+                
                 <div id="story-chapter-2" class="story-chapter hidden">
                     <div class="story-map" id="story-map-2"></div>
                 </div>
-
-
-
-
-
+                
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">戻る</button>
             </div>
 
@@ -143,12 +85,12 @@
                         <div class="condition-item">目標スコア: <span id="stage-target">8000</span></div>
                         <div class="condition-item">クリア報酬: <span id="stage-reward">100</span>🪙</div>
                     </div>
-
+                    
                     <div class="stage-boss-info hidden" id="boss-info">
                         <div class="boss-badge">👑 BOSS STAGE 👑</div>
                         <div class="boss-reward">クリア特典: <span id="boss-skill-name">花火</span></div>
                     </div>
-
+                    
                     <div class="stage-play-options">
                         <button class="action-btn" onclick="window.startStorySolo()" id="story-solo-btn">
                             <span>一人で挑戦</span>
@@ -160,7 +102,7 @@
                         </button>
                         <button class="action-btn gray-btn" onclick="window.backToStory()">戻る</button>
                     </div>
-
+                    
                     <div id="party-restriction-msg" class="restriction-msg hidden">
                         ⚠️ メンバーがこのステージを解放していません
                     </div>
@@ -236,7 +178,7 @@
 
                 <div id="game-core">
                     <div id="timer-display">00:30</div>
-
+                    
                     <div id="skill-action-box" class="hidden">
                         <button id="in-game-skill-btn" onclick="window.activateSkill()">
                             <span id="skill-btn-name">スキルなし</span>
@@ -255,10 +197,6 @@
                         <div id="minion-display" class="stat-box hidden" style="border-color: var(--accent-purple);">
                             子分: <span id="stat-minions" class="stat-val" style="color: var(--accent-purple);">0</span>体
                         </div>
-
-
-
-
                     </div>
                     <div id="rival-display" class="hidden">
                         <div class="rival-header">RIVAL SCORES</div>
@@ -347,14 +285,6 @@
     <div id="poison-overlay" class="hidden">
         <div class="poison-effect"></div>
     </div>
-
-
-
-
-
-
-
-
 
     <script type="module" src="script.js"></script>
 </body>
