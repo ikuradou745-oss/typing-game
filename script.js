@@ -50,7 +50,7 @@ let romaIdx = 0;
 let gameInterval; 
 
 let isCustomGame = false;
-let coins = 0; // 初期化は後でFirebaseから読み込む
+let coins = 0;
 
 // --- スキルシステム用グローバル変数 ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
@@ -135,8 +135,16 @@ const STORY_STAGES = {
 
 // スキンのデータ定義
 const SKIN_COLORS = [
-    "#f5d0b0", "#e0b090", "#c98a5e", "#8b5a2b", "#6b4a2e",
-    "#4a3520", "#2a1e12", "#ffe5b4", "#ffcba4", "#ffd700"
+    "#f5d0b0", // 1: 標準
+    "#e0b090", // 2: 色白
+    "#c98a5e", // 3: 日焼け
+    "#8b5a2b", // 4: 浅黒
+    "#6b4a2e", // 5: 褐色
+    "#4a3520", // 6: ダーク
+    "#2a1e12", // 7: ブラック
+    "#ffe5b4", // 8: クリーム
+    "#ffcba4", // 9: ピーチ
+    "#ffd700"  // 10: 金色（大金持ち）
 ];
 
 const EYES_TYPES = [
@@ -151,7 +159,7 @@ const MOUTH_TYPES = [
     "😘", "😗", "😙", "😚", "😋", "😛", "😜", "😝", "🤑", "$"
 ];
 
-// アクセサリーのデータ定義
+// アクセサリーのデータ定義（スキンショップ用）
 const ACCESSORIES = [
     { id: "headphone", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
     { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
@@ -202,7 +210,7 @@ const NEW_SKILLS = {
     }
 };
 
-// スキルのデータ定義
+// スキルのデータ定義（スキルショップ用）
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
@@ -242,7 +250,7 @@ function saveAndDisplayData() {
     });
     
     updateSkinPreview();
-    updateAllFriendAvatars(); // フレンド一覧のアバターも更新
+    updateAllFriendAvatars();
 }
 
 // --- 出題データ ---
@@ -455,8 +463,9 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             
             // パーティーリストにアバターを表示
             let membersHtml = "";
-            Object.values(p.members).forEach(m => {
-                // メンバーのスキンデータを取得（本来はFirebaseから取得する必要あり）
+            Object.keys(p.members).forEach(memberId => {
+                const member = p.members[memberId];
+                // メンバーのスキンデータを取得（非同期のため簡易版）
                 const memberSkin = { skinColor: 1, eyes: "👀", mouth: "👄", accessories: [] };
                 const memberSkinColor = SKIN_COLORS[memberSkin.skinColor - 1];
                 
@@ -465,7 +474,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                         <div class="party-avatar" style="width: 30px; height: 30px; border-radius: 50%; background: ${memberSkinColor}; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
                             ${memberSkin.eyes}
                         </div>
-                        <span>${m.name} ${m.ready?'✅':''}</span>
+                        <span>${member.name} ${member.ready?'✅':''}</span>
                     </div>
                 `;
             });
@@ -515,7 +524,7 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- ショップシステム ---
+// --- スキルショップシステム ---
 window.openShop = () => {
     openScreen("screen-shop");
     renderShop();
@@ -590,11 +599,11 @@ function renderShop() {
         `;
     });
     
-    // ショップ画面の戻るボタンを画面内に収めるため、スクロール調整
+    // ショップ画面のスクロール調整
     const shopScreen = el("screen-shop");
     if (shopScreen) {
         shopScreen.style.overflowY = "auto";
-        shopScreen.style.paddingBottom = "80px"; // 戻るボタンのスペース確保
+        shopScreen.style.paddingBottom = "20px";
     }
 }
 
@@ -608,7 +617,7 @@ window.unlockBossSkill = (skillId) => {
     }
 };
 
-// --- スキンショップシステム ---
+// --- スキンショップシステム（アクセサリー購入はここ）---
 window.openSkinShop = () => {
     openScreen("screen-skin-shop");
     renderSkinShop('skin');
@@ -638,6 +647,8 @@ function renderSkinShop(category) {
             
             const item = document.createElement("div");
             item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''}`;
+            item.onclick = () => !isLocked && selectSkinColor(i + 1);
+            
             item.innerHTML = `
                 <div class="skin-preview-small" style="background: ${SKIN_COLORS[i]};">
                     <div class="eyes">${skinData.eyes}</div>
@@ -648,9 +659,6 @@ function renderSkinShop(category) {
                 ${isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
             `;
             
-            if (!isLocked) {
-                item.onclick = () => selectSkinColor(i + 1);
-            }
             skinGrid.appendChild(item);
         }
     } else if (category === 'face') {
@@ -662,6 +670,8 @@ function renderSkinShop(category) {
             
             const item = document.createElement("div");
             item.className = `skin-item ${isEquipped ? 'equipped' : ''}`;
+            item.onclick = () => selectFace(eyes, mouth);
+            
             item.innerHTML = `
                 <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
                     <div class="eyes">${eyes}</div>
@@ -671,11 +681,10 @@ function renderSkinShop(category) {
                 ${isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
             `;
             
-            item.onclick = () => selectFace(eyes, mouth);
             skinGrid.appendChild(item);
         }
     } else if (category === 'accessory') {
-        // アクセサリー（10種類、有料）
+        // アクセサリー（10種類、有料）- スキンショップで購入
         ACCESSORIES.forEach((acc, index) => {
             const isOwned = ownedAccessories.includes(acc.id);
             const isEquipped = skinData.accessories.includes(acc.id);
@@ -686,16 +695,15 @@ function renderSkinShop(category) {
             
             // 大金持ちの特別処理
             let priceDisplay = acc.cost.toLocaleString();
-            if (acc.special && !isOwned) {
-                priceDisplay = "特殊";
-            }
             
             // 購入ボタンか装備ボタンかを判断
             let action = "";
             if (!isOwned && canAfford) {
                 action = "購入";
+                item.onclick = () => buyAccessory(acc.id);
             } else if (isOwned && !isEquipped) {
                 action = "装備";
+                item.onclick = () => equipAccessory(acc.id);
             } else if (isOwned && isEquipped) {
                 action = "装備中";
             } else if (!isOwned && !canAfford) {
@@ -715,20 +723,15 @@ function renderSkinShop(category) {
                 ${isOwned && isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
             `;
             
-            if (!isOwned && canAfford) {
-                item.onclick = () => buyAccessory(acc.id);
-            } else if (isOwned) {
-                item.onclick = () => toggleAccessory(acc.id);
-            }
             skinGrid.appendChild(item);
         });
     }
     
-    // スキンショップ画面の戻るボタンを画面内に収める
+    // スキンショップ画面のスクロール調整
     const skinScreen = el("screen-skin-shop");
     if (skinScreen) {
         skinScreen.style.overflowY = "auto";
-        skinScreen.style.paddingBottom = "80px";
+        skinScreen.style.paddingBottom = "20px";
     }
 }
 
@@ -745,6 +748,7 @@ function selectFace(eyes, mouth) {
     renderSkinShop(currentSkinCategory);
 }
 
+// アクセサリー購入（スキンショップ）
 function buyAccessory(accessoryId) {
     const accessory = ACCESSORIES.find(a => a.id === accessoryId);
     if (!accessory) return;
@@ -767,23 +771,27 @@ function buyAccessory(accessoryId) {
         
         saveAndDisplayData();
         sounds.notify.play();
-        alert(`${accessory.name} を購入しました！`);
+        alert(`${accessory.name} を購入し、装備しました！`);
         renderSkinShop(currentSkinCategory);
     } else {
         alert("コインが足りません！");
     }
 }
 
-function toggleAccessory(accessoryId) {
+// アクセサリー装備/解除
+function equipAccessory(accessoryId) {
     if (skinData.accessories.includes(accessoryId)) {
+        // 装備中なら解除
         skinData.accessories = skinData.accessories.filter(id => id !== accessoryId);
     } else {
+        // 未装備なら装備
         skinData.accessories.push(accessoryId);
     }
     saveAndDisplayData();
     renderSkinShop(currentSkinCategory);
 }
 
+// スキンプレビュー更新
 function updateSkinPreview() {
     // プレビューアバターの更新
     const previewFace = el("preview-face");
@@ -816,6 +824,19 @@ function updateSkinPreview() {
             ACCESSORIES.find(a => a.id === id)?.emoji || ''
         ).join(' ');
     }
+    
+    // 他の場所にもスキンを表示（必要に応じて追加）
+    const allAvatars = document.querySelectorAll('.player-avatar, .user-avatar');
+    allAvatars.forEach(avatar => {
+        avatar.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+        avatar.innerHTML = `
+            <div class="eyes">${skinData.eyes}</div>
+            <div class="mouth">${skinData.mouth}</div>
+            <div class="accessories">${skinData.accessories.map(id => 
+                ACCESSORIES.find(a => a.id === id)?.emoji || ''
+            ).join('')}</div>
+        `;
+    });
 }
 
 // --- ゲームエンジン ---
