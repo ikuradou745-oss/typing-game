@@ -250,7 +250,6 @@ function saveAndDisplayData() {
     });
     
     updateSkinPreview();
-    updateAllFriendAvatars();
 }
 
 // --- 出題データ ---
@@ -341,9 +340,9 @@ function updateAllFriendAvatars() {
         if (avatarDiv) {
             avatarDiv.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
             avatarDiv.innerHTML = `
-                <div class="eyes">${skinData.eyes}</div>
-                <div class="mouth">${skinData.mouth}</div>
-                <div class="accessories">${skinData.accessories.map(id => 
+                <div style="font-size: 1rem;">${skinData.eyes}</div>
+                <div style="font-size: 0.9rem;">${skinData.mouth}</div>
+                <div class="accessories" style="position: absolute; top: -10px; font-size: 1rem;">${skinData.accessories.map(id => 
                     ACCESSORIES.find(a => a.id === id)?.emoji || ''
                 ).join('')}</div>
             `;
@@ -748,8 +747,8 @@ function selectFace(eyes, mouth) {
     renderSkinShop(currentSkinCategory);
 }
 
-// アクセサリー購入（スキンショップ）
-function buyAccessory(accessoryId) {
+// アクセサリー購入（スキンショップ） - グローバル公開
+window.buyAccessory = function(accessoryId) {
     const accessory = ACCESSORIES.find(a => a.id === accessoryId);
     if (!accessory) return;
     
@@ -776,10 +775,10 @@ function buyAccessory(accessoryId) {
     } else {
         alert("コインが足りません！");
     }
-}
+};
 
-// アクセサリー装備/解除
-function equipAccessory(accessoryId) {
+// アクセサリー装備/解除 - グローバル公開
+window.equipAccessory = function(accessoryId) {
     if (skinData.accessories.includes(accessoryId)) {
         // 装備中なら解除
         skinData.accessories = skinData.accessories.filter(id => id !== accessoryId);
@@ -789,7 +788,7 @@ function equipAccessory(accessoryId) {
     }
     saveAndDisplayData();
     renderSkinShop(currentSkinCategory);
-}
+};
 
 // スキンプレビュー更新
 function updateSkinPreview() {
@@ -799,7 +798,10 @@ function updateSkinPreview() {
     const previewMouth = el("preview-mouth");
     const previewAccessories = el("preview-accessories");
     
-    if (previewFace) previewFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+    if (previewFace) {
+        previewFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1] || SKIN_COLORS[0];
+        previewFace.setAttribute('data-skin', skinData.skinColor);
+    }
     if (previewEyes) previewEyes.innerText = skinData.eyes;
     if (previewMouth) previewMouth.innerText = skinData.mouth;
     if (previewAccessories) {
@@ -815,7 +817,8 @@ function updateSkinPreview() {
     const profileAccessories = el("profile-accessories");
     
     if (profileFace) {
-        profileFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
+        profileFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1] || SKIN_COLORS[0];
+        profileFace.setAttribute('data-skin', skinData.skinColor);
     }
     if (profileEyes) profileEyes.innerText = skinData.eyes;
     if (profileMouth) profileMouth.innerText = skinData.mouth;
