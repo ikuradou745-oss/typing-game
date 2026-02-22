@@ -28,37 +28,6 @@ const sounds = {
     notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3")
 };
 
-// 音声合成用のユーティリティ関数
-function speakText(text, voiceType = 'male') {
-    if (!window.speechSynthesis) {
-        console.warn("Speech Synthesis not supported");
-        return;
-    }
-    
-    // 既存の音声を停止
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ja-JP';
-    utterance.rate = 0.9;
-    utterance.pitch = voiceType === 'female' ? 1.3 : voiceType === 'robot' ? 0.7 : 1.0;
-    
-    // 利用可能な音声から適切なものを選択
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-        if (voiceType === 'female') {
-            const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google 日本語') && v.name.includes('Female'));
-            if (femaleVoice) utterance.voice = femaleVoice;
-        } else if (voiceType === 'male') {
-            const maleVoice = voices.find(v => v.name.includes('Male') || v.lang === 'ja-JP' && v.name.includes('Male'));
-            if (maleVoice) utterance.voice = maleVoice;
-        }
-    }
-    
-    window.speechSynthesis.speak(utterance);
-    return utterance;
-}
-
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
 const generateId = () => Math.floor(10000000 + Math.random() * 89999999).toString();
@@ -122,16 +91,16 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- ボイスチャット用 ---
+// --- WebRTC ボイスチャット用 ---
 let voiceChatActive = false;
 let voiceMuted = false;
 let voiceParticipants = [];
 let voiceInviteListener = null;
-let voiceType = 'male';
-let recognition = null;
-let isListening = false;
+let voiceType = 'male'; // 'male', 'female', 'robot'
+let localStream = null;
+let peerConnections = {};
 let voiceBar = null;
-let currentUtterance = null;
+let voiceRoomId = null;
 
 // --- ハッカーマイルストーン4 使用状態管理 ---
 let hackerMilestone4Used = false;
@@ -1682,7 +1651,7 @@ function applyJamming(durationMs) {
     }, durationMs);
 }
 
-// --- ストーリーモード制御（完全修正版）---
+// --- ストーリーモード制御（完全ロック版）---
 window.openStoryMode = () => {
     if (isMatchmaking) {
         alert("マッチング待機中はストーリーモードを開けません");
@@ -1692,7 +1661,7 @@ window.openStoryMode = () => {
     renderStoryMap();
 };
 
-// ストーリーマップの描画（修正版：ロック状態を正しく表示）
+// ストーリーマップの描画（完全ロック版）
 function renderStoryMap() {
     // 第1章のマップ描画
     const map1 = el("story-map-1");
@@ -1723,8 +1692,23 @@ function renderStoryMap() {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter2 >= stageNum;
         const chapter1Completed = storyProgress.chapter1 >= 7;
-        const isLocked = !chapter1Completed || (stageNum > 1 && storyProgress.chapter2 < stageNum - 1);
-        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && chapter1Completed;
+        
+        // 第1章を全クリしていない場合は全てロック
+        if (!chapter1Completed) {
+            const node = document.createElement("div");
+            node.className = "stage-node locked";
+            node.innerHTML = `
+                <div class="stage-number">2-${stageNum}</div>
+                <div class="stage-target">${stage.target}</div>
+                <span class="stage-locked-mark">🔒</span>
+            `;
+            map2.appendChild(node);
+            return;
+        }
+        
+        // 第1章全クリ済みの場合、前のステージチェック
+        const isLocked = stageNum > 1 && storyProgress.chapter2 < stageNum - 1;
+        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted;
         
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -1746,8 +1730,23 @@ function renderStoryMap() {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter3 >= stageNum;
         const chapter2Completed = storyProgress.chapter2 >= 7;
-        const isLocked = !chapter2Completed || (stageNum > 1 && storyProgress.chapter3 < stageNum - 1);
-        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && chapter2Completed;
+        
+        // 第2章を全クリしていない場合は全てロック
+        if (!chapter2Completed) {
+            const node = document.createElement("div");
+            node.className = "stage-node locked";
+            node.innerHTML = `
+                <div class="stage-number">3-${stageNum}</div>
+                <div class="stage-target">${stage.target}</div>
+                <span class="stage-locked-mark">🔒</span>
+            `;
+            map3.appendChild(node);
+            return;
+        }
+        
+        // 第2章全クリ済みの場合、前のステージチェック
+        const isLocked = stageNum > 1 && storyProgress.chapter3 < stageNum - 1;
+        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted;
         
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -1774,9 +1773,9 @@ function renderStoryMap() {
     });
 }
 
-// ステージ選択（修正版：厳格なロックチェック）
+// ステージ選択（完全ロック版）
 function selectStage(chapter, stage) {
-    // 選択可能か厳格にチェック
+    // 厳格なロックチェック
     if (chapter === 1) {
         if (stage > 1 && storyProgress.chapter1 < stage - 1) {
             alert("前のステージをクリアしてください");
@@ -1862,7 +1861,7 @@ function updateStageButtons() {
     }
 }
 
-// パーティーメンバーの進行状況チェック（修正版）
+// パーティーメンバーの進行状況チェック（完全ロック版）
 async function checkPartyProgress() {
     if (!myPartyId) return;
     
@@ -1983,21 +1982,211 @@ window.executeDodge = () => {
     }
 };
 
-// --- ボイスチャット機能（完全修正版）---
+// --- WebRTC ボイスチャット機能 ---
 function openVoiceChat() {
     console.log("ボイスチャットを開きます");
     const overlay = el("debug-overlay");
     if (overlay) {
         overlay.classList.remove("hidden");
         renderVoiceFriendList();
-        initVoiceChat();
+        initWebRTC();
         createVoiceChatBar();
-        alert("🎤 ボイスチャットモードを起動しました\nマイクに向かって話すと、音声合成で相手に届きます");
+        alert("🎤 WebRTCボイスチャットを起動しました\nマイクの使用を許可してください");
     } else {
         console.error("debug-overlayが見つかりません");
         alert("ボイスチャット画面が見つかりません");
     }
 }
+
+// WebRTC初期化
+async function initWebRTC() {
+    try {
+        // マイクストリームを取得
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log("Local stream obtained");
+        
+        // RTCPeerConnectionの設定
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+        
+        voiceChatActive = true;
+        
+        // 参加者リストに自分を追加
+        if (!voiceParticipants.includes(myId)) {
+            voiceParticipants.push(myId);
+        }
+        
+        // バーの表示を更新
+        updateVoiceBarParticipants();
+        
+    } catch (err) {
+        console.error("Failed to get local stream", err);
+        alert("マイクの使用が許可されていません");
+    }
+}
+
+// 相手との接続を作成
+async function createPeerConnection(targetId) {
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+    };
+    
+    const peerConnection = new RTCPeerConnection(configuration);
+    
+    // ローカルストリームのトラックを追加
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
+    
+    // ICE候補をFirebase経由で送信
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            update(ref(db, `voice_rooms/${voiceRoomId}/candidates/${targetId}`), {
+                candidate: event.candidate,
+                from: myId
+            });
+        }
+    };
+    
+    // 相手からのストリームを受信
+    peerConnection.ontrack = (event) => {
+        const audio = document.createElement('audio');
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.id = `audio-${targetId}`;
+        document.body.appendChild(audio);
+        
+        showBattleAlert(`🔊 ${targetId} の声が聞こえます`, "var(--accent-green)");
+    };
+    
+    peerConnections[targetId] = peerConnection;
+    return peerConnection;
+}
+
+// 発信側
+async function callPeer(targetId) {
+    if (!voiceRoomId) {
+        voiceRoomId = generateId();
+        set(ref(db, `voice_rooms/${voiceRoomId}`), {
+            participants: [myId, targetId],
+            created: Date.now()
+        });
+    }
+    
+    const peerConnection = await createPeerConnection(targetId);
+    
+    // オファーを作成
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    
+    // オファーをFirebase経由で送信
+    update(ref(db, `voice_rooms/${voiceRoomId}/offers/${targetId}`), {
+        offer: offer,
+        from: myId
+    });
+}
+
+// 着信側
+async function answerCall(targetId, offer) {
+    const peerConnection = await createPeerConnection(targetId);
+    
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    update(ref(db, `voice_rooms/${voiceRoomId}/answers/${targetId}`), {
+        answer: answer,
+        from: myId
+    });
+}
+
+// ボイスチャット招待の受信監視
+if (voiceInviteListener) {
+    off(voiceInviteListener);
+}
+voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
+    const invite = snap.val();
+    if (invite) {
+        if (!voiceChatActive) {
+            const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
+            if (result) {
+                openVoiceChat();
+                setTimeout(async () => {
+                    if (!voiceParticipants.includes(invite.from)) {
+                        voiceParticipants.push(invite.from);
+                        
+                        // ルームIDを設定
+                        voiceRoomId = invite.roomId || generateId();
+                        
+                        // 相手に応答
+                        if (invite.roomId) {
+                            await answerCall(invite.from, invite.offer);
+                        }
+                        
+                        updateVoiceBarParticipants();
+                        sounds.notify.play();
+                        showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+                    }
+                }, 2000);
+            }
+        } else {
+            if (!voiceParticipants.includes(invite.from)) {
+                voiceParticipants.push(invite.from);
+                
+                // 相手に発信
+                callPeer(invite.from);
+                
+                updateVoiceBarParticipants();
+                sounds.notify.play();
+                showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+            }
+        }
+        remove(ref(db, `users/${myId}/voice_invite`));
+    }
+});
+
+// オファーの監視
+onValue(ref(db, `voice_rooms/${voiceRoomId}/offers`), snap => {
+    const offers = snap.val();
+    if (offers && voiceChatActive) {
+        Object.keys(offers).forEach(targetId => {
+            if (targetId !== myId && !peerConnections[targetId]) {
+                answerCall(targetId, offers[targetId].offer);
+            }
+        });
+    }
+});
+
+// アンサーの監視
+onValue(ref(db, `voice_rooms/${voiceRoomId}/answers`), snap => {
+    const answers = snap.val();
+    if (answers && voiceChatActive) {
+        Object.keys(answers).forEach(targetId => {
+            if (targetId !== myId && peerConnections[targetId]) {
+                peerConnections[targetId].setRemoteDescription(new RTCSessionDescription(answers[targetId].answer));
+            }
+        });
+    }
+});
+
+// ICE候補の監視
+onValue(ref(db, `voice_rooms/${voiceRoomId}/candidates`), snap => {
+    const candidates = snap.val();
+    if (candidates && voiceChatActive) {
+        Object.keys(candidates).forEach(targetId => {
+            if (targetId !== myId && peerConnections[targetId] && candidates[targetId].candidate) {
+                peerConnections[targetId].addIceCandidate(new RTCIceCandidate(candidates[targetId].candidate));
+            }
+        });
+    }
+});
 
 function createVoiceChatBar() {
     const existingBar = document.getElementById("voice-chat-bar");
@@ -2026,35 +2215,7 @@ function createVoiceChatBar() {
     participantsSpan.id = "voice-bar-participants";
     participantsSpan.style.color = "white";
     participantsSpan.style.fontWeight = "bold";
-    
-    // 参加者リストを正しく表示
-    if (voiceParticipants.length > 0) {
-        const participantsList = voiceParticipants.map(pid => 
-            pid === myId ? myName : "参加者"
-        ).join(", ");
-        participantsSpan.innerHTML = `👥 参加者: ${participantsList}`;
-    } else {
-        participantsSpan.innerHTML = `👥 参加者: ${myName}`;
-    }
-    
-    const voiceSelect = document.createElement("select");
-    voiceSelect.style.cssText = `
-        background: #333;
-        color: white;
-        border: 1px solid var(--accent-blue);
-        padding: 5px 10px;
-        border-radius: 20px;
-        cursor: pointer;
-        font-weight: bold;
-    `;
-    voiceSelect.innerHTML = `
-        <option value="male">👨 男性の声</option>
-        <option value="female">👩 女性の声</option>
-        <option value="robot">🤖 ロボット風</option>
-    `;
-    voiceSelect.onchange = (e) => {
-        voiceType = e.target.value;
-    };
+    updateVoiceBarParticipants();
     
     const muteBtn = document.createElement("button");
     muteBtn.id = "voice-bar-mute";
@@ -2100,23 +2261,26 @@ function createVoiceChatBar() {
     };
     
     voiceBar.appendChild(participantsSpan);
-    voiceBar.appendChild(voiceSelect);
     voiceBar.appendChild(muteBtn);
     voiceBar.appendChild(endBtn);
     
     document.body.appendChild(voiceBar);
 }
 
+function updateVoiceBarParticipants() {
+    const participantsSpan = document.getElementById("voice-bar-participants");
+    if (participantsSpan) {
+        participantsSpan.innerHTML = `👥 参加者: ${voiceParticipants.length}人`;
+    }
+}
+
 function toggleVoiceMute() {
     voiceMuted = !voiceMuted;
     
-    if (voiceMuted && recognition) {
-        recognition.stop();
-        isListening = false;
-        showVoiceStatus("ミュート中");
-    } else if (!voiceMuted && !isListening) {
-        startListening();
-        showVoiceStatus("音声認識中...");
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = !voiceMuted;
+        });
     }
     
     const muteBtn = document.getElementById("voice-bar-mute");
@@ -2124,136 +2288,10 @@ function toggleVoiceMute() {
         muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
         muteBtn.style.background = voiceMuted ? '#666' : 'var(--accent-blue)';
     }
-}
-
-function showVoiceStatus(status) {
-    const participantsSpan = document.getElementById("voice-bar-participants");
-    if (participantsSpan) {
-        const originalText = participantsSpan.innerHTML;
-        participantsSpan.innerHTML = `👥 ${status}`;
-        setTimeout(() => {
-            participantsSpan.innerHTML = originalText;
-        }, 2000);
-    }
-}
-
-function initVoiceChat() {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("お使いのブラウザは音声認識に対応していません。Chromeの使用をお勧めします。");
-        return;
-    }
     
-    try {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        recognition.lang = 'ja-JP';
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-        
-        recognition.onstart = () => {
-            console.log("音声認識開始");
-            isListening = true;
-            showVoiceStatus("音声認識中...");
-        };
-        
-        recognition.onresult = (event) => {
-            if (voiceMuted) return;
-            
-            const result = event.results[event.results.length - 1];
-            const text = result[0].transcript;
-            console.log("認識結果:", text);
-            
-            if (currentUtterance) {
-                window.speechSynthesis.cancel();
-            }
-            currentUtterance = speakText(text, voiceType);
-            
-            sendVoiceMessage(text);
-            
-            showVoiceStatus("🗣️ 話しました");
-        };
-        
-        recognition.onerror = (event) => {
-            console.error("音声認識エラー:", event.error);
-            if (event.error === 'not-allowed') {
-                alert("マイクの使用が許可されていません。ブラウザの設定を確認してください。");
-            }
-            isListening = false;
-        };
-        
-        recognition.onend = () => {
-            console.log("音声認識終了");
-            if (!voiceMuted && voiceChatActive) {
-                setTimeout(() => {
-                    startListening();
-                }, 500);
-            } else {
-                isListening = false;
-            }
-        };
-        
-        startListening();
-        
-    } catch (e) {
-        console.error("音声認識初期化エラー:", e);
-        alert("音声認識の初期化に失敗しました");
-    }
+    showBattleAlert(voiceMuted ? "🔇 ミュート中" : "🎤 ミュート解除", 
+                    voiceMuted ? "var(--accent-red)" : "var(--accent-green)");
 }
-
-function startListening() {
-    if (recognition && !isListening && !voiceMuted && voiceChatActive) {
-        try {
-            recognition.start();
-            console.log("音声認識開始試行");
-        } catch (e) {
-            console.error("音声認識開始エラー:", e);
-        }
-    }
-}
-
-function sendVoiceMessage(text) {
-    if (!voiceChatActive || voiceParticipants.length === 0) return;
-    
-    voiceParticipants.forEach(pid => {
-        if (pid !== myId) {
-            update(ref(db, `users/${pid}/voice_message`), {
-                from: myId,
-                fromName: myName,
-                voiceType: voiceType,
-                text: text,
-                timestamp: Date.now()
-            }).catch(error => console.error("音声メッセージ送信エラー:", error));
-            
-            setTimeout(() => {
-                remove(ref(db, `users/${pid}/voice_message`)).catch(() => {});
-            }, 2000);
-        }
-    });
-}
-
-// 音声メッセージの受信監視（修正版）
-onValue(ref(db, `users/${myId}/voice_message`), snap => {
-    const message = snap.val();
-    if (message && voiceChatActive) {
-        if (currentUtterance) {
-            window.speechSynthesis.cancel();
-        }
-        currentUtterance = speakText(message.text, message.voiceType);
-        
-        const participantsSpan = document.getElementById("voice-bar-participants");
-        if (participantsSpan) {
-            const participants = voiceParticipants.map(pid => 
-                pid === myId ? myName : 
-                pid === message.from ? message.fromName : "参加者"
-            ).join(", ");
-            participantsSpan.innerHTML = `👥 参加者: ${participants} (${message.fromName}が話しています)`;
-            setTimeout(() => {
-                participantsSpan.innerHTML = `👥 参加者: ${participants}`;
-            }, 2000);
-        }
-    }
-});
 
 window.closeDebugMode = () => {
     endVoiceChat();
@@ -2263,6 +2301,36 @@ window.closeDebugMode = () => {
         voiceBar = null;
     }
 };
+
+function endVoiceChat() {
+    voiceChatActive = false;
+    
+    // 全てのピア接続を閉じる
+    Object.keys(peerConnections).forEach(key => {
+        peerConnections[key].close();
+        delete peerConnections[key];
+    });
+    
+    // ローカルストリームを停止
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    // ルームを削除
+    if (voiceRoomId) {
+        remove(ref(db, `voice_rooms/${voiceRoomId}`));
+        voiceRoomId = null;
+    }
+    
+    // オーディオ要素を削除
+    document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
+    
+    voiceParticipants = [];
+    voiceMuted = false;
+    
+    updateVoiceBarParticipants();
+}
 
 function renderVoiceFriendList() {
     const voiceFriendList = el("voice-friend-list");
@@ -2341,6 +2409,7 @@ function sendVoiceInvite(fid, friendName) {
     set(ref(db, `users/${fid}/voice_invite`), {
         from: myId,
         fromName: myName,
+        roomId: voiceRoomId,
         timestamp: Date.now()
     }).then(() => {
         alert(`${friendName} にボイスチャット招待を送信しました`);
@@ -2348,73 +2417,6 @@ function sendVoiceInvite(fid, friendName) {
         console.error("招待の送信に失敗:", error);
         alert("招待の送信に失敗しました");
     });
-}
-
-// ボイスチャット招待の受信監視（修正版）
-if (voiceInviteListener) {
-    off(voiceInviteListener);
-}
-voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
-    const invite = snap.val();
-    if (invite) {
-        if (!voiceChatActive) {
-            const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
-            if (result) {
-                openVoiceChat();
-                setTimeout(() => {
-                    if (!voiceParticipants.includes(invite.from)) {
-                        voiceParticipants.push(invite.from);
-                        
-                        const participantsSpan = document.getElementById("voice-bar-participants");
-                        if (participantsSpan) {
-                            const participantsList = voiceParticipants.map(pid => 
-                                pid === myId ? myName : 
-                                pid === invite.from ? invite.fromName : "参加者"
-                            ).join(", ");
-                            participantsSpan.innerHTML = `👥 参加者: ${participantsList}`;
-                        }
-                        
-                        sounds.notify.play();
-                        showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
-                    }
-                }, 2000);
-            }
-        } else {
-            if (!voiceParticipants.includes(invite.from)) {
-                voiceParticipants.push(invite.from);
-                
-                const participantsSpan = document.getElementById("voice-bar-participants");
-                if (participantsSpan) {
-                    const participantsList = voiceParticipants.map(pid => 
-                        pid === myId ? myName : 
-                        pid === invite.from ? invite.fromName : "参加者"
-                    ).join(", ");
-                    participantsSpan.innerHTML = `👥 参加者: ${participantsList}`;
-                }
-                
-                sounds.notify.play();
-                showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
-            }
-        }
-        remove(ref(db, `users/${myId}/voice_invite`));
-    }
-});
-
-function endVoiceChat() {
-    voiceChatActive = false;
-    if (recognition) {
-        try {
-            recognition.stop();
-        } catch (e) {}
-        recognition = null;
-    }
-    if (currentUtterance) {
-        window.speechSynthesis.cancel();
-        currentUtterance = null;
-    }
-    isListening = false;
-    voiceParticipants = [];
-    voiceMuted = false;
 }
 
 // --- モード制御 ---
