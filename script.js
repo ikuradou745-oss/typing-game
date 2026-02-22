@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V8.0 (Skin System & Debug Mode)
+// FIREBASE & TYPING ENGINE V9.0 (Code System & Combo God Skill)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -25,7 +25,8 @@ const sounds = {
     miss: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
     correct: new Audio("https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"),
     finish: new Audio("https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"),
-    notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3")
+    notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"),
+    coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3")
 };
 
 // --- グローバル変数 ---
@@ -49,7 +50,21 @@ let currentRoma = "";
 let romaIdx = 0;
 let gameInterval; 
 
-let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000; // 初期コイン1000
+let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000;
+
+// --- コードシステム用グローバル変数 ---
+let usedCodes = JSON.parse(localStorage.getItem("ramo_used_codes")) || [];
+let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
+let dailyCodeDate = localStorage.getItem("ramo_daily_date") || new Date().toDateString();
+let codeTimer = null;
+
+// 特殊コード使用フラグ
+let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
+let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
+
+// コンボアップの神スキル
+let comboGodActive = false;
+let comboGodTimer = null;
 
 // --- スキンシステム用グローバル変数 ---
 let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
@@ -77,8 +92,7 @@ const ACCESSORY_DB = {
         emoji: "👑✨",
         unlocks: { 
             skin: "skin-gold", 
-            face: "face-money",
-            accessory: "gold-crown"
+            face: "face-money"
         }
     }
 };
@@ -192,6 +206,14 @@ const NEW_SKILLS = {
         chapter: 2,
         stage: 7,
         requirement: "第2章 2-7 クリア"
+    },
+    comboGod: {
+        id: "comboGod",
+        name: "コンボアップの神",
+        cost: 0,
+        cooldown: 0,
+        desc: "【1回のみ使用可能】7秒間、コンボの数が6倍になる",
+        special: true
     }
 };
 
@@ -211,25 +233,190 @@ const SKILL_DB = {
     ...NEW_SKILLS
 };
 
+// --- デイリーコード生成関数 ---
+function generateDailyCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+// デイリーコードの更新チェック
+function checkDailyCode() {
+    const now = new Date();
+    const today = now.toDateString();
+    
+    // 日付が変わっていたら新しいコードを生成
+    if (dailyCodeDate !== today) {
+        dailyCode = generateDailyCode();
+        dailyCodeDate = today;
+        usedCodes = []; // 使用済みコードをリセット
+        localStorage.setItem("ramo_daily_code", dailyCode);
+        localStorage.setItem("ramo_daily_date", dailyCodeDate);
+        localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+    }
+    
+    // UI更新
+    updateDailyCodeDisplay();
+}
+
+// デイリーコード表示更新
+function updateDailyCodeDisplay() {
+    const dailyCodeEl = el("daily-code");
+    if (dailyCodeEl) {
+        dailyCodeEl.innerText = dailyCode;
+    }
+}
+
+// 次の更新までの時間を計算
+function getTimeUntilNextUpdate() {
+    const now = new Date();
+    const nextUpdate = new Date();
+    nextUpdate.setHours(7, 0, 0, 0); // 朝7時
+    
+    if (now > nextUpdate) {
+        nextUpdate.setDate(nextUpdate.getDate() + 1);
+    }
+    
+    const diff = nextUpdate - now;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// タイマー更新
+function startCodeTimer() {
+    if (codeTimer) clearInterval(codeTimer);
+    
+    codeTimer = setInterval(() => {
+        const timerEl = el("daily-code-timer");
+        if (timerEl) {
+            timerEl.innerText = `更新まで: ${getTimeUntilNextUpdate()}`;
+        }
+    }, 1000);
+}
+
+// --- コード入力UI ---
+window.openCodeUI = () => {
+    checkDailyCode();
+    updateDailyCodeDisplay();
+    startCodeTimer();
+    el("code-ui").classList.remove("hidden");
+};
+
+window.closeCodeUI = () => {
+    if (codeTimer) clearInterval(codeTimer);
+    el("code-ui").classList.add("hidden");
+    el("code-input").value = "";
+};
+
+window.submitCode = () => {
+    const input = el("code-input").value.trim().toUpperCase();
+    if (!input) return;
+    
+    // TYSMコード
+    if (input === "TYSM") {
+        if (tysmUsed) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            coins += 25000;
+            tysmUsed = true;
+            localStorage.setItem("ramo_tysm_used", "true");
+            sounds.coin.play();
+            alert(`🎉 TYSMコード入力成功！\n25000コインを獲得しました！`);
+            saveAndDisplayData();
+        }
+    }
+    // ByRamoコード
+    else if (input === "BYRAMO") {
+        if (byramoUsed) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            if (!ownedSkills.includes("comboGod")) {
+                ownedSkills.push("comboGod");
+                byramoUsed = true;
+                localStorage.setItem("ramo_byramo_used", "true");
+                sounds.notify.play();
+                alert(`🎉 ByRamoコード入力成功！\n「コンボアップの神」スキルを獲得しました！\n(7秒間、コンボが6倍になる 1回のみ使用可能)`);
+                saveAndDisplayData();
+            }
+        }
+    }
+    // デイリーコード
+    else if (input === dailyCode) {
+        if (usedCodes.includes(dailyCode)) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            const reward = Math.floor(Math.random() * 4500) + 500; // 500-5000
+            coins += reward;
+            usedCodes.push(dailyCode);
+            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+            sounds.coin.play();
+            alert(`🎉 デイリーコード入力成功！\n${reward}コインを獲得しました！`);
+            saveAndDisplayData();
+        }
+    } else {
+        alert("無効なコードです");
+    }
+    
+    el("code-input").value = "";
+};
+
+// --- コンボアップの神スキル発動 ---
+function activateComboGod() {
+    if (comboGodActive) return;
+    if (!ownedSkills.includes("comboGod")) {
+        alert("「コンボアップの神」スキルを所持していません");
+        return;
+    }
+    
+    comboGodActive = true;
+    const originalMultiplier = comboMultiplier;
+    comboMultiplier *= 6;
+    
+    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ6倍！", "#FFD700");
+    sounds.notify.play();
+    
+    if (comboGodTimer) clearTimeout(comboGodTimer);
+    comboGodTimer = setTimeout(() => {
+        comboGodActive = false;
+        comboMultiplier = originalMultiplier;
+        showBattleAlert("コンボアップの神終了", "#FFD700");
+        
+        // 使用済みにする（1回のみ）
+        const index = ownedSkills.indexOf("comboGod");
+        if (index > -1) {
+            ownedSkills.splice(index, 1);
+            if (equippedSkill === "comboGod") {
+                equippedSkill = "none";
+            }
+            saveAndDisplayData();
+        }
+    }, 7000);
+}
+
 // --- セーブデータ保存・表示更新用関数 ---
 function saveAndDisplayData() {
-    // ローカルストレージに保存
     localStorage.setItem("ramo_coins", coins);
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
     localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
     localStorage.setItem("ramo_skin", JSON.stringify(skinData));
     localStorage.setItem("ramo_accessory", equippedAccessory);
+    localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+    localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
+    localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     
-    // UI更新
     if (el("coin-amount")) el("coin-amount").innerText = coins;
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins;
     
-    // プロフィールの顔を更新
     updateProfileFace();
     
-    // Firebaseに保存
     const userRef = ref(db, `users/${myId}`);
     get(userRef).then(snap => {
         const userData = snap.val() || {};
@@ -369,7 +556,6 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 ui.appendChild(row);
             }
             
-            // フレンドの顔を表示
             const friendSkin = data.skin || { skin: "skin-1", face: "face-1" };
             const friendFace = FACE_DATA[friendSkin.face] || "😊";
             
@@ -480,7 +666,6 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
             
-            // メンバーの顔を表示
             const membersHtml = Object.entries(p.members || {}).map(([id, m]) => {
                 const memberSkin = m.skin || { skin: "skin-1", face: "face-1" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
@@ -588,7 +773,6 @@ window.switchSkinCategory = (category) => {
 };
 
 function renderSkinShop() {
-    // 肌の色の描画
     const skinGrid = el("skin-category-skin");
     if (skinGrid) {
         skinGrid.innerHTML = "";
@@ -604,7 +788,6 @@ function renderSkinShop() {
             skinGrid.appendChild(item);
         }
         
-        // 金色の肌（大金持ちアクセサリー所有時のみ表示）
         if (skinData.accessories && skinData.accessories.includes('rich')) {
             const goldItem = document.createElement("div");
             goldItem.className = `skin-item owned ${skinData.skin === 'skin-gold' ? 'equipped' : ''}`;
@@ -614,7 +797,6 @@ function renderSkinShop() {
         }
     }
     
-    // 顔の描画
     const faceGrid = el("skin-category-face");
     if (faceGrid) {
         faceGrid.innerHTML = "";
@@ -631,7 +813,6 @@ function renderSkinShop() {
         }
     }
     
-    // アクセサリーの描画
     const accessoryGrid = el("skin-category-accessory");
     if (accessoryGrid) {
         accessoryGrid.innerHTML = "";
@@ -758,22 +939,24 @@ function renderShop() {
             buttonHtml = `<button class="shop-btn equipped" disabled>装備中</button>`;
         } else if (isOwned) {
             buttonHtml = `<button class="shop-btn" onclick="window.equipSkill('${skill.id}')">装備する</button>`;
-        } else if (!skill.boss) {
+        } else if (!skill.boss && !skill.special) {
             const canAfford = coins >= skill.cost;
             buttonHtml = `<button class="shop-btn" onclick="window.buySkill('${skill.id}')" ${canAfford ? '' : 'disabled'}>購入 (${skill.cost.toLocaleString()}🪙)</button>`;
         } else if (skill.boss && canUseBossSkill && !isOwned) {
             buttonHtml = `<button class="shop-btn" onclick="window.unlockBossSkill('${skill.id}')" style="background: #FFD700;">解除する</button>`;
         }
 
-        shopList.innerHTML += `
-            <div class="shop-item ${skill.boss ? 'boss-skill-item' : ''}">
-                <h3>${skill.name} ${skill.boss ? '👑' : ''}</h3>
-                <p style="white-space: pre-wrap;">${skill.desc}</p>
-                ${skill.boss ? `<p style="color: #FFD700; font-size: 0.9rem;">${requirementText}</p>` : ''}
-                <span class="cooldown-text">クールダウン: ${skill.cooldown > 0 ? skill.cooldown + '秒' : '個別/1回のみ'}</span>
-                ${buttonHtml}
-            </div>
-        `;
+        if (!skill.special || (skill.special && isOwned)) {
+            shopList.innerHTML += `
+                <div class="shop-item ${skill.boss ? 'boss-skill-item' : ''} ${skill.special ? 'special-skill-item' : ''}">
+                    <h3>${skill.name} ${skill.boss ? '👑' : ''} ${skill.special ? '✨' : ''}</h3>
+                    <p style="white-space: pre-wrap;">${skill.desc}</p>
+                    ${skill.boss ? `<p style="color: #FFD700; font-size: 0.9rem;">${requirementText}</p>` : ''}
+                    <span class="cooldown-text">クールダウン: ${skill.cooldown > 0 ? skill.cooldown + '秒' : '個別/1回のみ'}</span>
+                    ${buttonHtml}
+                </div>
+            `;
+        }
     });
 }
 
@@ -880,7 +1063,7 @@ window.goHome = () => {
     
     openScreen("screen-home"); 
     updateButtonStates();
-    saveAndDisplayData(); // 念のため保存
+    saveAndDisplayData();
 };
 
 function nextQuestion() {
@@ -962,7 +1145,6 @@ function storyClear() {
     
     let earnedCoins = stageData.reward;
     
-    // 進行状況を更新（バグ修正）
     if (currentStage.chapter === 1) {
         if (storyProgress.chapter1 < currentStage.stage) {
             storyProgress.chapter1 = currentStage.stage;
@@ -1045,7 +1227,16 @@ window.addEventListener("keydown", e => {
     
     if (hackerTabsActive > 0) return;
 
-    if (e.code === "Space") { e.preventDefault(); window.activateSkill("space"); return; }
+    if (e.code === "Space") { 
+        e.preventDefault(); 
+        if (equippedSkill === "comboGod") {
+            activateComboGod();
+        } else {
+            window.activateSkill("space");
+        }
+        return; 
+    }
+    
     if (e.code === "Digit1") { e.preventDefault(); window.activateSkill("key1"); return; }
     if (e.code === "Digit2") { e.preventDefault(); window.activateSkill("key2"); return; }
     if (e.code === "Digit3") { e.preventDefault(); window.activateSkill("key3"); return; }
@@ -1242,6 +1433,9 @@ function setupSkillUI() {
         } else if (equippedSkill === "godfundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
             el("in-game-skill-btn").classList.add("hidden");
+        } else if (equippedSkill === "comboGod") {
+            el("in-game-skill-btn").classList.remove("hidden");
+            statusText.innerText = "✨ 1回のみ (スペースキーで発動)";
         } else {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "準備完了！(スペースキーで発動)";
@@ -1321,7 +1515,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -2225,10 +2419,9 @@ get(userRef).then(snap => {
             equippedAccessory = data.accessory;
         }
     }
-    saveAndDisplayData(); // ローカルストレージとUIを更新
+    saveAndDisplayData();
 }).catch(err => console.error("Firebase load error:", err));
 
-// ユーザー情報をFirebaseに保存
 update(userRef, { 
     name: myName, 
     status: "online", 
@@ -2251,7 +2444,9 @@ if (timeSlider && timeLabel) {
     });
 }
 
-// プロフィールの顔を初期表示
+// デイリーコードの初期化とタイマー開始
+checkDailyCode();
+startCodeTimer();
 updateProfileFace();
 
 window.goHome();
