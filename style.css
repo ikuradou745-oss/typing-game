@@ -97,7 +97,7 @@ body, html {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     z-index: 2000;
     display: flex;
     align-items: center;
@@ -301,16 +301,17 @@ body, html {
     gap: 10px;
 }
 
+/* プロフィールの顔を小さく調整 */
 .profile-face-container {
-    width: 100px;
-    height: 100px;
-    margin: 0 auto 15px auto;
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 10px auto;
     position: relative;
     background: #1a1a2a;
     border-radius: 50%;
-    border: 3px solid var(--accent-gold);
+    border: 2px solid var(--accent-gold);
     overflow: hidden;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
 .profile-skin {
@@ -332,7 +333,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 2.2rem;
     color: #000;
     text-shadow: 0 0 5px rgba(255,255,255,0.5);
 }
@@ -346,7 +347,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 2.2rem;
     pointer-events: none;
     text-shadow: 0 0 10px gold;
 }
@@ -398,6 +399,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .code-display { margin-top: 10px; font-size: 0.9rem; color: var(--accent-purple); background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; text-align: center; }
 .friend-add-box { display: flex; gap: 5px; flex-shrink: 0; }
 
+/* フレンドアイテム - アクセサリー表示対応 */
 .friend-item { 
     display: flex; 
     justify-content: space-between; 
@@ -409,8 +411,46 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     border: 1px solid transparent; 
     transition: 0.2s;
 }
+
+.friend-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.friend-face {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 1.3rem;
+    min-width: 50px;
+}
+
+.friend-face span {
+    line-height: 1;
+}
+
+.friend-name {
+    font-size: 0.95rem;
+    word-break: break-word;
+    max-width: 120px;
+}
+
+.friend-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
 .friend-item:hover { border-color: var(--accent-blue); background: rgba(0, 242, 255, 0.1); }
-.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+.status-dot { 
+    width: 8px; 
+    height: 8px; 
+    border-radius: 50%; 
+    display: inline-block; 
+    margin-right: 5px; 
+}
 .online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
 .offline { background: var(--accent-red); }
 
@@ -520,21 +560,21 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
    ========================================= */
 #screen-skin-shop {
     justify-content: flex-start;
-    padding-top: 20px;
-    padding-bottom: 20px;
+    padding: 15px 20px 20px 20px;
     overflow-y: auto;
+    height: 100%;
 }
 
 .skin-preview {
-    width: 150px;
-    height: 150px;
-    margin: 10px auto;
+    width: 130px;
+    height: 130px;
+    margin: 5px auto 10px auto;
     background: var(--panel-bg);
     border-radius: 50%;
-    border: 4px solid var(--accent-gold);
+    border: 3px solid var(--accent-gold);
     position: relative;
     overflow: hidden;
-    box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
 }
 
 .face-preview {
@@ -561,7 +601,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 4rem;
+    font-size: 3.5rem;
     color: #000;
     text-shadow: 0 0 10px rgba(255,255,255,0.5);
 }
@@ -575,15 +615,15 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 4rem;
+    font-size: 3.5rem;
     pointer-events: none;
     text-shadow: 0 0 15px gold;
 }
 
 .skin-categories {
     display: flex;
-    gap: 10px;
-    margin: 15px 0;
+    gap: 8px;
+    margin: 10px 0;
     flex-wrap: wrap;
     justify-content: center;
 }
@@ -592,8 +632,8 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     background: var(--panel-bg);
     border: 2px solid var(--accent-purple);
     color: white;
-    padding: 8px 20px;
-    font-size: 1rem;
+    padding: 8px 16px;
+    font-size: 0.95rem;
     font-weight: bold;
     border-radius: 30px;
     cursor: pointer;
@@ -602,7 +642,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 
 .skin-cat-btn.active {
     background: var(--accent-purple);
-    box-shadow: 0 0 20px var(--accent-purple);
+    box-shadow: 0 0 15px var(--accent-purple);
     transform: scale(1.05);
 }
 
@@ -612,11 +652,11 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 
 .skin-grid-container {
     width: 100%;
-    max-width: 650px;
-    max-height: 250px;
+    max-width: 600px;
+    max-height: 220px;
     overflow-y: auto;
     margin-bottom: 15px;
-    border-radius: 20px;
+    border-radius: 15px;
     background: var(--panel-bg);
     border: 1px solid var(--glass);
 }
@@ -624,20 +664,20 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .skin-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
-    padding: 15px;
+    gap: 8px;
+    padding: 12px;
 }
 
 .skin-item {
     aspect-ratio: 1;
     background: #1a1a2a;
     border: 2px solid var(--accent-blue);
-    border-radius: 12px;
+    border-radius: 10px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
+    font-size: 1.8rem;
     transition: 0.2s;
     position: relative;
 }
@@ -645,18 +685,18 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .skin-item:hover:not(.locked) {
     transform: scale(1.05);
     border-color: var(--accent-gold);
-    box-shadow: 0 0 15px var(--accent-gold);
+    box-shadow: 0 0 12px var(--accent-gold);
     z-index: 10;
 }
 
 .skin-item.owned {
     border-color: var(--accent-green);
-    box-shadow: 0 0 8px var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
 }
 
 .skin-item.equipped {
     border-color: var(--accent-gold);
-    box-shadow: 0 0 15px var(--accent-gold);
+    box-shadow: 0 0 12px var(--accent-gold);
     position: relative;
 }
 
@@ -666,11 +706,11 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     top: 2px;
     right: 2px;
     color: var(--accent-gold);
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: bold;
     background: rgba(0,0,0,0.5);
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -687,10 +727,10 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     position: absolute;
     bottom: 2px;
     right: 2px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     background: rgba(0,0,0,0.8);
-    padding: 2px 5px;
-    border-radius: 10px;
+    padding: 2px 4px;
+    border-radius: 8px;
     color: var(--accent-gold);
     font-weight: bold;
     border: 1px solid var(--accent-gold);
@@ -700,19 +740,20 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .skin-color-item {
     width: 100%;
     height: 100%;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .skin-shop-buttons {
     display: flex;
     gap: 15px;
-    margin-top: 10px;
+    margin-top: 5px;
     justify-content: center;
 }
 
 .skin-shop-buttons .action-btn {
-    padding: 15px 25px;
-    font-size: 1.1rem;
+    padding: 12px 20px;
+    font-size: 1rem;
+    min-width: 140px;
 }
 
 /* =========================================
