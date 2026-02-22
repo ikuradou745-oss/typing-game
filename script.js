@@ -47,10 +47,11 @@ let currentWords = [];
 let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
+let customWords = JSON.parse(localStorage.getItem("ramo_custom")) || ["たいぴんぐ","らもえディション","ぷろぐらみんぐ","こんぼ","ふれんど"];
 let gameInterval; 
 
 let isCustomGame = false;
-let coins = 0;
+let coins = parseInt(localStorage.getItem("ramo_coins")) || 0;
 
 // --- スキルシステム用グローバル変数 ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
@@ -90,14 +91,17 @@ let poisonActive = false;
 let hackingActive = false;
 let partyStoryProgress = {};
 
-// --- スキンシステム用グローバル変数 ---
-let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
-    skinColor: 1,
-    eyes: "👀",
-    mouth: "👄",
-    accessories: []
-};
-let ownedAccessories = JSON.parse(localStorage.getItem("ramo_owned_accessories")) || [];
+// --- WebRTC ボイスチャット用 ---
+let voiceChatActive = false;
+let voiceMuted = false;
+let voiceParticipants = [];
+let voiceInviteListener = null;
+let voiceType = 'male'; // 'male', 'female', 'robot'
+let localStream = null;
+let peerConnections = {};
+let voiceBar = null;
+let voiceRoomId = null;
+
 
 // --- ハッカーマイルストーン4 使用状態管理 ---
 let hackerMilestone4Used = false;
@@ -132,46 +136,6 @@ const STORY_STAGES = {
         { stage: 7, target: 100000, reward: 2500, boss: true, skill: "graveyard" }
     ]
 };
-
-// スキンのデータ定義
-const SKIN_COLORS = [
-    "#f5d0b0", // 1: 標準
-    "#e0b090", // 2: 色白
-    "#c98a5e", // 3: 日焼け
-    "#8b5a2b", // 4: 浅黒
-    "#6b4a2e", // 5: 褐色
-    "#4a3520", // 6: ダーク
-    "#2a1e12", // 7: ブラック
-    "#ffe5b4", // 8: クリーム
-    "#ffcba4", // 9: ピーチ
-    "#ffd700"  // 10: 金色（大金持ち）
-];
-
-const EYES_TYPES = [
-    "👀", "😊", "😎", "👁️", "👁️‍🗨️", "◉_◉", "◕‿◕", "◕◡◕", "◕ᴗ◕", "◕‿◕",
-    "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "◕‿◕", "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "◕‿◕",
-    "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "◕‿◕", "◕_◕", "◕◕", "◕◡◕", "◕ᴗ◕", "$_$"
-];
-
-const MOUTH_TYPES = [
-    "👄", "😃", "😮", "😐", "😏", "😋", "😛", "😜", "😝", "😒",
-    "😔", "😕", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
-    "😘", "😗", "😙", "😚", "😋", "😛", "😜", "😝", "🤑", "$"
-];
-
-// アクセサリーのデータ定義（スキンショップ用）
-const ACCESSORIES = [
-    { id: "headphone", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
-    { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
-    { id: "weird_glasses", name: "変なメガネ", cost: 15000, emoji: "👓" },
-    { id: "sunglasses", name: "サングラス", cost: 30000, emoji: "🕶️" },
-    { id: "premium_headphone", name: "高級ヘッドフォン", cost: 50000, emoji: "🎧✨" },
-    { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
-    { id: "silver_trophy", name: "銀トロフィー", cost: 100000, emoji: "🏆" },
-    { id: "weird_glasses2", name: "変なメガネ2", cost: 150000, emoji: "👓✨" },
-    { id: "gold_trophy", name: "金トロフィー", cost: 1000000, emoji: "🏆👑" },
-    { id: "rich", name: "大金持ち", cost: 10000000, emoji: "👑✨", special: true }
-];
 
 // 新しいスキルの追加
 const NEW_SKILLS = {
@@ -210,7 +174,7 @@ const NEW_SKILLS = {
     }
 };
 
-// スキルのデータ定義（スキルショップ用）
+// スキルのデータ定義
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
@@ -232,24 +196,16 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
     localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
-    localStorage.setItem("ramo_skin", JSON.stringify(skinData));
-    localStorage.setItem("ramo_owned_accessories", JSON.stringify(ownedAccessories));
-    
+
     if (el("coin-amount")) el("coin-amount").innerText = coins;
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins;
-    if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins;
-    
+
     update(ref(db, `users/${myId}`), { 
         coins: coins,
         skills: ownedSkills,
         equipped: equippedSkill,
-        story_progress: storyProgress,
-        skin: skinData,
-        owned_accessories: ownedAccessories,
-        name: myName
+        story_progress: storyProgress
     });
-    
-    updateSkinPreview();
 }
 
 // --- 出題データ ---
@@ -265,16 +221,18 @@ function updateButtonStates() {
     const btnSingle = el("btn-single");
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
+    const btnEditor = el("btn-editor");
+    const btnCustom = el("btn-custom");
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
-    const btnSkin = el("btn-skin");
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
+    if (btnEditor) btnEditor.disabled = isBusy || myPartyId !== null;
+    if (btnCustom) btnCustom.disabled = isBusy || myPartyId !== null;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
     if (btnStory) btnStory.disabled = isBusy;
-    if (btnSkin) btnSkin.disabled = isBusy;
 }
 
 // --- リアルタイム名前更新 ---
@@ -320,7 +278,13 @@ function getRomaPatterns(kana) {
 // --- フレンド機能 ---
 window.addFriend = async () => {
     const code = el("friend-code-input").value;
-    
+
+    if (code === "1x4x") {
+        el("friend-code-input").value = "";
+        openVoiceChat();
+        return;
+    }
+
     if (!code || code === myId) return;
     const snap = await get(ref(db, `users/${code}`));
     if (snap.exists()) {
@@ -331,24 +295,6 @@ window.addFriend = async () => {
         alert("コードが見つかりません"); 
     }
 };
-
-// フレンドリストのアバター表示を更新
-function updateAllFriendAvatars() {
-    const friendItems = document.querySelectorAll('.friend-item');
-    friendItems.forEach(item => {
-        const avatarDiv = item.querySelector('.friend-avatar');
-        if (avatarDiv) {
-            avatarDiv.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
-            avatarDiv.innerHTML = `
-                <div style="font-size: 1rem;">${skinData.eyes}</div>
-                <div style="font-size: 0.9rem;">${skinData.mouth}</div>
-                <div class="accessories" style="position: absolute; top: -10px; font-size: 1rem;">${skinData.accessories.map(id => 
-                    ACCESSORIES.find(a => a.id === id)?.emoji || ''
-                ).join('')}</div>
-            `;
-        }
-    });
-}
 
 onValue(ref(db, `users/${myId}/friends`), (snap) => {
     const ui = el("friend-list-ui");
@@ -366,29 +312,18 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 row.className = "friend-item";
                 ui.appendChild(row);
             }
-            
-            // フレンドのスキンデータを取得
-            const friendSkin = data.skin || { skinColor: 1, eyes: "👀", mouth: "👄", accessories: [] };
-            const friendSkinColor = SKIN_COLORS[friendSkin.skinColor - 1] || SKIN_COLORS[0];
-            
             row.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="friend-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: ${friendSkinColor}; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.8rem; border: 2px solid var(--accent-blue); position: relative;">
-                        <div style="font-size: 1rem;">${friendSkin.eyes}</div>
-                        <div style="font-size: 0.9rem;">${friendSkin.mouth}</div>
-                        <div class="accessories" style="position: absolute; top: -10px; font-size: 1rem;">${friendSkin.accessories.map(id => 
-                            ACCESSORIES.find(a => a.id === id)?.emoji || ''
-                        ).join('')}</div>
-                    </div>
-                    <div><span class="status-dot ${data.status}"></span>${data.name}</div>
-                </div>
+                <div><span class="status-dot ${data.status}"></span>${data.name}</div>
                 <div>
                     <button class="btn-invite" onclick="window.inviteToParty('${fid}')">招待</button>
                     <button class="btn-kick" onclick="window.removeFriend('${fid}')">削除</button>
-                </div>
-            `;
+                </div>`;
         });
     });
+
+    if (voiceChatActive) {
+        renderVoiceFriendList();
+    }
 });
 
 window.removeFriend = (fid) => { remove(ref(db, `users/${myId}/friends/${fid}`)); remove(ref(db, `users/${fid}/friends/${myId}`)); };
@@ -459,26 +394,8 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
-            
-            // パーティーリストにアバターを表示
-            let membersHtml = "";
-            Object.keys(p.members).forEach(memberId => {
-                const member = p.members[memberId];
-                // メンバーのスキンデータを取得（非同期のため簡易版）
-                const memberSkin = { skinColor: 1, eyes: "👀", mouth: "👄", accessories: [] };
-                const memberSkinColor = SKIN_COLORS[memberSkin.skinColor - 1];
-                
-                membersHtml += `
-                    <div class="friend-item" style="display: flex; align-items: center; gap: 10px;">
-                        <div class="party-avatar" style="width: 30px; height: 30px; border-radius: 50%; background: ${memberSkinColor}; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
-                            ${memberSkin.eyes}
-                        </div>
-                        <span>${member.name} ${member.ready?'✅':''}</span>
-                    </div>
-                `;
-            });
-            el("party-list-ui").innerHTML = membersHtml;
-            
+            el("party-list-ui").innerHTML = Object.values(p.members).map(m => `<div class="friend-item">${m.name} ${m.ready?'✅':''}</div>`).join("");
+
             if (p.state === "ready_check" && !gameActive) {
                 openScreen("screen-play"); 
                 el("ready-overlay").classList.remove("hidden");
@@ -495,12 +412,12 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                     currentStage = { chapter: p.storyChapter, stage: p.storyStage };
                     isCustomGame = false;
                     currentWords = WORD_DB[p.diff] || WORD_DB.normal;
-                    
+
                     const progressBar = el("story-progress-bar");
                     progressBar.classList.remove("hidden");
                     el("progress-target").innerText = storyTargetScore;
                     updateProgressBar(0);
-                    
+
                     startGame(p.time);
                 } else {
                     currentWords = WORD_DB[p.diff]; 
@@ -523,7 +440,7 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- スキルショップシステム ---
+// --- ショップシステム ---
 window.openShop = () => {
     openScreen("screen-shop");
     renderShop();
@@ -556,10 +473,10 @@ function renderShop() {
     Object.values(SKILL_DB).forEach(skill => {
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
-        
+
         let canUseBossSkill = true;
         let requirementText = "";
-        
+
         if (skill.boss) {
             if (skill.id === "hanabi") {
                 canUseBossSkill = storyProgress.chapter1 >= 7;
@@ -572,7 +489,7 @@ function renderShop() {
                 requirementText = `【条件: ${canUseBossSkill ? '✓ クリア済み' : '第3章 3-7 をクリアすると使用可能'}】`;
             }
         }
-        
+
         let buttonHtml = "";
         if (skill.boss && !canUseBossSkill) {
             buttonHtml = `<button class="shop-btn" disabled style="background: #666;">使用不可 (未クリア)</button>`;
@@ -597,13 +514,6 @@ function renderShop() {
             </div>
         `;
     });
-    
-    // ショップ画面のスクロール調整
-    const shopScreen = el("screen-shop");
-    if (shopScreen) {
-        shopScreen.style.overflowY = "auto";
-        shopScreen.style.paddingBottom = "20px";
-    }
 }
 
 window.unlockBossSkill = (skillId) => {
@@ -615,232 +525,6 @@ window.unlockBossSkill = (skillId) => {
         alert(`${SKILL_DB[skillId].name} を解除しました！`);
     }
 };
-
-// --- スキンショップシステム（アクセサリー購入はここ）---
-window.openSkinShop = () => {
-    openScreen("screen-skin-shop");
-    renderSkinShop('skin');
-};
-
-let currentSkinCategory = 'skin';
-
-window.switchSkinCategory = (category) => {
-    currentSkinCategory = category;
-    document.querySelectorAll('.category-tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
-    renderSkinShop(category);
-};
-
-function renderSkinShop(category) {
-    const skinGrid = el("skin-grid");
-    if (!skinGrid) return;
-    
-    skinGrid.innerHTML = "";
-    
-    if (category === 'skin') {
-        // 肌の色（10種類、無料）
-        for (let i = 0; i < 10; i++) {
-            const isEquipped = skinData.skinColor === i + 1;
-            // 金色（10番目）は大金持ちアクセサリーが必要
-            const isLocked = i === 9 && !ownedAccessories.includes('rich');
-            
-            const item = document.createElement("div");
-            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''}`;
-            item.onclick = () => !isLocked && selectSkinColor(i + 1);
-            
-            item.innerHTML = `
-                <div class="skin-preview-small" style="background: ${SKIN_COLORS[i]};">
-                    <div class="eyes">${skinData.eyes}</div>
-                    <div class="mouth">${skinData.mouth}</div>
-                </div>
-                <div class="skin-name">肌色 ${i + 1}</div>
-                ${isLocked ? '<div class="skin-locked-tag">🔒</div>' : ''}
-                ${isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
-            `;
-            
-            skinGrid.appendChild(item);
-        }
-    } else if (category === 'face') {
-        // 顔パーツ（30種類、無料）
-        for (let i = 0; i < 30; i++) {
-            const eyes = EYES_TYPES[i % EYES_TYPES.length];
-            const mouth = MOUTH_TYPES[i % MOUTH_TYPES.length];
-            const isEquipped = skinData.eyes === eyes && skinData.mouth === mouth;
-            
-            const item = document.createElement("div");
-            item.className = `skin-item ${isEquipped ? 'equipped' : ''}`;
-            item.onclick = () => selectFace(eyes, mouth);
-            
-            item.innerHTML = `
-                <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]};">
-                    <div class="eyes">${eyes}</div>
-                    <div class="mouth">${mouth}</div>
-                </div>
-                <div class="skin-name">表情 ${i + 1}</div>
-                ${isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
-            `;
-            
-            skinGrid.appendChild(item);
-        }
-    } else if (category === 'accessory') {
-        // アクセサリー（10種類、有料）- スキンショップで購入
-        ACCESSORIES.forEach((acc, index) => {
-            const isOwned = ownedAccessories.includes(acc.id);
-            const isEquipped = skinData.accessories.includes(acc.id);
-            const canAfford = coins >= acc.cost;
-            
-            const item = document.createElement("div");
-            item.className = `skin-item ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
-            
-            // 大金持ちの特別処理
-            let priceDisplay = acc.cost.toLocaleString();
-            
-            // 購入ボタンか装備ボタンかを判断
-            let action = "";
-            if (!isOwned && canAfford) {
-                action = "購入";
-                item.onclick = () => buyAccessory(acc.id);
-            } else if (isOwned && !isEquipped) {
-                action = "装備";
-                item.onclick = () => equipAccessory(acc.id);
-            } else if (isOwned && isEquipped) {
-                action = "装備中";
-            } else if (!isOwned && !canAfford) {
-                action = "コイン不足";
-            }
-            
-            item.innerHTML = `
-                <div class="skin-preview-small" style="background: ${SKIN_COLORS[skinData.skinColor - 1]}; position: relative;">
-                    <div class="eyes">${skinData.eyes}</div>
-                    <div class="mouth">${skinData.mouth}</div>
-                    <div class="accessories" style="position: absolute; top: -15px; font-size: 1.5rem;">${acc.emoji}</div>
-                </div>
-                <div class="skin-name">${acc.name}</div>
-                <div class="skin-price">${priceDisplay}🪙</div>
-                <div class="skin-action">${action}</div>
-                ${!isOwned && !canAfford ? '<div class="skin-locked-tag">🔒</div>' : ''}
-                ${isOwned && isEquipped ? '<div class="skin-equip-tag">✓</div>' : ''}
-            `;
-            
-            skinGrid.appendChild(item);
-        });
-    }
-    
-    // スキンショップ画面のスクロール調整
-    const skinScreen = el("screen-skin-shop");
-    if (skinScreen) {
-        skinScreen.style.overflowY = "auto";
-        skinScreen.style.paddingBottom = "20px";
-    }
-}
-
-function selectSkinColor(colorIndex) {
-    skinData.skinColor = colorIndex;
-    saveAndDisplayData();
-    renderSkinShop(currentSkinCategory);
-}
-
-function selectFace(eyes, mouth) {
-    skinData.eyes = eyes;
-    skinData.mouth = mouth;
-    saveAndDisplayData();
-    renderSkinShop(currentSkinCategory);
-}
-
-// アクセサリー購入（スキンショップ） - グローバル公開
-window.buyAccessory = function(accessoryId) {
-    const accessory = ACCESSORIES.find(a => a.id === accessoryId);
-    if (!accessory) return;
-    
-    if (coins >= accessory.cost) {
-        coins -= accessory.cost;
-        ownedAccessories.push(accessoryId);
-        
-        // 大金持ちを買ったら金色の肌と特別な目・口をアンロック
-        if (accessoryId === 'rich') {
-            skinData.skinColor = 10; // 金色
-            skinData.eyes = "$_$";
-            skinData.mouth = "$";
-        }
-        
-        // 購入したアクセサリーを自動装備
-        if (!skinData.accessories.includes(accessoryId)) {
-            skinData.accessories.push(accessoryId);
-        }
-        
-        saveAndDisplayData();
-        sounds.notify.play();
-        alert(`${accessory.name} を購入し、装備しました！`);
-        renderSkinShop(currentSkinCategory);
-    } else {
-        alert("コインが足りません！");
-    }
-};
-
-// アクセサリー装備/解除 - グローバル公開
-window.equipAccessory = function(accessoryId) {
-    if (skinData.accessories.includes(accessoryId)) {
-        // 装備中なら解除
-        skinData.accessories = skinData.accessories.filter(id => id !== accessoryId);
-    } else {
-        // 未装備なら装備
-        skinData.accessories.push(accessoryId);
-    }
-    saveAndDisplayData();
-    renderSkinShop(currentSkinCategory);
-};
-
-// スキンプレビュー更新
-function updateSkinPreview() {
-    // プレビューアバターの更新
-    const previewFace = el("preview-face");
-    const previewEyes = el("preview-eyes");
-    const previewMouth = el("preview-mouth");
-    const previewAccessories = el("preview-accessories");
-    
-    if (previewFace) {
-        previewFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1] || SKIN_COLORS[0];
-        previewFace.setAttribute('data-skin', skinData.skinColor);
-    }
-    if (previewEyes) previewEyes.innerText = skinData.eyes;
-    if (previewMouth) previewMouth.innerText = skinData.mouth;
-    if (previewAccessories) {
-        previewAccessories.innerHTML = skinData.accessories.map(id => 
-            ACCESSORIES.find(a => a.id === id)?.emoji || ''
-        ).join(' ');
-    }
-    
-    // プロフィールアバターの更新
-    const profileFace = el("profile-face");
-    const profileEyes = el("profile-eyes");
-    const profileMouth = el("profile-mouth");
-    const profileAccessories = el("profile-accessories");
-    
-    if (profileFace) {
-        profileFace.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1] || SKIN_COLORS[0];
-        profileFace.setAttribute('data-skin', skinData.skinColor);
-    }
-    if (profileEyes) profileEyes.innerText = skinData.eyes;
-    if (profileMouth) profileMouth.innerText = skinData.mouth;
-    if (profileAccessories) {
-        profileAccessories.innerHTML = skinData.accessories.map(id => 
-            ACCESSORIES.find(a => a.id === id)?.emoji || ''
-        ).join(' ');
-    }
-    
-    // 他の場所にもスキンを表示（必要に応じて追加）
-    const allAvatars = document.querySelectorAll('.player-avatar, .user-avatar');
-    allAvatars.forEach(avatar => {
-        avatar.style.backgroundColor = SKIN_COLORS[skinData.skinColor - 1];
-        avatar.innerHTML = `
-            <div class="eyes">${skinData.eyes}</div>
-            <div class="mouth">${skinData.mouth}</div>
-            <div class="accessories">${skinData.accessories.map(id => 
-                ACCESSORIES.find(a => a.id === id)?.emoji || ''
-            ).join('')}</div>
-        `;
-    });
-}
 
 // --- ゲームエンジン ---
 function openScreen(id) {
@@ -857,10 +541,10 @@ window.goHome = () => {
     if (myPartyId && myPartyId.startsWith("match_")) {
         window.leaveParty();
     }
-    
+
     el("story-progress-bar").classList.add("hidden");
     isStoryMode = false;
-    
+
     openScreen("screen-home"); 
     updateButtonStates();
 };
@@ -883,24 +567,24 @@ function processCorrectType() {
     romaIdx++;
     score += (10 + combo) * comboMultiplier; 
     combo += 1 * comboMultiplier; 
-    
+
     if (isGodfatherMissionActive) {
         coins += (combo > 0 ? combo * 20 : 20);
         el("coin-amount").innerText = coins;
     }
-    
+
     sounds.type.currentTime = 0; sounds.type.play();
-    
+
     if (romaIdx >= currentRoma.length) { 
         sounds.correct.play(); 
         currentWordIdx++; 
         nextQuestion(); 
     }
-    
+
     el("stat-score").innerText = score; 
     el("stat-combo").innerText = combo;
     renderRoma();
-    
+
     if (isStoryMode) {
         if (myPartyId) {
             get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
@@ -910,7 +594,7 @@ function processCorrectType() {
                     const totalScore = Object.values(members).reduce((sum, m) => sum + (m.score || 0), 0);
                     const teamAverageScore = Math.floor(totalScore / memberCount);
                     updateProgressBar(teamAverageScore);
-                    
+
                     if (teamAverageScore >= storyTargetScore && gameActive) {
                         clearInterval(gameInterval);
                         gameActive = false;
@@ -920,7 +604,7 @@ function processCorrectType() {
             });
         } else {
             updateProgressBar(score);
-            
+
             if (score >= storyTargetScore && gameActive) {
                 clearInterval(gameInterval);
                 gameActive = false;
@@ -928,7 +612,7 @@ function processCorrectType() {
             }
         }
     }
-    
+
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 }
 
@@ -945,23 +629,23 @@ function storyClear() {
         currentStage.chapter === 2 ?
         STORY_STAGES.chapter2[currentStage.stage - 1] :
         STORY_STAGES.chapter3[currentStage.stage - 1];
-    
+
     let earnedCoins = stageData.reward;
-    
+
     if (myPartyId) {
         get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
             const members = snap.val();
             if (!members) return;
-            
+
             const memberCount = Object.keys(members).length;
-            
+
             const updates = {};
             Object.keys(members).forEach(memberId => {
                 const chapterKey = `chapter${currentStage.chapter}`;
                 updates[`users/${memberId}/story_progress/${chapterKey}`] = currentStage.stage;
             });
             update(ref(db), updates);
-            
+
             if (currentStage.chapter === 1) {
                 if (storyProgress.chapter1 < currentStage.stage) {
                     storyProgress.chapter1 = currentStage.stage;
@@ -975,19 +659,19 @@ function storyClear() {
                     storyProgress.chapter3 = currentStage.stage;
                 }
             }
-            
+
             earnedCoins = Math.floor(earnedCoins / memberCount);
             coins += earnedCoins;
-            
+
             if (stageData.boss) {
                 const skillId = stageData.skill;
-                
+
                 if (!ownedSkills.includes(skillId)) {
                     ownedSkills.push(skillId);
                     equippedSkill = skillId;
                     alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
                 }
-                
+
                 Object.keys(members).forEach(memberId => {
                     if (memberId !== myId) {
                         const memberRef = ref(db, `users/${memberId}`);
@@ -1005,18 +689,18 @@ function storyClear() {
                     }
                 });
             }
-            
+
             saveAndDisplayData();
             endGame();
         });
     } else {
         updateStoryProgress();
         coins += earnedCoins;
-        
+
         if (stageData.boss) {
             giveBossSkill(stageData.skill);
         }
-        
+
         saveAndDisplayData();
         endGame();
     }
@@ -1036,7 +720,7 @@ function updateStoryProgress() {
             storyProgress.chapter3 = currentStage.stage;
         }
     }
-    
+
     localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
     update(ref(db, `users/${myId}/story_progress`), storyProgress);
 }
@@ -1052,21 +736,21 @@ function giveBossSkill(skillId) {
 
 document.addEventListener("keydown", e => {
     if (!gameActive) return;
-    
+
     if (hackerTabsActive > 0) return;
 
     if (e.code === "Space") { e.preventDefault(); window.activateSkill("space"); return; }
     if (e.code === "Digit1") { e.preventDefault(); window.activateSkill("key1"); return; }
     if (e.code === "Digit2") { e.preventDefault(); window.activateSkill("key2"); return; }
     if (e.code === "Digit3") { e.preventDefault(); window.activateSkill("key3"); return; }
-    
+
     if (mazeActive) {
         if (e.code === "ArrowUp") { e.preventDefault(); window.moveMaze('up'); return; }
         if (e.code === "ArrowDown") { e.preventDefault(); window.moveMaze('down'); return; }
         if (e.code === "ArrowLeft") { e.preventDefault(); window.moveMaze('left'); return; }
         if (e.code === "ArrowRight") { e.preventDefault(); window.moveMaze('right'); return; }
     }
-    
+
     if (isJamming) return;
 
     if (e.key === currentRoma[romaIdx]) {
@@ -1088,7 +772,7 @@ function startGame(sec) {
     timer = sec; 
     duration = sec; 
     currentWordIdx = 0;
-    
+
     resetSkillState();
     setupSkillUI();
 
@@ -1110,7 +794,7 @@ function startGame(sec) {
     nextQuestion(); 
     el("stat-score").innerText = "0"; 
     el("stat-combo").innerText = "0";
-    
+
     gameInterval = setInterval(() => {
         if(!gameActive) { clearInterval(gameInterval); return; }
         timer--; 
@@ -1131,15 +815,7 @@ function syncRivals() {
         const val = s.val();
         if(val) {
             el("rival-list").innerHTML = Object.values(val).map(m => `
-                <div class="friend-item">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div class="rival-avatar" style="width: 30px; height: 30px; border-radius: 50%; background: ${SKIN_COLORS[skinData.skinColor - 1]}; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
-                            ${skinData.eyes}
-                        </div>
-                        <span>${m.name}</span>
-                    </div>
-                    <span>${isHidden?'わからないよ！':m.score}</span>
-                </div>
+                <div class="friend-item"><span>${m.name}</span><span>${isHidden?'わからないよ！':m.score}</span></div>
             `).join("");
         }
     });
@@ -1179,7 +855,7 @@ function endGame() {
             const val = s.val();
             if(val) {
                 const res = Object.entries(val).sort((a,b) => b[1].score - a[1].score);
-                
+
                 if (!isCustomGame && res[0][0] === myId && res.length > 1) {
                     earnedCoins *= 2;
                     isWinner = true;
@@ -1194,7 +870,7 @@ function endGame() {
                     const m = item[1];
                     return `<div class="ranking-row"><span>${i+1}位: ${m.name}</span><span>${m.score} pts</span></div>`;
                 }).join("");
-                
+
                 let coinText = "";
                 if (isStoryMode) {
                     const totalScore = Object.values(val).reduce((sum, m) => sum + (m.score || 0), 0);
@@ -1203,7 +879,7 @@ function endGame() {
                 } else {
                     coinText = isCustomGame ? "カスタムモードは獲得不可" : (isWinner ? `勝利ボーナス！ +${earnedCoins} 🪙` : `獲得コイン +${earnedCoins} 🪙`);
                 }
-                
+
                 el("ranking-box").innerHTML += `
                     <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
                         <span>結果</span><span>${coinText}</span>
@@ -1221,7 +897,7 @@ function endGame() {
         }
         el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score} pts</span></div>`; 
         let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : (isCustomGame ? "カスタムモードは獲得不可" : `獲得コイン +${earnedCoins} 🪙`);
-        
+
         el("ranking-box").innerHTML += `
             <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
                 <span>結果</span><span>${coinText}</span>
@@ -1234,11 +910,11 @@ function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
     const statusText = el("skill-status-text");
-    
+
     if (equippedSkill && equippedSkill !== "none") {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = SKILL_DB[equippedSkill].name;
-        
+
         if (equippedSkill === "fundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン2倍";
             el("in-game-skill-btn").classList.add("hidden");
@@ -1255,7 +931,7 @@ function setupSkillUI() {
     } else {
         actionBox.classList.add("hidden");
     }
-    
+
     updateTrapDisplay();
 }
 
@@ -1263,7 +939,7 @@ function updateCooldownText() {
     if (equippedSkill === "none" || equippedSkill === "fundraiser") return;
     const skill = SKILL_DB[equippedSkill];
     let txt = "";
-    
+
     if (skill.id === "hacker") {
         let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]タブ追加OK";
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]ウイルスOK";
@@ -1283,7 +959,7 @@ function updateCooldownText() {
         let k2Text = isStunned ? "[2]スタン解除可能！" : (cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]スタン解除OK");
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]トラップ設置OK";
         txt = `${k1} | ${k2Text} | ${k3}`;
-        
+
         if (trapCount > 0) {
             txt += ` | トラップ: ${trapCount}個`;
         }
@@ -1298,10 +974,10 @@ function resetSkillState() {
     clearInterval(autoTypeTimer);
     clearTimeout(jammingTimer);
     clearInterval(blurIntervalTimer);
-    
+
     cooldownTimers = { space: null, key1: null, key2: null, key3: null };
     cooldowns = { space: 0, key1: 0, key2: 0, key3: 0 };
-    
+
     isJamming = false;
     comboMultiplier = 1;
     timeSlipUsed = false;
@@ -1309,22 +985,22 @@ function resetSkillState() {
     hackerTabsActive = 0;
     comboGuardActive = false;
     isStunned = false;
-    
+
     mazeActive = false;
     hackingActive = false;
     poisonActive = false;
-    
+
     el("stun-release-overlay")?.classList.add("hidden");
-    
+
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
-    
+
     const playScreen = el("screen-play");
     if (playScreen) {
         playScreen.style.filter = "none";
         playScreen.style.transition = "none";
     }
-    
+
     el("jamming-overlay").classList.add("hidden");
     el("maze-overlay").classList.add("hidden");
     el("hacking-overlay").classList.add("hidden");
@@ -1333,7 +1009,7 @@ function resetSkillState() {
     el("skill-cooldown-bar").style.height = "0%";
     el("in-game-skill-btn").classList.remove("cooldown", "hidden");
     el("skill-status-text").innerText = "準備完了！(指定キーで発動)";
-    
+
     updateTrapDisplay();
 }
 
@@ -1341,16 +1017,16 @@ function startSpecificCooldown(slot, seconds) {
     if (seconds <= 0) return;
     cooldowns[slot] = seconds;
     maxCooldowns[slot] = seconds;
-    
+
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
-    
+
     if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "graveyard") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
-    
+
     updateCooldownText();
-    
+
     cooldownTimers[slot] = setInterval(() => {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
@@ -1375,11 +1051,11 @@ function showBattleAlert(text, color) {
     alertEl.style.color = color;
     alertEl.style.textShadow = `0 0 20px ${color}`;
     alertEl.classList.remove("hidden");
-    
+
     alertEl.style.animation = 'none';
     alertEl.offsetHeight; 
     alertEl.style.animation = null; 
-    
+
     setTimeout(() => alertEl.classList.add("hidden"), 4000);
 }
 
@@ -1412,7 +1088,7 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
                 update(ref(db, `parties/${myPartyId}/members/${randomTarget}/attacks/${attackId}`), {
                     type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now()
                 });
-                
+
                 if (stealAmount > 0) {
                     score += stealAmount;
                     el("stat-score").innerText = score;
@@ -1426,12 +1102,12 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
     if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
-    
+
     const skill = SKILL_DB[equippedSkill];
 
     if (keySlot === "space") {
         if (cooldowns.space > 0) return;
-        
+
         if (skill.id === "punch") {
             sendAttackToOthers("jam", 3000, 0);
             showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
@@ -1482,7 +1158,7 @@ window.activateSkill = (keySlot = "space") => {
 
     if (keySlot === "key1") {
         if (cooldowns.key1 > 0) return;
-        
+
         if (skill.id === "hacker") {
             sendAttackToOthers("hacker_tabs", 10000, 0);
             showBattleAlert("💻 タブ追加攻撃！", "var(--accent-green)");
@@ -1508,7 +1184,7 @@ window.activateSkill = (keySlot = "space") => {
 
     if (keySlot === "key2") {
         if (cooldowns.key2 > 0) return;
-        
+
         if (skill.id === "hacker") {
             sendRandomTargetAttack("jam", 5000, 800);
             showBattleAlert("🦠 ウイルスアタック！", "var(--accent-green)");
@@ -1543,7 +1219,7 @@ window.activateSkill = (keySlot = "space") => {
 
     if (keySlot === "key3") {
         if (cooldowns.key3 > 0) return;
-        
+
         if (skill.id === "accelerator") {
             score = Math.max(0, score - 3000);
             sendAttackToOthers("reset_combo", 0, 0);
@@ -1570,7 +1246,7 @@ window.activateSkill = (keySlot = "space") => {
 function updateTrapDisplay() {
     const trapDisplay = el("trap-display");
     const trapCountEl = el("stat-traps");
-    
+
     if (trapCount > 0) {
         trapDisplay.classList.remove("hidden");
         trapCountEl.innerText = trapCount;
@@ -1596,7 +1272,7 @@ function startAutoTypeEngine(durationMs, intervalMs) {
         if (!gameActive || isJamming || hackerTabsActive > 0) return;
         processCorrectType();
     }, intervalMs);
-    
+
     setTimeout(() => {
         clearInterval(autoTypeTimer);
     }, durationMs);
@@ -1605,7 +1281,7 @@ function startAutoTypeEngine(durationMs, intervalMs) {
 function createHackerTabs() {
     if (hackerTabsActive > 0) return;
     hackerTabsActive = 10;
-    
+
     const container = document.createElement('div');
     container.id = 'hacker-tabs-container';
     container.style.position = 'fixed';
@@ -1635,10 +1311,10 @@ function createHackerTabs() {
         tab.style.boxShadow = '0 0 15px #000';
         tab.style.display = 'flex';
         tab.style.flexDirection = 'column';
-        
+
         tab.style.top = (Math.random() * 45 + 40) + '%'; 
         tab.style.left = (Math.random() * 70 + 5) + '%';
-        
+
         tab.innerHTML = `
             <div style="background:#0f0; padding:3px 8px; text-align:right;">
                 <button onclick="this.parentElement.parentElement.remove(); window.removeHackerTab()" style="background:#fff; color:#000; border:none; padding:4px 10px; cursor:pointer; font-weight:bold; font-size:14px;">X 削除</button>
@@ -1655,10 +1331,10 @@ function applyBlurEffect() {
     const playScreen = el("screen-play");
     playScreen.style.transition = "none";
     playScreen.style.filter = "blur(20px)";
-    
+
     let blurAmount = 20;
     clearInterval(blurIntervalTimer);
-    
+
     blurIntervalTimer = setInterval(() => {
         blurAmount -= 2; 
         if (blurAmount <= 0) {
@@ -1674,13 +1350,13 @@ function applyBlurEffect() {
 function generateMaze() {
     const size = 10;
     const maze = Array(size).fill().map(() => Array(size).fill(1));
-    
+
     function carve(x, y) {
         const dirs = [
             [0, 2], [2, 0], [0, -2], [-2, 0]
         ];
         dirs.sort(() => Math.random() - 0.5);
-        
+
         for (let [dx, dy] of dirs) {
             const nx = x + dx;
             const ny = y + dy;
@@ -1691,36 +1367,36 @@ function generateMaze() {
             }
         }
     }
-    
+
     maze[0][0] = 0;
     carve(0, 0);
     maze[size-1][size-1] = 2;
-    
+
     let hasPath = false;
     for (let y = size-2; y >= 0; y--) {
         if (maze[y][size-1] === 0) hasPath = true;
         if (maze[size-1][y] === 0) hasPath = true;
     }
-    
+
     if (!hasPath) {
         maze[size-2][size-1] = 0;
         maze[size-1][size-2] = 0;
     }
-    
+
     return maze;
 }
 
 function renderMaze() {
     const grid = el("maze-grid");
     grid.innerHTML = "";
-    
+
     let distance = Math.abs(mazeGoalPos.x - mazePlayerPos.x) + Math.abs(mazeGoalPos.y - mazePlayerPos.y);
-    
+
     for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 10; x++) {
             const cell = document.createElement("div");
             cell.className = "maze-cell";
-            
+
             if (mazeGrid[y][x] === 1) {
                 cell.classList.add("wall");
             } else if (x === mazePlayerPos.x && y === mazePlayerPos.y) {
@@ -1734,11 +1410,11 @@ function renderMaze() {
                     cell.style.opacity = "0.8";
                 }
             }
-            
+
             grid.appendChild(cell);
         }
     }
-    
+
     const status = el("maze-status");
     if (status) {
         status.innerHTML = `ゴールまで: ${distance}マス`;
@@ -1747,23 +1423,23 @@ function renderMaze() {
 
 window.moveMaze = (direction) => {
     if (!mazeActive) return;
-    
+
     let newX = mazePlayerPos.x;
     let newY = mazePlayerPos.y;
-    
+
     switch(direction) {
         case 'up': newY--; break;
         case 'down': newY++; break;
         case 'left': newX--; break;
         case 'right': newX++; break;
     }
-    
+
     if (newX >= 0 && newX < 10 && newY >= 0 && newY < 10) {
         if (mazeGrid[newY][newX] !== 1) {
             mazePlayerPos.x = newX;
             mazePlayerPos.y = newY;
             renderMaze();
-            
+
             if (newX === mazeGoalPos.x && newY === mazeGoalPos.y) {
                 mazeActive = false;
                 el("maze-overlay").classList.add("hidden");
@@ -1784,9 +1460,9 @@ function startHacking(duration) {
     hackingActive = true;
     const overlay = el("hacking-overlay");
     const progress = document.querySelector(".hacking-progress");
-    
+
     overlay.classList.remove("hidden");
-    
+
     let count = 3;
     const interval = setInterval(() => {
         count--;
@@ -1796,11 +1472,11 @@ function startHacking(duration) {
             clearInterval(interval);
             overlay.classList.add("hidden");
             hackingActive = false;
-            
+
             const originalSkillState = equippedSkill;
             equippedSkill = "none";
             setupSkillUI();
-            
+
             setTimeout(() => {
                 equippedSkill = originalSkillState;
                 setupSkillUI();
@@ -1813,10 +1489,10 @@ function startPoison(duration) {
     poisonActive = true;
     el("poison-overlay").classList.remove("hidden");
     document.body.classList.add("poisoned");
-    
+
     const wordJa = el("q-ja");
     const wordRoma = el("q-roma");
-    
+
     if (wordJa) {
         wordJa.style.filter = "blur(2px) brightness(1.5)";
         wordJa.style.opacity = "0.7";
@@ -1827,12 +1503,12 @@ function startPoison(duration) {
         wordRoma.style.opacity = "0.7";
         wordRoma.style.textShadow = "0 0 10px #0f0, 0 0 20px #0f0";
     }
-    
+
     setTimeout(() => {
         poisonActive = false;
         el("poison-overlay").classList.add("hidden");
         document.body.classList.remove("poisoned");
-        
+
         if (wordJa) {
             wordJa.style.filter = "";
             wordJa.style.opacity = "";
@@ -1853,10 +1529,10 @@ function handleIncomingAttack(attack) {
         if (trapCount > 0 && (attack.type === "steal" || attack.type === "jam" && attack.stealAmount > 0)) {
             trapCount--;
             updateTrapDisplay();
-            
+
             sendAttackToOthers("trap_stun", 3000, 0);
             showBattleAlert("⚠️ トラップ発動！相手をスタンさせた！", "#ff6b6b");
-            
+
             attack.stealAmount = 0;
         } else {
             score = Math.max(0, score - attack.stealAmount);
@@ -1872,19 +1548,19 @@ function handleIncomingAttack(attack) {
         applyJamming(3000);
         return;
     }
-    
+
     if (attack.type === "hacker_tabs") {
         createHackerTabs();
         sounds.miss.play();
         return;
     }
-    
+
     if (attack.type === "blur") {
         applyBlurEffect();
         sounds.miss.play();
         return;
     }
-    
+
     if (attack.type === "special_heat") {
         score = Math.max(0, score - 500);
         el("stat-score").innerText = score;
@@ -1892,7 +1568,7 @@ function handleIncomingAttack(attack) {
         applyJamming(3000);
         return;
     }
-    
+
     if (attack.type === "reset_combo") {
         combo = 0;
         el("stat-combo").innerText = combo;
@@ -1900,7 +1576,7 @@ function handleIncomingAttack(attack) {
         sounds.miss.play();
         return;
     }
-    
+
     if (attack.type === "trap_stun") {
         isStunned = true;
         applyJamming(3000);
@@ -1908,15 +1584,15 @@ function handleIncomingAttack(attack) {
         showBattleAlert("⚠️ トラップに引っかかった！", "var(--accent-red)");
         return;
     }
-    
+
     if (attack.type === "dodge") {
         el("dodge-overlay").classList.remove("hidden");
-        
+
         let dodged = false;
         window.dodgeCallback = (success) => {
             dodged = success;
         };
-        
+
         setTimeout(() => {
             el("dodge-overlay").classList.add("hidden");
             if (!dodged) {
@@ -1925,31 +1601,31 @@ function handleIncomingAttack(attack) {
             }
             window.dodgeCallback = null;
         }, 1000);
-        
+
         sounds.miss.play();
         return;
     }
-    
+
     if (attack.type === "maze") {
         mazeActive = true;
         mazeGrid = attack.maze || generateMaze();
         mazePlayerPos = { x: 0, y: 0 };
         mazeGoalPos = { x: 9, y: 9 };
-        
+
         renderMaze();
         el("maze-overlay").classList.remove("hidden");
         sounds.miss.play();
-        
+
         showBattleAlert("🔍 矢印キーかボタンで移動！", "var(--accent-blue)");
         return;
     }
-    
+
     if (attack.type === "hacking") {
         startHacking(attack.duration);
         sounds.miss.play();
         return;
     }
-    
+
     if (attack.type === "poison") {
         applyJamming(attack.duration);
         setTimeout(() => {
@@ -1968,7 +1644,7 @@ function applyJamming(durationMs) {
     isJamming = true;
     el("jamming-overlay").classList.remove("hidden");
     sounds.miss.play(); 
-    
+
     clearTimeout(jammingTimer);
     jammingTimer = setTimeout(() => {
         isJamming = false;
@@ -1976,7 +1652,7 @@ function applyJamming(durationMs) {
     }, durationMs);
 }
 
-// --- ストーリーモード制御 ---
+// --- ストーリーモード制御（完全ロック版）---
 window.openStoryMode = () => {
     if (isMatchmaking) {
         alert("マッチング待機中はストーリーモードを開けません");
@@ -1986,6 +1662,7 @@ window.openStoryMode = () => {
     renderStoryMap();
 };
 
+// ストーリーマップの描画（完全ロック版）
 function renderStoryMap() {
     // 第1章のマップ描画
     const map1 = el("story-map-1");
@@ -1993,14 +1670,15 @@ function renderStoryMap() {
     STORY_STAGES.chapter1.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter1 >= stageNum;
-        const prevStageCleared = stageNum === 1 || storyProgress.chapter1 >= stageNum - 1;
-        const isLocked = !prevStageCleared;
+        const isLocked = stageNum > 1 && storyProgress.chapter1 < stageNum - 1;
+
+
         const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
-        
+
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
         node.onclick = () => !isLocked && selectStage(1, stageNum);
-        
+
         node.innerHTML = `
             <div class="stage-number">1-${stageNum}</div>
             <div class="stage-target">${stage.target}</div>
@@ -2010,21 +1688,36 @@ function renderStoryMap() {
         map1.appendChild(node);
     });
 
-    // 第2章のマップ描画
+    // 第2章のマップ描画（第1章全クリが必要）
     const map2 = el("story-map-2");
     map2.innerHTML = "";
     STORY_STAGES.chapter2.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter2 >= stageNum;
+
         const chapter1Completed = storyProgress.chapter1 >= 7;
-        const prevStageCleared = stageNum === 1 || storyProgress.chapter2 >= stageNum - 1;
-        const isLocked = !chapter1Completed || !prevStageCleared;
-        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && chapter1Completed;
         
+        // 第1章を全クリしていない場合は全てロック
+        if (!chapter1Completed) {
+            const node = document.createElement("div");
+            node.className = "stage-node locked";
+            node.innerHTML = `
+                <div class="stage-number">2-${stageNum}</div>
+                <div class="stage-target">${stage.target}</div>
+                <span class="stage-locked-mark">🔒</span>
+            `;
+            map2.appendChild(node);
+            return;
+        }
+        
+        // 第1章全クリ済みの場合、前のステージチェック
+        const isLocked = stageNum > 1 && storyProgress.chapter2 < stageNum - 1;
+        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted;
+
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
         node.onclick = () => !isLocked && selectStage(2, stageNum);
-        
+
         node.innerHTML = `
             <div class="stage-number">2-${stageNum}</div>
             <div class="stage-target">${stage.target}</div>
@@ -2033,22 +1726,37 @@ function renderStoryMap() {
         `;
         map2.appendChild(node);
     });
-    
-    // 第3章のマップ描画
+
+    // 第3章のマップ描画（第2章全クリが必要）
     const map3 = el("story-map-3");
     map3.innerHTML = "";
     STORY_STAGES.chapter3.forEach((stage, index) => {
         const stageNum = index + 1;
         const isCompleted = storyProgress.chapter3 >= stageNum;
+
         const chapter2Completed = storyProgress.chapter2 >= 7;
-        const prevStageCleared = stageNum === 1 || storyProgress.chapter3 >= stageNum - 1;
-        const isLocked = !chapter2Completed || !prevStageCleared;
-        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && chapter2Completed;
         
+        // 第2章を全クリしていない場合は全てロック
+        if (!chapter2Completed) {
+            const node = document.createElement("div");
+            node.className = "stage-node locked";
+            node.innerHTML = `
+                <div class="stage-number">3-${stageNum}</div>
+                <div class="stage-target">${stage.target}</div>
+                <span class="stage-locked-mark">🔒</span>
+            `;
+            map3.appendChild(node);
+            return;
+        }
+        
+        // 第2章全クリ済みの場合、前のステージチェック
+        const isLocked = stageNum > 1 && storyProgress.chapter3 < stageNum - 1;
+        const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted;
+
         const node = document.createElement("div");
         node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
         node.onclick = () => !isLocked && selectStage(3, stageNum);
-        
+
         node.innerHTML = `
             <div class="stage-number">3-${stageNum}</div>
             <div class="stage-target">${stage.target}</div>
@@ -2057,20 +1765,22 @@ function renderStoryMap() {
         `;
         map3.appendChild(node);
     });
-    
+
     // チャプタータブ切り替え
     document.querySelectorAll('.chapter-tab').forEach(tab => {
         tab.onclick = () => {
             document.querySelectorAll('.chapter-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            
+
             document.querySelectorAll('.story-chapter').forEach(ch => ch.classList.add('hidden'));
             el(`story-chapter-${tab.dataset.chapter}`).classList.remove('hidden');
         };
     });
 }
 
+// ステージ選択（完全ロック版）
 function selectStage(chapter, stage) {
+    // 厳格なロックチェック
     if (chapter === 1) {
         if (stage > 1 && storyProgress.chapter1 < stage - 1) {
             alert("前のステージをクリアしてください");
@@ -2095,19 +1805,19 @@ function selectStage(chapter, stage) {
             return;
         }
     }
-    
+
     currentStage = { chapter, stage };
     const stageData = chapter === 1 ? 
         STORY_STAGES.chapter1[stage - 1] : 
         chapter === 2 ?
         STORY_STAGES.chapter2[stage - 1] :
         STORY_STAGES.chapter3[stage - 1];
-    
+
     el("stage-title").innerText = `${chapter}-${stage}`;
     el("stage-time").innerText = "60";
     el("stage-target").innerText = stageData.target;
     el("stage-reward").innerText = stageData.reward;
-    
+
     if (stageData.boss) {
         el("boss-info").classList.remove("hidden");
         if (stageData.skill === "hanabi") {
@@ -2117,7 +1827,7 @@ function selectStage(chapter, stage) {
         } else if (stageData.skill === "graveyard") {
             el("boss-skill-name").innerText = "墓地強化";
         }
-        
+
         const skillId = stageData.skill;
         if (ownedSkills.includes(skillId)) {
             el("boss-skill-name").innerHTML += ' <span style="color: var(--accent-green);">(獲得済み)</span>';
@@ -2127,9 +1837,9 @@ function selectStage(chapter, stage) {
     } else {
         el("boss-info").classList.add("hidden");
     }
-    
+
     updateStageButtons();
-    
+
     openScreen("screen-stage-detail");
 }
 
@@ -2137,14 +1847,14 @@ function updateStageButtons() {
     const soloBtn = el("story-solo-btn");
     const partyBtn = el("story-party-btn");
     const restrictionMsg = el("party-restriction-msg");
-    
+
     if (myPartyId) {
         soloBtn.style.display = "none";
     } else {
         soloBtn.style.display = "block";
     }
     soloBtn.disabled = false;
-    
+
     if (myPartyId && isLeader) {
         partyBtn.style.display = "block";
         partyBtn.disabled = false;
@@ -2156,21 +1866,22 @@ function updateStageButtons() {
     }
 }
 
+// パーティーメンバーの進行状況チェック（完全ロック版）
 async function checkPartyProgress() {
     if (!myPartyId) return;
-    
+
     const snap = await get(ref(db, `parties/${myPartyId}/members`));
     const members = snap.val();
     if (!members) return;
-    
+
     const memberIds = Object.keys(members).filter(id => id !== myId);
     let allCleared = true;
     let restrictionReason = "";
-    
+
     for (const mid of memberIds) {
         const userSnap = await get(ref(db, `users/${mid}/story_progress`));
         const progress = userSnap.val() || { chapter1: 0, chapter2: 0, chapter3: 0 };
-        
+
         if (currentStage.chapter === 1) {
             if (progress.chapter1 < currentStage.stage - 1) {
                 allCleared = false;
@@ -2201,7 +1912,7 @@ async function checkPartyProgress() {
             }
         }
     }
-    
+
     const msg = el("party-restriction-msg");
     if (!allCleared) {
         msg.classList.remove("hidden");
@@ -2218,26 +1929,26 @@ window.startStorySolo = () => {
         alert("パーティー参加中は一人プレイできません");
         return;
     }
-    
+
     const stageData = currentStage.chapter === 1 ?
         STORY_STAGES.chapter1[currentStage.stage - 1] :
         currentStage.chapter === 2 ?
         STORY_STAGES.chapter2[currentStage.stage - 1] :
         STORY_STAGES.chapter3[currentStage.stage - 1];
-    
+
     const diffs = ["easy", "normal", "hard"];
     const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
     currentWords = WORD_DB[randomDiff];
-    
+
     isStoryMode = true;
     storyTargetScore = stageData.target;
     isCustomGame = false;
-    
+
     const progressBar = el("story-progress-bar");
     progressBar.classList.remove("hidden");
     el("progress-target").innerText = storyTargetScore;
     updateProgressBar(0);
-    
+
     openScreen("screen-play");
     startGame(60);
 };
@@ -2247,13 +1958,13 @@ window.startStoryParty = () => {
         alert("パーティーリーダーのみ開始できます");
         return;
     }
-    
+
     const stageData = currentStage.chapter === 1 ?
         STORY_STAGES.chapter1[currentStage.stage - 1] :
         currentStage.chapter === 2 ?
         STORY_STAGES.chapter2[currentStage.stage - 1] :
         STORY_STAGES.chapter3[currentStage.stage - 1];
-    
+
     update(ref(db, `parties/${myPartyId}`), {
         state: "ready_check",
         time: 60,
@@ -2275,6 +1986,503 @@ window.executeDodge = () => {
         window.dodgeCallback(true);
     }
 };
+
+// --- WebRTC ボイスチャット機能 ---
+function openVoiceChat() {
+    console.log("ボイスチャットを開きます");
+    const overlay = el("debug-overlay");
+    if (overlay) {
+        overlay.classList.remove("hidden");
+        renderVoiceFriendList();
+        initWebRTC();
+        createVoiceChatBar();
+        alert("🎤 WebRTCボイスチャットを起動しました\nマイクの使用を許可してください");
+    } else {
+        console.error("debug-overlayが見つかりません");
+        alert("ボイスチャット画面が見つかりません");
+    }
+}
+
+// WebRTC初期化
+async function initWebRTC() {
+    try {
+        // マイクストリームを取得
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log("Local stream obtained");
+
+        // RTCPeerConnectionの設定
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+        
+        voiceChatActive = true;
+
+        // 参加者リストに自分を追加
+        if (!voiceParticipants.includes(myId)) {
+            voiceParticipants.push(myId);
+        }
+
+        // バーの表示を更新
+        updateVoiceBarParticipants();
+
+
+
+
+    } catch (err) {
+        console.error("Failed to get local stream", err);
+        alert("マイクの使用が許可されていません");
+    }
+}
+
+// 相手との接続を作成
+async function createPeerConnection(targetId) {
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+
+        ]
+    };
+
+    const peerConnection = new RTCPeerConnection(configuration);
+
+    // ローカルストリームのトラックを追加
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
+
+
+
+    // ICE候補をFirebase経由で送信
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            update(ref(db, `voice_rooms/${voiceRoomId}/candidates/${targetId}`), {
+
+                candidate: event.candidate,
+                from: myId
+
+            });
+        }
+    };
+
+    // 相手からのストリームを受信
+    peerConnection.ontrack = (event) => {
+
+        const audio = document.createElement('audio');
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.id = `audio-${targetId}`;
+        document.body.appendChild(audio);
+
+        showBattleAlert(`🔊 ${targetId} の声が聞こえます`, "var(--accent-green)");
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    peerConnections[targetId] = peerConnection;
+    return peerConnection;
+}
+
+// 発信側
+async function callPeer(targetId) {
+    if (!voiceRoomId) {
+        voiceRoomId = generateId();
+        set(ref(db, `voice_rooms/${voiceRoomId}`), {
+            participants: [myId, targetId],
+            created: Date.now()
+        });
+    }
+
+    const peerConnection = await createPeerConnection(targetId);
+
+    // オファーを作成
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    // オファーをFirebase経由で送信
+    update(ref(db, `voice_rooms/${voiceRoomId}/offers/${targetId}`), {
+
+        offer: offer,
+        from: myId
+
+    });
+
+
+}
+
+// 着信側
+async function answerCall(targetId, offer) {
+    const peerConnection = await createPeerConnection(targetId);
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    update(ref(db, `voice_rooms/${voiceRoomId}/answers/${targetId}`), {
+
+        answer: answer,
+        from: myId
+
+    });
+
+
+}
+
+// ボイスチャット招待の受信監視
+if (voiceInviteListener) {
+    off(voiceInviteListener);
+}
+voiceInviteListener = onValue(ref(db, `users/${myId}/voice_invite`), snap => {
+    const invite = snap.val();
+    if (invite) {
+
+
+
+        if (!voiceChatActive) {
+            const result = confirm(`${invite.fromName} からボイスチャットの招待が来ています。参加しますか？`);
+            if (result) {
+                openVoiceChat();
+                setTimeout(async () => {
+                    if (!voiceParticipants.includes(invite.from)) {
+                        voiceParticipants.push(invite.from);
+
+                        // ルームIDを設定
+                        voiceRoomId = invite.roomId || generateId();
+
+                        // 相手に応答
+                        if (invite.roomId) {
+                            await answerCall(invite.from, invite.offer);
+                        }
+
+                        updateVoiceBarParticipants();
+                        sounds.notify.play();
+                        showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+                    }
+                }, 2000);
+            }
+        } else {
+            if (!voiceParticipants.includes(invite.from)) {
+                voiceParticipants.push(invite.from);
+
+                // 相手に発信
+                callPeer(invite.from);
+
+                updateVoiceBarParticipants();
+                sounds.notify.play();
+                showBattleAlert(`🔊 ${invite.fromName} が参加しました`, "var(--accent-green)");
+            }
+        }
+
+        remove(ref(db, `users/${myId}/voice_invite`));
+    }
+});
+
+// オファーの監視
+onValue(ref(db, `voice_rooms/${voiceRoomId}/offers`), snap => {
+    const offers = snap.val();
+    if (offers && voiceChatActive) {
+        Object.keys(offers).forEach(targetId => {
+            if (targetId !== myId && !peerConnections[targetId]) {
+                answerCall(targetId, offers[targetId].offer);
+            }
+        });
+    }
+});
+
+// アンサーの監視
+onValue(ref(db, `voice_rooms/${voiceRoomId}/answers`), snap => {
+    const answers = snap.val();
+    if (answers && voiceChatActive) {
+        Object.keys(answers).forEach(targetId => {
+            if (targetId !== myId && peerConnections[targetId]) {
+                peerConnections[targetId].setRemoteDescription(new RTCSessionDescription(answers[targetId].answer));
+
+            }
+        });
+    }
+});
+
+// ICE候補の監視
+onValue(ref(db, `voice_rooms/${voiceRoomId}/candidates`), snap => {
+    const candidates = snap.val();
+    if (candidates && voiceChatActive) {
+        Object.keys(candidates).forEach(targetId => {
+            if (targetId !== myId && peerConnections[targetId] && candidates[targetId].candidate) {
+                peerConnections[targetId].addIceCandidate(new RTCIceCandidate(candidates[targetId].candidate));
+
+            }
+        });
+    }
+});
+
+function createVoiceChatBar() {
+    const existingBar = document.getElementById("voice-chat-bar");
+    if (existingBar) existingBar.remove();
+
+    voiceBar = document.createElement("div");
+    voiceBar.id = "voice-chat-bar";
+    voiceBar.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid var(--accent-purple);
+        border-radius: 50px;
+        padding: 10px 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        z-index: 20001;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 0 20px var(--accent-purple);
+    `;
+
+    const participantsSpan = document.createElement("span");
+    participantsSpan.id = "voice-bar-participants";
+    participantsSpan.style.color = "white";
+    participantsSpan.style.fontWeight = "bold";
+    updateVoiceBarParticipants();
+
+    const muteBtn = document.createElement("button");
+    muteBtn.id = "voice-bar-mute";
+    muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
+    muteBtn.style.cssText = `
+        background: ${voiceMuted ? '#666' : 'var(--accent-blue)'};
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.2s;
+    `;
+    muteBtn.onmouseover = () => {
+        muteBtn.style.transform = 'scale(1.05)';
+    };
+    muteBtn.onmouseout = () => {
+        muteBtn.style.transform = 'scale(1)';
+    };
+    muteBtn.onclick = toggleVoiceMute;
+
+    const endBtn = document.createElement("button");
+    endBtn.innerHTML = "📞 通話終了";
+    endBtn.style.cssText = `
+        background: var(--accent-red);
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.2s;
+    `;
+    endBtn.onmouseover = () => {
+        endBtn.style.transform = 'scale(1.05)';
+    };
+    endBtn.onmouseout = () => {
+        endBtn.style.transform = 'scale(1)';
+    };
+    endBtn.onclick = () => {
+        closeDebugMode();
+    };
+
+    voiceBar.appendChild(participantsSpan);
+    voiceBar.appendChild(muteBtn);
+    voiceBar.appendChild(endBtn);
+
+    document.body.appendChild(voiceBar);
+}
+
+function updateVoiceBarParticipants() {
+    const participantsSpan = document.getElementById("voice-bar-participants");
+    if (participantsSpan) {
+        participantsSpan.innerHTML = `👥 参加者: ${voiceParticipants.length}人`;
+
+
+
+
+    }
+}
+
+function toggleVoiceMute() {
+    voiceMuted = !voiceMuted;
+
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = !voiceMuted;
+        });
+    }
+
+    const muteBtn = document.getElementById("voice-bar-mute");
+    if (muteBtn) {
+        muteBtn.innerHTML = voiceMuted ? "🔇 ミュート解除" : "🔊 ミュート";
+        muteBtn.style.background = voiceMuted ? '#666' : 'var(--accent-blue)';
+    }
+
+    showBattleAlert(voiceMuted ? "🔇 ミュート中" : "🎤 ミュート解除", 
+                    voiceMuted ? "var(--accent-red)" : "var(--accent-green)");
+}
+
+window.closeDebugMode = () => {
+    endVoiceChat();
+    el("debug-overlay").classList.add("hidden");
+    if (voiceBar) {
+        voiceBar.remove();
+        voiceBar = null;
+    }
+};
+
+function endVoiceChat() {
+    voiceChatActive = false;
+
+    // 全てのピア接続を閉じる
+    Object.keys(peerConnections).forEach(key => {
+        peerConnections[key].close();
+        delete peerConnections[key];
+    });
+
+    // ローカルストリームを停止
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    // ルームを削除
+    if (voiceRoomId) {
+        remove(ref(db, `voice_rooms/${voiceRoomId}`));
+        voiceRoomId = null;
+    }
+
+    // オーディオ要素を削除
+    document.querySelectorAll('audio[id^="audio-"]').forEach(audio => audio.remove());
+
+    voiceParticipants = [];
+    voiceMuted = false;
+
+    updateVoiceBarParticipants();
+}
+
+function renderVoiceFriendList() {
+    const voiceFriendList = el("voice-friend-list");
+    if (!voiceFriendList) return;
+
+    voiceFriendList.innerHTML = "";
+
+    get(ref(db, `users/${myId}/friends`)).then(snap => {
+        const friends = snap.val();
+        if (!friends || Object.keys(friends).length === 0) {
+            voiceFriendList.innerHTML = '<div class="voice-friend-item" style="text-align: center; padding: 20px;">フレンドがまだいません</div>';
+            return;
+        }
+
+        let loadedCount = 0;
+        const totalFriends = Object.keys(friends).length;
+
+        Object.keys(friends).forEach(fid => {
+            get(ref(db, `users/${fid}`)).then(userSnap => {
+                const userData = userSnap.val();
+                if (!userData) return;
+
+                const friendDiv = document.createElement("div");
+                friendDiv.className = "voice-friend-item";
+                friendDiv.style.cssText = `
+                    background: rgba(0,0,0,0.3);
+                    border: 1px solid var(--glass);
+                    border-radius: 10px;
+                    padding: 12px;
+                    margin-bottom: 10px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                `;
+                friendDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="status-dot ${userData.status || 'offline'}"></span>
+                        <span style="font-weight: bold;">${userData.name}</span>
+                    </div>
+                    <button class="voice-invite-btn" style="
+                        background: var(--accent-green);
+                        color: #000;
+                        border: none;
+                        padding: 5px 15px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    " onclick="window.inviteToVoiceChat('${fid}', '${userData.name}')">ボイチャ招待</button>
+                `;
+                voiceFriendList.appendChild(friendDiv);
+
+                loadedCount++;
+                if (loadedCount === totalFriends) {
+                    console.log("フレンドリストの読み込み完了");
+                }
+            });
+        });
+    }).catch(error => {
+        console.error("フレンドリストの取得に失敗:", error);
+        voiceFriendList.innerHTML = '<div class="voice-friend-item" style="text-align: center; padding: 20px;">フレンドリストの読み込みに失敗しました</div>';
+    });
+}
+
+window.inviteToVoiceChat = (fid, friendName) => {
+    if (!voiceChatActive) {
+        openVoiceChat();
+        setTimeout(() => {
+            sendVoiceInvite(fid, friendName);
+        }, 2000);
+    } else {
+        sendVoiceInvite(fid, friendName);
+    }
+};
+
+function sendVoiceInvite(fid, friendName) {
+    set(ref(db, `users/${fid}/voice_invite`), {
+        from: myId,
+        fromName: myName,
+        roomId: voiceRoomId,
+        timestamp: Date.now()
+    }).then(() => {
+        alert(`${friendName} にボイスチャット招待を送信しました`);
+    }).catch(error => {
+        console.error("招待の送信に失敗:", error);
+        alert("招待の送信に失敗しました");
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
 
 // --- モード制御 ---
 window.openSingleSelect = () => {
@@ -2342,17 +2550,69 @@ window.openOnlineMatch = () => {
     });
 };
 
+// --- エディター ---
+window.openEditor = () => { 
+    if (myPartyId || isMatchmaking) return; 
+    openScreen("screen-editor"); 
+    renderEditor(); 
+};
+
+window.updateCustomWord = (index, value) => {
+    customWords[index] = value;
+};
+
+window.removeCustomWord = (index) => {
+    customWords.splice(index, 1);
+    renderEditor();
+};
+
+function renderEditor() {
+    el("editor-list").innerHTML = customWords.map((w, i) => `
+        <div class="editor-row">
+            <input type="text" class="editor-input" value="${w}" oninput="window.updateCustomWord(${i}, this.value)" placeholder="2~20文字のひらがな">
+            <button class="btn-kick" onclick="window.removeCustomWord(${i})">削除</button>
+        </div>
+    `).join("");
+}
+
+window.addEditorRow = () => { 
+    if (customWords.length < 20) { 
+        customWords.push(""); 
+        renderEditor(); 
+    } 
+};
+
+window.saveEditor = () => {
+    const valid = customWords.filter(w => w && w.length >= 2 && w.length <= 20);
+    if (valid.length < 5) return alert("最低5個必要です (2~20文字で入力してください)");
+    customWords = valid; 
+    localStorage.setItem("ramo_custom", JSON.stringify(customWords));
+    alert("完成しました！"); 
+    window.goHome();
+};
+
+window.playCustom = () => { 
+    if (myPartyId || isMatchmaking) return; 
+    const savedWords = JSON.parse(localStorage.getItem("ramo_custom"));
+    if (!savedWords || savedWords.length < 5) {
+        return alert("まずはエディターで5個以上作って保存してください"); 
+    }
+    customWords = savedWords; 
+    currentWords = customWords; 
+    isCustomGame = true;
+    openScreen("screen-play"); 
+    startGame(60); 
+};
+
 // --- 初期化 ---
 el("my-id-display").innerText = myId;
 el("my-name-input").value = myName;
-updateSkinPreview();
-
 const userRef = ref(db, `users/${myId}`);
 
 get(userRef).then(snap => {
     if(snap.exists()) {
         let data = snap.val();
-        if(data.coins !== undefined) {
+        if(data.coins !== undefined && data.coins > coins) {
             coins = data.coins; 
         }
         if(data.skills !== undefined) {
@@ -2364,17 +2624,11 @@ get(userRef).then(snap => {
         if(data.story_progress !== undefined) {
             storyProgress = data.story_progress;
         }
-        if(data.skin !== undefined) {
-            skinData = data.skin;
-        }
-        if(data.owned_accessories !== undefined) {
-            ownedAccessories = data.owned_accessories;
-        }
     }
     saveAndDisplayData(); 
 });
 
-update(userRef, { name: myName, status: "online", partyId: null, story_progress: storyProgress, skin: skinData, owned_accessories: ownedAccessories });
+update(userRef, { name: myName, status: "online", partyId: null, story_progress: storyProgress });
 onDisconnect(userRef).update({ status: "offline" });
 updateButtonStates();
 
