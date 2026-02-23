@@ -56,7 +56,7 @@ let gameInterval;
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000;
 
 // --- ガチャシステム用グローバル変数 ---
-const GACHA_COST = 5000;
+const GACHA_COST = 30000;
 let gachaSkills = JSON.parse(localStorage.getItem("ramo_gacha_skills")) || [];
 
 // レア度の定義
