@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V9.5 (Complete Code System)
+// FIREBASE & TYPING ENGINE V9.5 (Daily Code Only)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -57,11 +57,6 @@ let usedCodes = JSON.parse(localStorage.getItem("ramo_used_codes")) || [];
 let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
 let dailyCodeDate = localStorage.getItem("ramo_daily_date") || new Date().toDateString();
 let codeTimer = null;
-
-// 特殊コード使用フラグ
-let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
-let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
-let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
 
 // コンボアップの神スキル
 let comboGodActive = false;
@@ -207,14 +202,6 @@ const NEW_SKILLS = {
         chapter: 2,
         stage: 7,
         requirement: "第2章 2-7 クリア"
-    },
-    comboGod: {
-        id: "comboGod",
-        name: "コンボアップの神",
-        cost: 0,
-        cooldown: 0,
-        desc: "【1回のみ使用可能】7秒間、コンボの数が6倍になる",
-        special: true
     }
 };
 
@@ -319,56 +306,8 @@ window.submitCode = () => {
     const input = el("code-input").value.trim().toUpperCase();
     if (!input) return;
     
-    // TYSMコード (25000コイン)
-    if (input === "TYSM") {
-        if (tysmUsed) {
-            alert("このコードは既に使用済みです！");
-        } else {
-            coins += 25000;
-            tysmUsed = true;
-            localStorage.setItem("ramo_tysm_used", "true");
-            usedCodes.push("TYSM");
-            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
-            sounds.coin.play();
-            alert(`🎉 TYSMコード入力成功！\n25000コインを獲得しました！`);
-            saveAndDisplayData();
-        }
-    }
-    // ByRamoコード (コンボアップの神スキル)
-    else if (input === "BYRAMO") {
-        if (byramoUsed) {
-            alert("このコードは既に使用済みです！");
-        } else {
-            if (!ownedSkills.includes("comboGod")) {
-                ownedSkills.push("comboGod");
-                byramoUsed = true;
-                localStorage.setItem("ramo_byramo_used", "true");
-                usedCodes.push("BYRAMO");
-                localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
-                sounds.notify.play();
-                alert(`🎉 ByRamoコード入力成功！\n「コンボアップの神」スキルを獲得しました！\n(7秒間、コンボが6倍になる 1回のみ使用可能)`);
-                saveAndDisplayData();
-            }
-        }
-    }
-    // YuseSyazai2コード (2億コイン)
-    else if (input === "YUSESYAZAI2") {
-        if (yuseSyazai2Used) {
-            alert("このコードは既に使用済みです！");
-        } else {
-            coins += 200000000; // 2億コイン
-            yuseSyazai2Used = true;
-            localStorage.setItem("ramo_yuseSyazai2_used", "true");
-            usedCodes.push("YUSESYAZAI2");
-            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
-            sounds.coin.play();
-            sounds.coin.play(); // 特別感を出すために2回鳴らす
-            alert(`🎉✨ YuseSyazai2コード入力成功！\n200,000,000コインを獲得しました！ ✨🎉`);
-            saveAndDisplayData();
-        }
-    }
-    // デイリーコード
-    else if (input === dailyCode) {
+    // デイリーコードのみ処理
+    if (input === dailyCode) {
         if (usedCodes.includes(dailyCode)) {
             alert("このコードは既に使用済みです！");
         } else {
@@ -387,39 +326,6 @@ window.submitCode = () => {
     el("code-input").value = "";
 };
 
-// --- コンボアップの神スキル発動 ---
-function activateComboGod() {
-    if (comboGodActive) return;
-    if (!ownedSkills.includes("comboGod")) {
-        alert("「コンボアップの神」スキルを所持していません");
-        return;
-    }
-    
-    comboGodActive = true;
-    const originalMultiplier = comboMultiplier;
-    comboMultiplier *= 6;
-    
-    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ6倍！", "#FFD700");
-    sounds.notify.play();
-    
-    if (comboGodTimer) clearTimeout(comboGodTimer);
-    comboGodTimer = setTimeout(() => {
-        comboGodActive = false;
-        comboMultiplier = originalMultiplier;
-        showBattleAlert("コンボアップの神終了", "#FFD700");
-        
-        // 使用済みにする（1回のみ）
-        const index = ownedSkills.indexOf("comboGod");
-        if (index > -1) {
-            ownedSkills.splice(index, 1);
-            if (equippedSkill === "comboGod") {
-                equippedSkill = "none";
-            }
-            saveAndDisplayData();
-        }
-    }, 7000);
-}
-
 // --- セーブデータ保存・表示更新用関数 ---
 function saveAndDisplayData() {
     localStorage.setItem("ramo_coins", coins);
@@ -429,9 +335,6 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_skin", JSON.stringify(skinData));
     localStorage.setItem("ramo_accessory", equippedAccessory);
     localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
-    localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
-    localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
-    localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
     
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
@@ -1259,11 +1162,7 @@ window.addEventListener("keydown", e => {
 
     if (e.code === "Space") { 
         e.preventDefault(); 
-        if (equippedSkill === "comboGod") {
-            activateComboGod();
-        } else {
-            window.activateSkill("space");
-        }
+        window.activateSkill("space");
         return; 
     }
     
@@ -1471,9 +1370,6 @@ function setupSkillUI() {
         } else if (equippedSkill === "godfundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
             el("in-game-skill-btn").classList.add("hidden");
-        } else if (equippedSkill === "comboGod") {
-            el("in-game-skill-btn").classList.remove("hidden");
-            statusText.innerText = "✨ 1回のみ (スペースキーで発動)";
         } else {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "準備完了！(スペースキーで発動)";
@@ -1553,7 +1449,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
