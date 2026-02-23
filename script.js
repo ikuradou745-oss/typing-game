@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V9.5 (Daily Code Only)
+// FIREBASE & TYPING ENGINE V10.0 (Fixed Code System)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -57,6 +57,11 @@ let usedCodes = JSON.parse(localStorage.getItem("ramo_used_codes")) || [];
 let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
 let dailyCodeDate = localStorage.getItem("ramo_daily_date") || new Date().toDateString();
 let codeTimer = null;
+
+// 特殊コード使用フラグ（Firebaseでも管理）
+let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
+let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
+let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
 
 // コンボアップの神スキル
 let comboGodActive = false;
@@ -202,6 +207,14 @@ const NEW_SKILLS = {
         chapter: 2,
         stage: 7,
         requirement: "第2章 2-7 クリア"
+    },
+    comboGod: {
+        id: "comboGod",
+        name: "コンボアップの神",
+        cost: 0,
+        cooldown: 0,
+        desc: "【1回のみ使用可能】7秒間、コンボの数が6倍になる",
+        special: true
     }
 };
 
@@ -240,10 +253,19 @@ function checkDailyCode() {
     if (dailyCodeDate !== today) {
         dailyCode = generateDailyCode();
         dailyCodeDate = today;
-        usedCodes = []; // 使用済みコードをリセット
+        // デイリーコードの使用済みリセット（デイリーコードのみ）
+        const dailyUsedCodes = usedCodes.filter(code => code !== dailyCode);
+        usedCodes = dailyUsedCodes;
         localStorage.setItem("ramo_daily_code", dailyCode);
         localStorage.setItem("ramo_daily_date", dailyCodeDate);
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+        
+        // Firebaseにも保存
+        const userRef = ref(db, `users/${myId}`);
+        update(userRef, {
+            daily_code: dailyCode,
+            daily_code_date: dailyCodeDate
+        }).catch(err => console.error("Firebase daily code update error:", err));
     }
     
     // UI更新
@@ -302,19 +324,141 @@ window.closeCodeUI = () => {
     el("code-input").value = "";
 };
 
-window.submitCode = () => {
+// Firebaseからコード使用状況を読み込む関数
+async function loadCodeStatusFromFirebase() {
+    try {
+        const userRef = ref(db, `users/${myId}`);
+        const snap = await get(userRef);
+        if (snap.exists()) {
+            const data = snap.val();
+            if (data.tysm_used !== undefined) tysmUsed = data.tysm_used;
+            if (data.byramo_used !== undefined) byramoUsed = data.byramo_used;
+            if (data.yuseSyazai2_used !== undefined) yuseSyazai2Used = data.yuseSyazai2_used;
+            if (data.daily_code) dailyCode = data.daily_code;
+            if (data.daily_code_date) dailyCodeDate = data.daily_code_date;
+            if (data.used_codes) usedCodes = data.used_codes;
+            
+            // ローカルストレージも更新
+            localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
+            localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
+            localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
+            localStorage.setItem("ramo_daily_code", dailyCode);
+            localStorage.setItem("ramo_daily_date", dailyCodeDate);
+            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+        }
+    } catch (err) {
+        console.error("Firebase code status load error:", err);
+    }
+}
+
+window.submitCode = async () => {
     const input = el("code-input").value.trim().toUpperCase();
     if (!input) return;
     
-    // デイリーコードのみ処理
-    if (input === dailyCode) {
+    // Firebaseから最新の使用状況を取得
+    await loadCodeStatusFromFirebase();
+    
+    // TYSMコード (25000コイン)
+    if (input === "TYSM") {
+        if (tysmUsed) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            coins += 25000;
+            tysmUsed = true;
+            usedCodes.push("TYSM");
+            
+            // ローカルストレージに保存
+            localStorage.setItem("ramo_tysm_used", "true");
+            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+            
+            // Firebaseに保存
+            const userRef = ref(db, `users/${myId}`);
+            await update(userRef, {
+                tysm_used: true,
+                used_codes: usedCodes,
+                coins: coins
+            });
+            
+            sounds.coin.play();
+            alert(`🎉 TYSMコード入力成功！\n25,000コインを獲得しました！`);
+            saveAndDisplayData();
+        }
+    }
+    // ByRamoコード (コンボアップの神スキル)
+    else if (input === "BYRAMO") {
+        if (byramoUsed) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            if (!ownedSkills.includes("comboGod")) {
+                ownedSkills.push("comboGod");
+                byramoUsed = true;
+                usedCodes.push("BYRAMO");
+                
+                // ローカルストレージに保存
+                localStorage.setItem("ramo_byramo_used", "true");
+                localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
+                localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+                
+                // Firebaseに保存
+                const userRef = ref(db, `users/${myId}`);
+                await update(userRef, {
+                    byramo_used: true,
+                    skills: ownedSkills,
+                    used_codes: usedCodes
+                });
+                
+                sounds.notify.play();
+                alert(`🎉 ByRamoコード入力成功！\n「コンボアップの神」スキルを獲得しました！\n(7秒間、コンボが6倍になる 1回のみ使用可能)`);
+                saveAndDisplayData();
+            }
+        }
+    }
+    // YuseSyazai2コード (2億コイン)
+    else if (input === "YUSESYAZAI2") {
+        if (yuseSyazai2Used) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            coins += 200000000; // 2億コイン
+            yuseSyazai2Used = true;
+            usedCodes.push("YUSESYAZAI2");
+            
+            // ローカルストレージに保存
+            localStorage.setItem("ramo_yuseSyazai2_used", "true");
+            localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+            
+            // Firebaseに保存
+            const userRef = ref(db, `users/${myId}`);
+            await update(userRef, {
+                yuseSyazai2_used: true,
+                used_codes: usedCodes,
+                coins: coins
+            });
+            
+            sounds.coin.play();
+            sounds.coin.play(); // 特別感を出すために2回鳴らす
+            alert(`🎉✨ YuseSyazai2コード入力成功！\n200,000,000コインを獲得しました！ ✨🎉`);
+            saveAndDisplayData();
+        }
+    }
+    // デイリーコード
+    else if (input === dailyCode) {
         if (usedCodes.includes(dailyCode)) {
             alert("このコードは既に使用済みです！");
         } else {
             const reward = Math.floor(Math.random() * 4500) + 500; // 500-5000
             coins += reward;
             usedCodes.push(dailyCode);
+            
+            // ローカルストレージに保存
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+            
+            // Firebaseに保存
+            const userRef = ref(db, `users/${myId}`);
+            await update(userRef, {
+                used_codes: usedCodes,
+                coins: coins
+            });
+            
             sounds.coin.play();
             alert(`🎉 デイリーコード入力成功！\n${reward.toLocaleString()}コインを獲得しました！`);
             saveAndDisplayData();
@@ -326,6 +470,46 @@ window.submitCode = () => {
     el("code-input").value = "";
 };
 
+// --- コンボアップの神スキル発動 ---
+function activateComboGod() {
+    if (comboGodActive) return;
+    if (!ownedSkills.includes("comboGod")) {
+        alert("「コンボアップの神」スキルを所持していません");
+        return;
+    }
+    
+    comboGodActive = true;
+    const originalMultiplier = comboMultiplier;
+    comboMultiplier *= 6;
+    
+    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ6倍！", "#FFD700");
+    sounds.notify.play();
+    
+    if (comboGodTimer) clearTimeout(comboGodTimer);
+    comboGodTimer = setTimeout(() => {
+        comboGodActive = false;
+        comboMultiplier = originalMultiplier;
+        showBattleAlert("コンボアップの神終了", "#FFD700");
+        
+        // 使用済みにする（1回のみ）
+        const index = ownedSkills.indexOf("comboGod");
+        if (index > -1) {
+            ownedSkills.splice(index, 1);
+            if (equippedSkill === "comboGod") {
+                equippedSkill = "none";
+            }
+            saveAndDisplayData();
+            
+            // Firebaseも更新
+            const userRef = ref(db, `users/${myId}`);
+            update(userRef, {
+                skills: ownedSkills,
+                equipped: equippedSkill
+            }).catch(err => console.error("Firebase skill update error:", err));
+        }
+    }, 7000);
+}
+
 // --- セーブデータ保存・表示更新用関数 ---
 function saveAndDisplayData() {
     localStorage.setItem("ramo_coins", coins);
@@ -335,6 +519,9 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_skin", JSON.stringify(skinData));
     localStorage.setItem("ramo_accessory", equippedAccessory);
     localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+    localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
+    localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
+    localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
     
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
@@ -1162,7 +1349,11 @@ window.addEventListener("keydown", e => {
 
     if (e.code === "Space") { 
         e.preventDefault(); 
-        window.activateSkill("space");
+        if (equippedSkill === "comboGod") {
+            activateComboGod();
+        } else {
+            window.activateSkill("space");
+        }
         return; 
     }
     
@@ -1370,6 +1561,9 @@ function setupSkillUI() {
         } else if (equippedSkill === "godfundraiser") {
             statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
             el("in-game-skill-btn").classList.add("hidden");
+        } else if (equippedSkill === "comboGod") {
+            el("in-game-skill-btn").classList.remove("hidden");
+            statusText.innerText = "✨ 1回のみ (スペースキーで発動)";
         } else {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "準備完了！(スペースキーで発動)";
@@ -1449,7 +1643,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -2352,6 +2546,21 @@ get(userRef).then(snap => {
         if(data.accessory !== undefined) {
             equippedAccessory = data.accessory;
         }
+        // コード使用状況を読み込み
+        if(data.tysm_used !== undefined) tysmUsed = data.tysm_used;
+        if(data.byramo_used !== undefined) byramoUsed = data.byramo_used;
+        if(data.yuseSyazai2_used !== undefined) yuseSyazai2Used = data.yuseSyazai2_used;
+        if(data.daily_code) dailyCode = data.daily_code;
+        if(data.daily_code_date) dailyCodeDate = data.daily_code_date;
+        if(data.used_codes) usedCodes = data.used_codes;
+        
+        // ローカルストレージも更新
+        localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
+        localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
+        localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
+        localStorage.setItem("ramo_daily_code", dailyCode);
+        localStorage.setItem("ramo_daily_date", dailyCodeDate);
+        localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
     }
     saveAndDisplayData();
 }).catch(err => console.error("Firebase load error:", err));
@@ -2363,6 +2572,12 @@ update(userRef, {
     story_progress: storyProgress,
     skin: skinData,
     accessory: equippedAccessory,
+    tysm_used: tysmUsed,
+    byramo_used: byramoUsed,
+    yuseSyazai2_used: yuseSyazai2Used,
+    daily_code: dailyCode,
+    daily_code_date: dailyCodeDate,
+    used_codes: usedCodes,
     lastSeen: Date.now()
 }).catch(err => console.error("Firebase update error:", err));
 
