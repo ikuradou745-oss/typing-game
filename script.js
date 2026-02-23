@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V11.0 (Gacha System & New Skills)
+// FIREBASE & TYPING ENGINE V10.0 (Fixed Code System)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -26,10 +26,7 @@ const sounds = {
     correct: new Audio("https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"),
     finish: new Audio("https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"),
     notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"),
-    coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"),
-    rare: new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"),
-    superrare: new Audio("https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3"),
-    ultrarare: new Audio("https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3")
+    coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3")
 };
 
 // --- グローバル変数 ---
@@ -55,79 +52,6 @@ let gameInterval;
 
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000;
 
-// --- ガチャシステム用グローバル変数 ---
-const GACHA_COST = 30000;
-let gachaSkills = JSON.parse(localStorage.getItem("ramo_gacha_skills")) || [];
-
-// レア度の定義
-const RARITY = {
-    R: { name: "レア", rate: 75, color: "#3a6ea5", multiplier: 1 },
-    SR: { name: "スーパーレア", rate: 23.5, color: "#8e44ad", multiplier: 1.5 },
-    UR: { name: "ウルトラレア", rate: 1.5, color: "#f1c40f", multiplier: 2 }
-};
-
-// ガチャスキルデータベース
-const GACHA_SKILL_DB = {
-    // レア (R) - 3種類
-    paintballer: {
-        id: "paintballer",
-        name: "ペイントボーラー",
-        rarity: "R",
-        desc: "【ペイント】CT15秒: 相手の画面を5秒間ペイントで塗り潰す（徐々に透明に）",
-        cooldown: 15,
-        keySlot: "space"
-    },
-    banana: {
-        id: "banana",
-        name: "バナナ",
-        rarity: "R",
-        desc: "【バナナをしく】CT5秒: バナナを設置（最大3個）。スコアを奪うキャラが奪おうとすると、相手を3秒スタン",
-        cooldown: 5,
-        keySlot: "space",
-        maxStacks: 3
-    },
-    slate: {
-        id: "slate",
-        name: "スレート",
-        rarity: "R",
-        desc: "【パッシブ】スタン・ハッカーのタブ・高度なハックが効かない",
-        cooldown: 0,
-        passive: true
-    },
-    
-    // スーパーレア (SR) - 2種類
-    trapper: {
-        id: "trapper",
-        name: "トラッパー",
-        rarity: "SR",
-        desc: "【トラップ】CT15秒: トラップを設置（最大2個）。スコアを奪うキャラが奪おうとすると、相手を5秒スタン\n【免疫力】CT200秒: スタン中のみ使用可能。スタンを解除",
-        cooldown: { trap: 15, immunity: 200 },
-        keySlot: { trap: "space", immunity: "key1" },
-        maxStacks: 2
-    },
-    rifleman: {
-        id: "rifleman",
-        name: "ライフルマン",
-        rarity: "SR",
-        desc: "【ヘッドショット】CT45秒: ランダムな相手1人を5秒スタンさせ、画面をくらくらさせる",
-        cooldown: 45,
-        keySlot: "space"
-    },
-    
-    // ウルトラレア (UR) - 1種類
-    narrator: {
-        id: "narrator",
-        name: "ナレーター",
-        rarity: "UR",
-        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲームを表示（クリアで復帰）\n【パズルゲーム】CT100秒: 相手にドットコネクトを表示\n【メガホン】CT60秒: 相手の画面を10秒間ぼやけさせる",
-        cooldown: { action: 150, puzzle: 100, megaphone: 60 },
-        keySlot: { action: "space", puzzle: "key1", megaphone: "key2" }
-    }
-};
-
-// ガチャ結果表示用の変数
-let lastGachaResult = null;
-
 // --- コードシステム用グローバル変数 ---
 let usedCodes = JSON.parse(localStorage.getItem("ramo_used_codes")) || [];
 let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
@@ -142,15 +66,6 @@ let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
 // コンボアップの神スキル
 let comboGodActive = false;
 let comboGodTimer = null;
-
-// ガチャスキル用の状態管理
-let bananaStacks = 0;
-let trapStacks = 0;
-let isImmuneToStun = false; // スレート用
-let paintActive = false;
-let dizzyActive = false;
-let actionGameActive = false;
-let puzzleGameActive = false;
 
 // --- スキンシステム用グローバル変数 ---
 let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
@@ -298,12 +213,12 @@ const NEW_SKILLS = {
         name: "コンボアップの神",
         cost: 0,
         cooldown: 0,
-        desc: "【1回のみ使用可能】7秒間、コンボの数が6倍になる",
+        desc: "【1回のみ使用可能】7秒間、コンボの数が3.5倍になる",
         special: true
     }
 };
 
-// スキルのデータ定義（通常ショップ用）
+// スキルのデータ定義
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
@@ -318,9 +233,6 @@ const SKILL_DB = {
     accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
     ...NEW_SKILLS
 };
-
-// ガチャスキルをSKILL_DBに追加
-Object.assign(SKILL_DB, GACHA_SKILL_DB);
 
 // --- デイリーコード生成関数 ---
 function generateDailyCode() {
@@ -568,9 +480,9 @@ function activateComboGod() {
     
     comboGodActive = true;
     const originalMultiplier = comboMultiplier;
-    comboMultiplier *= 6;
+    comboMultiplier *= 3.5;
     
-    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ6倍！", "#FFD700");
+    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ3.5倍！", "#FFD700");
     sounds.notify.play();
     
     if (comboGodTimer) clearTimeout(comboGodTimer);
@@ -598,425 +510,6 @@ function activateComboGod() {
     }, 7000);
 }
 
-// --- ガチャ機能 ---
-window.openGacha = () => {
-    openScreen("screen-gacha");
-    updateGachaDisplay();
-};
-
-window.openGachaCollection = () => {
-    openScreen("screen-gacha-collection");
-    renderCollection();
-};
-
-window.filterCollection = (rarity) => {
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    renderCollection(rarity === 'all' ? null : rarity);
-};
-
-function renderCollection(rarityFilter = null) {
-    const collectionGrid = el("collection-grid");
-    if (!collectionGrid) return;
-    
-    collectionGrid.innerHTML = "";
-    
-    // ガチャで獲得したスキルのみを表示
-    const gachaSkillIds = Object.keys(GACHA_SKILL_DB);
-    const ownedGachaSkills = ownedSkills.filter(id => gachaSkillIds.includes(id));
-    
-    if (ownedGachaSkills.length === 0) {
-        collectionGrid.innerHTML = '<div class="gacha-result-placeholder">まだスキルを所持していません</div>';
-        return;
-    }
-    
-    ownedGachaSkills.forEach(skillId => {
-        const skill = GACHA_SKILL_DB[skillId];
-        if (!skill) return;
-        
-        // レアリティフィルター
-        if (rarityFilter && skill.rarity !== rarityFilter) return;
-        
-        const isEquipped = equippedSkill === skillId;
-        
-        const item = document.createElement("div");
-        item.className = `collection-item ${skill.rarity}`;
-        item.innerHTML = `
-            <div class="collection-rarity ${skill.rarity}">${RARITY[skill.rarity].name}</div>
-            <div class="collection-name">${skill.name}</div>
-            <div class="collection-desc">${skill.desc}</div>
-            <button class="collection-equip-btn ${isEquipped ? 'equipped' : ''}" 
-                    onclick="window.equipGachaSkill('${skillId}')" 
-                    ${isEquipped ? 'disabled' : ''}>
-                ${isEquipped ? '装備中' : '装備する'}
-            </button>
-        `;
-        collectionGrid.appendChild(item);
-    });
-}
-
-window.equipGachaSkill = (skillId) => {
-    equippedSkill = skillId;
-    saveAndDisplayData();
-    renderCollection();
-    showBattleAlert(`✨ ${GACHA_SKILL_DB[skillId].name}を装備しました！`, RARITY[GACHA_SKILL_DB[skillId].rarity].color);
-};
-
-function updateGachaDisplay() {
-    const costEl = el("gacha-cost");
-    if (costEl) costEl.innerText = GACHA_COST.toLocaleString();
-    
-    if (lastGachaResult) {
-        showGachaResult(lastGachaResult);
-    }
-}
-
-window.pullGacha = () => {
-    if (coins < GACHA_COST) {
-        alert(`コインが足りません！\n必要: ${GACHA_COST.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
-        return;
-    }
-    
-    // コインを消費
-    coins -= GACHA_COST;
-    
-    // ガチャを引く
-    const result = pullGachaRarity();
-    lastGachaResult = result;
-    
-    // 結果を表示
-    showGachaResult(result);
-    
-    // スキルを追加
-    if (!ownedSkills.includes(result.id)) {
-        ownedSkills.push(result.id);
-    }
-    
-    saveAndDisplayData();
-};
-
-function pullGachaRarity() {
-    const rand = Math.random() * 100;
-    
-    if (rand < RARITY.UR.rate) {
-        // UR (1.5%)
-        const urSkills = Object.values(GACHA_SKILL_DB).filter(s => s.rarity === "UR");
-        const skill = urSkills[Math.floor(Math.random() * urSkills.length)];
-        sounds.ultrarare.play();
-        return { ...skill, rarityKey: "UR" };
-    } else if (rand < RARITY.UR.rate + RARITY.SR.rate) {
-        // SR (23.5%)
-        const srSkills = Object.values(GACHA_SKILL_DB).filter(s => s.rarity === "SR");
-        const skill = srSkills[Math.floor(Math.random() * srSkills.length)];
-        sounds.superrare.play();
-        return { ...skill, rarityKey: "SR" };
-    } else {
-        // R (75%)
-        const rSkills = Object.values(GACHA_SKILL_DB).filter(s => s.rarity === "R");
-        const skill = rSkills[Math.floor(Math.random() * rSkills.length)];
-        sounds.rare.play();
-        return { ...skill, rarityKey: "R" };
-    }
-}
-
-function showGachaResult(result) {
-    const resultArea = el("gacha-result-area");
-    if (!resultArea) return;
-    
-    resultArea.innerHTML = `
-        <div class="gacha-result-card">
-            <div class="gacha-result-rarity ${result.rarityKey}">${RARITY[result.rarityKey].name}</div>
-            <div class="gacha-result-name">${result.name}</div>
-            <div class="gacha-result-desc">${result.desc}</div>
-        </div>
-    `;
-}
-
-// --- ガチャスキル発動関数 ---
-function activateGachaSkill(skillId, keySlot) {
-    const skill = GACHA_SKILL_DB[skillId];
-    if (!skill) return false;
-    
-    switch(skillId) {
-        case "paintballer":
-            activatePaintballer();
-            break;
-        case "banana":
-            activateBanana();
-            break;
-        case "slate":
-            // パッシブなので何もしない
-            break;
-        case "trapper":
-            if (keySlot === "space") activateTrap();
-            else if (keySlot === "key1") activateImmunity();
-            break;
-        case "rifleman":
-            activateRifleman();
-            break;
-        case "narrator":
-            if (keySlot === "space") activateActionGame();
-            else if (keySlot === "key1") activatePuzzleGame();
-            else if (keySlot === "key2") activateMegaphone();
-            break;
-        default:
-            return false;
-    }
-    return true;
-}
-
-// ペイントボーラー
-function activatePaintballer() {
-    if (cooldowns.space > 0) return;
-    
-    sendAttackToOthers("paint", 5000, 0);
-    showBattleAlert("🎨 ペイント発動！", "#3a6ea5");
-    startSpecificCooldown("space", 15);
-}
-
-// バナナ
-function activateBanana() {
-    if (cooldowns.space > 0) return;
-    
-    if (bananaStacks < 3) {
-        bananaStacks++;
-        showBattleAlert(`🍌 バナナを設置 (${bananaStacks}/3)`, "#3a6ea5");
-        startSpecificCooldown("space", 5);
-    } else {
-        showBattleAlert("バナナは最大数です", "#ff3131");
-    }
-}
-
-// トラッパー
-function activateTrap() {
-    if (cooldowns.space > 0) return;
-    
-    if (trapStacks < 2) {
-        trapStacks++;
-        showBattleAlert(`🔱 トラップを設置 (${trapStacks}/2)`, "#8e44ad");
-        startSpecificCooldown("space", 15);
-    } else {
-        showBattleAlert("トラップは最大数です", "#ff3131");
-    }
-}
-
-function activateImmunity() {
-    if (cooldowns.key1 > 0) return;
-    if (!isJamming) {
-        showBattleAlert("スタン中のみ使用できます", "#ff3131");
-        return;
-    }
-    
-    // スタンを解除
-    isJamming = false;
-    el("jamming-overlay").classList.add("hidden");
-    showBattleAlert("💪 免疫力発動！スタンを解除！", "#8e44ad");
-    startSpecificCooldown("key1", 200);
-}
-
-// ライフルマン
-function activateRifleman() {
-    if (cooldowns.space > 0) return;
-    
-    sendRandomTargetAttack("dizzy", 5000, 0);
-    showBattleAlert("🎯 ヘッドショット！", "#8e44ad");
-    startSpecificCooldown("space", 45);
-}
-
-// ナレーター
-function activateActionGame() {
-    if (cooldowns.space > 0) return;
-    
-    sendAttackToOthers("action_game", 0, 0);
-    showBattleAlert("🎮 アクションゲーム開始！", "#f1c40f");
-    startSpecificCooldown("space", 150);
-}
-
-function activatePuzzleGame() {
-    if (cooldowns.key1 > 0) return;
-    
-    sendAttackToOthers("puzzle_game", 0, 0);
-    showBattleAlert("🧩 パズルゲーム開始！", "#f1c40f");
-    startSpecificCooldown("key1", 100);
-}
-
-function activateMegaphone() {
-    if (cooldowns.key2 > 0) return;
-    
-    sendAttackToOthers("megaphone", 10000, 0);
-    showBattleAlert("📢 メガホン！", "#f1c40f");
-    startSpecificCooldown("key2", 60);
-}
-
-// --- アクションゲーム処理 ---
-let actionGameActive = false;
-let actionPlayerPos = { x: 50, y: 250 };
-let actionGameInterval = null;
-
-function startActionGame() {
-    actionGameActive = true;
-    const overlay = el("action-game-overlay");
-    overlay.classList.remove("hidden");
-    
-    // プレイヤー位置初期化
-    actionPlayerPos = { x: 50, y: 250 };
-    updateActionPlayer();
-    
-    // キーボードイベントの一時的なハンドラ
-    const actionHandler = (e) => {
-        if (!actionGameActive) return;
-        
-        e.preventDefault();
-        
-        switch(e.code) {
-            case "ArrowLeft":
-                actionPlayerPos.x = Math.max(20, actionPlayerPos.x - 10);
-                break;
-            case "ArrowRight":
-                actionPlayerPos.x = Math.min(430, actionPlayerPos.x + 10);
-                break;
-            case "Space":
-                // ジャンプ
-                actionPlayerPos.y = 200;
-                setTimeout(() => {
-                    actionPlayerPos.y = 250;
-                }, 300);
-                break;
-        }
-        
-        updateActionPlayer();
-        
-        // トゲに当たったかチェック
-        if (actionPlayerPos.x > 180 && actionPlayerPos.x < 230 && actionPlayerPos.y > 220) {
-            // トゲに当たった
-            showBattleAlert("💀 トゲに当たった！", "#ff3131");
-            resetActionGame();
-        }
-        
-        // ゴールに着いたかチェック
-        if (actionPlayerPos.x > 420) {
-            showBattleAlert("✨ ゴール！ゲームクリア！", "#39ff14");
-            resetActionGame();
-        }
-    };
-    
-    window.addEventListener("keydown", actionHandler);
-    
-    // 30秒で強制終了
-    setTimeout(() => {
-        if (actionGameActive) {
-            resetActionGame();
-            showBattleAlert("⏰ タイムアップ！", "#ff3131");
-        }
-    }, 30000);
-}
-
-function updateActionPlayer() {
-    const player = document.getElementById("action-player");
-    if (player) {
-        player.style.left = actionPlayerPos.x + "px";
-        player.style.bottom = (actionPlayerPos.y - 220) + "px";
-    }
-}
-
-function resetActionGame() {
-    actionGameActive = false;
-    const overlay = el("action-game-overlay");
-    overlay.classList.add("hidden");
-}
-
-// --- パズルゲーム処理 ---
-let puzzleGameActive = false;
-let puzzleDots = [];
-let selectedDots = [];
-
-function startPuzzleGame() {
-    puzzleGameActive = true;
-    const overlay = el("puzzle-game-overlay");
-    overlay.classList.remove("hidden");
-    
-    // 15個のドットを生成
-    puzzleDots = Array(15).fill().map((_, i) => ({
-        id: i,
-        connected: false,
-        x: (i % 5) * 60 + 30,
-        y: Math.floor(i / 5) * 60 + 30
-    }));
-    
-    renderPuzzleGrid();
-    
-    // クリックイベント
-    const clickHandler = (e) => {
-        if (!puzzleGameActive) return;
-        
-        const dot = e.target.closest(".puzzle-dot");
-        if (!dot) return;
-        
-        const dotId = parseInt(dot.dataset.id);
-        handlePuzzleClick(dotId);
-    };
-    
-    document.querySelector(".puzzle-grid").addEventListener("click", clickHandler);
-    
-    // 60秒で強制終了
-    setTimeout(() => {
-        if (puzzleGameActive) {
-            resetPuzzleGame();
-            showBattleAlert("⏰ タイムアップ！", "#ff3131");
-        }
-    }, 60000);
-}
-
-function renderPuzzleGrid() {
-    const grid = el("puzzle-grid");
-    if (!grid) return;
-    
-    grid.innerHTML = "";
-    puzzleDots.forEach(dot => {
-        const dotEl = document.createElement("div");
-        dotEl.className = `puzzle-dot ${dot.connected ? 'connected' : ''}`;
-        dotEl.dataset.id = dot.id;
-        dotEl.style.left = dot.x + "px";
-        dotEl.style.top = dot.y + "px";
-        grid.appendChild(dotEl);
-    });
-}
-
-function handlePuzzleClick(dotId) {
-    const dot = puzzleDots[dotId];
-    if (dot.connected) return;
-    
-    if (selectedDots.length === 0) {
-        // 最初のドット
-        selectedDots = [dotId];
-        document.querySelector(`.puzzle-dot[data-id="${dotId}"]`).classList.add("active");
-    } else {
-        const lastDot = selectedDots[selectedDots.length - 1];
-        // 隣接チェック（簡易版）
-        if (Math.abs(lastDot - dotId) === 1 || Math.abs(lastDot - dotId) === 5) {
-            dot.connected = true;
-            puzzleDots[lastDot].connected = true;
-            selectedDots = [];
-            renderPuzzleGrid();
-            
-            // 全部繋がったかチェック
-            if (puzzleDots.every(d => d.connected)) {
-                showBattleAlert("✨ パズルクリア！", "#39ff14");
-                resetPuzzleGame();
-            }
-        } else {
-            selectedDots = [];
-            document.querySelectorAll(".puzzle-dot").forEach(d => d.classList.remove("active"));
-        }
-    }
-}
-
-function resetPuzzleGame() {
-    puzzleGameActive = false;
-    const overlay = el("puzzle-game-overlay");
-    overlay.classList.add("hidden");
-}
-
 // --- セーブデータ保存・表示更新用関数 ---
 function saveAndDisplayData() {
     localStorage.setItem("ramo_coins", coins);
@@ -1029,7 +522,6 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
-    localStorage.setItem("ramo_gacha_skills", JSON.stringify(gachaSkills));
     
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
@@ -1048,7 +540,6 @@ function saveAndDisplayData() {
             skin: skinData,
             accessory: equippedAccessory,
             name: myName,
-            gacha_skills: gachaSkills,
             lastUpdate: Date.now()
         });
     }).catch(err => console.error("Firebase save error:", err));
@@ -1097,7 +588,6 @@ function updateButtonStates() {
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
     const btnSkin = el("btn-skin");
-    const btnGacha = el("btn-gacha");
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
 
@@ -1105,7 +595,6 @@ function updateButtonStates() {
     if (btnParty) btnParty.disabled = isMatchmaking; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
     if (btnSkin) btnSkin.disabled = isBusy;
-    if (btnGacha) btnGacha.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
     if (btnStory) btnStory.disabled = isBusy;
 }
@@ -1547,9 +1036,6 @@ function renderShop() {
     if (!shopList) return;
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
-        // ガチャスキルはショップに表示しない
-        if (GACHA_SKILL_DB[skill.id]) return;
-        
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
         
@@ -1860,7 +1346,6 @@ window.addEventListener("keydown", e => {
     if (!gameActive) return;
     
     if (hackerTabsActive > 0) return;
-    if (actionGameActive || puzzleGameActive) return;
 
     if (e.code === "Space") { 
         e.preventDefault(); 
@@ -2079,20 +1564,6 @@ function setupSkillUI() {
         } else if (equippedSkill === "comboGod") {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "✨ 1回のみ (スペースキーで発動)";
-        } else if (GACHA_SKILL_DB[equippedSkill]) {
-            const skill = GACHA_SKILL_DB[equippedSkill];
-            el("in-game-skill-btn").classList.remove("hidden");
-            if (skill.passive) {
-                el("in-game-skill-btn").classList.add("hidden");
-                statusText.innerText = "【パッシブ】スタン無効";
-                // スレートのパッシブ適用
-                isImmuneToStun = true;
-            } else if (typeof skill.keySlot === 'object') {
-                el("in-game-skill-btn").classList.add("hidden");
-                updateCooldownText();
-            } else {
-                statusText.innerText = `✨ ${RARITY[skill.rarity].name} (スペースキーで発動)`;
-            }
         } else {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "準備完了！(スペースキーで発動)";
@@ -2121,15 +1592,6 @@ function updateCooldownText() {
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]高度なハックOK";
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]状態変異OK";
         txt = `${k1} | ${k2} | ${k3}`;
-    } else if (skill.id === "trapper") {
-        let k1 = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]トラップOK";
-        let k2 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]免疫力OK";
-        txt = `${k1} | ${k2}`;
-    } else if (skill.id === "narrator") {
-        let k1 = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]アクションゲーム";
-        let k2 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]パズルゲーム";
-        let k3 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]メガホン";
-        txt = `${k1} | ${k2} | ${k3}`;
     } else {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     }
@@ -2150,13 +1612,10 @@ function resetSkillState() {
     timeSlipUsed = false;
     isGodfatherMissionActive = false;
     hackerTabsActive = 0;
-    isImmuneToStun = false; // スレートのパッシブ解除
     
     mazeActive = false;
     hackingActive = false;
     poisonActive = false;
-    actionGameActive = false;
-    puzzleGameActive = false;
     
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
@@ -2171,10 +1630,7 @@ function resetSkillState() {
     el("maze-overlay").classList.add("hidden");
     el("hacking-overlay").classList.add("hidden");
     el("poison-overlay").classList.add("hidden");
-    el("action-game-overlay").classList.add("hidden");
-    el("puzzle-game-overlay").classList.add("hidden");
     document.body.classList.remove("poisoned");
-    document.body.classList.remove("dizzy");
     el("skill-cooldown-bar").style.height = "0%";
     el("in-game-skill-btn").classList.remove("cooldown", "hidden");
     el("skill-status-text").innerText = "準備完了！(指定キーで発動)";
@@ -2187,7 +1643,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod" && !GACHA_SKILL_DB[equippedSkill]) {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -2198,12 +1654,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && !GACHA_SKILL_DB[equippedSkill]) {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && !GACHA_SKILL_DB[equippedSkill]) {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -2270,13 +1726,6 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
     if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
-    
-    // ガチャスキルの処理
-    if (GACHA_SKILL_DB[equippedSkill]) {
-        if (activateGachaSkill(equippedSkill, keySlot)) {
-            return;
-        }
-    }
     
     const skill = SKILL_DB[equippedSkill];
 
@@ -2587,11 +2036,6 @@ window.moveMaze = (direction) => {
 };
 
 function startHacking(duration) {
-    if (isImmuneToStun) {
-        showBattleAlert("🛡️ スレートのパッシブで無効化！", "#3a6ea5");
-        return;
-    }
-    
     hackingActive = true;
     const overlay = el("hacking-overlay");
     const progress = document.querySelector(".hacking-progress");
@@ -2663,32 +2107,6 @@ function startPoison(duration) {
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
 
-    // スレートのパッシブチェック
-    if (isImmuneToStun) {
-        if (attack.type === "jam" || attack.type === "hacker_tabs" || attack.type === "hacking") {
-            showBattleAlert("🛡️ スレートのパッシブで無効化！", "#3a6ea5");
-            return;
-        }
-    }
-
-    // バナナとトラップの処理
-    if (attack.type === "steal" || attack.type === "thief") {
-        if (bananaStacks > 0) {
-            bananaStacks--;
-            // 盗もうとした相手をスタン
-            sendRandomTargetAttack("banana_stun", 3000, 0);
-            showBattleAlert("🍌 バナナでやられた！", "#3a6ea5");
-            return;
-        }
-        if (trapStacks > 0) {
-            trapStacks--;
-            // 盗もうとした相手をスタン
-            sendRandomTargetAttack("trap_stun", 5000, 0);
-            showBattleAlert("🔱 トラップでやられた！", "#8e44ad");
-            return;
-        }
-    }
-
     if (attack.stealAmount > 0) {
         score = Math.max(0, score - attack.stealAmount);
         el("stat-score").innerText = score.toLocaleString();
@@ -2704,10 +2122,6 @@ function handleIncomingAttack(attack) {
     }
     
     if (attack.type === "hacker_tabs") {
-        if (isImmuneToStun) {
-            showBattleAlert("🛡️ スレートのパッシブで無効化！", "#3a6ea5");
-            return;
-        }
         createHackerTabs();
         sounds.miss.play();
         return;
@@ -2785,71 +2199,12 @@ function handleIncomingAttack(attack) {
         return;
     }
 
-    if (attack.type === "dizzy") {
-        document.body.classList.add("dizzy");
-        applyJamming(5000);
-        setTimeout(() => {
-            document.body.classList.remove("dizzy");
-        }, 5000);
-        return;
-    }
-
-    if (attack.type === "paint") {
-        // ペイントエフェクト（徐々に透明になる）
-        let opacity = 1;
-        const paintInterval = setInterval(() => {
-            opacity -= 0.2;
-            if (opacity <= 0) {
-                clearInterval(paintInterval);
-                document.body.style.opacity = "1";
-            } else {
-                document.body.style.opacity = opacity;
-            }
-        }, 1000);
-        setTimeout(() => {
-            clearInterval(paintInterval);
-            document.body.style.opacity = "1";
-        }, 5000);
-        return;
-    }
-
-    if (attack.type === "banana_stun") {
-        showBattleAlert("🍌 バナナでやられた！", "#3a6ea5");
-        applyJamming(3000);
-        return;
-    }
-
-    if (attack.type === "trap_stun") {
-        showBattleAlert("🔱 トラップでやられた！", "#8e44ad");
-        applyJamming(5000);
-        return;
-    }
-
-    if (attack.type === "action_game") {
-        startActionGame();
-        return;
-    }
-
-    if (attack.type === "puzzle_game") {
-        startPuzzleGame();
-        return;
-    }
-
-    if (attack.type === "megaphone") {
-        applyBlurEffect();
-        return;
-    }
-
     if (attack.duration > 0) {
         applyJamming(attack.duration);
     }
 }
 
 function applyJamming(durationMs) {
-    if (isImmuneToStun) {
-        showBattleAlert("🛡️ スレートのパッシブで無効化！", "#3a6ea5");
-        return;
-    }
     isJamming = true;
     el("jamming-overlay").classList.remove("hidden");
     sounds.miss.play(); 
@@ -3191,9 +2546,6 @@ get(userRef).then(snap => {
         if(data.accessory !== undefined) {
             equippedAccessory = data.accessory;
         }
-        if(data.gacha_skills !== undefined) {
-            gachaSkills = data.gacha_skills;
-        }
         // コード使用状況を読み込み
         if(data.tysm_used !== undefined) tysmUsed = data.tysm_used;
         if(data.byramo_used !== undefined) byramoUsed = data.byramo_used;
@@ -3209,7 +2561,6 @@ get(userRef).then(snap => {
         localStorage.setItem("ramo_daily_code", dailyCode);
         localStorage.setItem("ramo_daily_date", dailyCodeDate);
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
-        localStorage.setItem("ramo_gacha_skills", JSON.stringify(gachaSkills));
     }
     saveAndDisplayData();
 }).catch(err => console.error("Firebase load error:", err));
@@ -3227,7 +2578,6 @@ update(userRef, {
     daily_code: dailyCode,
     daily_code_date: dailyCodeDate,
     used_codes: usedCodes,
-    gacha_skills: gachaSkills,
     lastSeen: Date.now()
 }).catch(err => console.error("Firebase update error:", err));
 
