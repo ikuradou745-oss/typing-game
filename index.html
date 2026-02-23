@@ -103,6 +103,10 @@
                         <span>スキンを変える</span>
                         <small>SKIN SHOP</small>
                     </button>
+                    <button id="btn-gacha" class="action-btn" onclick="window.openGacha()" style="border-color: #FF69B4;">
+                        <span>スキルガチャ</span>
+                        <small>SKILL GACHA</small>
+                    </button>
                     <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
                         <span>ストーリーモード</span>
                         <small>STORY MODE</small>
@@ -147,6 +151,60 @@
                 <div class="skin-shop-buttons">
                     <button class="action-btn purple-btn" onclick="window.saveAndExitSkinShop()">保存して戻る</button>
                     <button class="action-btn gray-btn" onclick="window.goHome()">キャンセル</button>
+                </div>
+            </div>
+
+            <!-- ガチャ画面 -->
+            <div id="screen-gacha" class="screen hidden">
+                <h2 class="title-glow" style="color: #FF69B4;">🎰 スキルガチャ</h2>
+                <div class="gacha-container">
+                    <div class="gacha-info">
+                        <div class="gacha-rate-box">
+                            <div class="rate-item"><span class="rate-color" style="background: #3a6ea5;"></span>レア (R) 75%</div>
+                            <div class="rate-item"><span class="rate-color" style="background: #8e44ad;"></span>スーパーレア (SR) 23.5%</div>
+                            <div class="rate-item"><span class="rate-color" style="background: #f1c40f;"></span>ウルトラレア (UR) 1.5%</div>
+                        </div>
+                        <div class="gacha-cost">1回: <span id="gacha-cost">5000</span> 🪙</div>
+                    </div>
+
+                    <div class="gacha-result-area" id="gacha-result-area">
+                        <div class="gacha-result-placeholder">✨ ガチャを回そう！ ✨</div>
+                    </div>
+
+                    <div class="gacha-buttons">
+                        <button class="action-btn purple-btn" onclick="window.pullGacha()" id="gacha-pull-btn">
+                            <span>1回引く</span>
+                            <small>5000🪙</small>
+                        </button>
+                        <button class="action-btn" onclick="window.openGachaCollection()" style="border-color: #FF69B4;">
+                            <span>コレクション</span>
+                            <small>所持スキル</small>
+                        </button>
+                        <button class="action-btn gray-btn" onclick="window.goHome()">
+                            <span>戻る</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ガチャコレクション画面 -->
+            <div id="screen-gacha-collection" class="screen hidden">
+                <h2 class="title-glow" style="color: #FF69B4;">📚 スキルコレクション</h2>
+                
+                <div class="collection-filters">
+                    <button class="filter-btn active" onclick="window.filterCollection('all')">すべて</button>
+                    <button class="filter-btn" onclick="window.filterCollection('R')">レア (R)</button>
+                    <button class="filter-btn" onclick="window.filterCollection('SR')">スーパーレア (SR)</button>
+                    <button class="filter-btn" onclick="window.filterCollection('UR')">ウルトラレア (UR)</button>
+                </div>
+
+                <div class="collection-grid" id="collection-grid">
+                    <!-- コレクションがJSで動的に生成されます -->
+                </div>
+
+                <div class="collection-buttons">
+                    <button class="action-btn gray-btn" onclick="window.openGacha()">ガチャに戻る</button>
+                    <button class="action-btn gray-btn" onclick="window.goHome()">ホームに戻る</button>
                 </div>
             </div>
 
@@ -344,6 +402,35 @@
                 </div>
             </section>
         </aside>
+    </div>
+
+    <!-- アクションゲームオーバーレイ（ナレーター用） -->
+    <div id="action-game-overlay" class="hidden">
+        <div class="action-game-container">
+            <h3>🎮 アクションゲーム</h3>
+            <div class="action-game-area" id="action-game-area">
+                <div class="player" id="action-player"></div>
+                <div class="ground" id="action-ground"></div>
+                <div class="spikes" id="action-spikes"></div>
+                <div class="goal" id="action-goal">🏁</div>
+            </div>
+            <div class="action-controls">
+                <span>← → で移動 | スペースでジャンプ</span>
+            </div>
+            <div id="action-status"></div>
+        </div>
+    </div>
+
+    <!-- パズルゲームオーバーレイ（ナレーター用） -->
+    <div id="puzzle-game-overlay" class="hidden">
+        <div class="puzzle-game-container">
+            <h3>🧩 ドットコネクト</h3>
+            <div class="puzzle-grid" id="puzzle-grid"></div>
+            <div class="puzzle-controls">
+                <span>クリックで接続 | 全部繋げよう！</span>
+            </div>
+            <div id="puzzle-status"></div>
+        </div>
     </div>
 
     <!-- 迷路表示用オーバーレイ -->
