@@ -213,7 +213,7 @@ const NEW_SKILLS = {
         name: "コンボアップの神",
         cost: 0,
         cooldown: 0,
-        desc: "【1回のみ使用可能】7秒間、コンボの数が6倍になる",
+        desc: "【1回のみ使用可能】7秒間、コンボの数が3.5倍になる",
         special: true
     }
 };
@@ -480,9 +480,9 @@ function activateComboGod() {
     
     comboGodActive = true;
     const originalMultiplier = comboMultiplier;
-    comboMultiplier *= 6;
+    comboMultiplier *= 3.5;
     
-    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ6倍！", "#FFD700");
+    showBattleAlert("✨ コンボアップの神発動！7秒間コンボ3.5倍！", "#FFD700");
     sounds.notify.play();
     
     if (comboGodTimer) clearTimeout(comboGodTimer);
