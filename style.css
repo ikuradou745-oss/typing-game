@@ -6,8 +6,14 @@
     --accent-green: #39ff14;
     --accent-red: #ff3131;
     --accent-gold: #FFD700;
+    --accent-pink: #FF69B4;
     --text-white: #e0e0e0;
     --glass: rgba(255, 255, 255, 0.03);
+    
+    /* レア度カラー */
+    --rarity-r: #3a6ea5;
+    --rarity-sr: #8e44ad;
+    --rarity-ur: #f1c40f;
 }
 
 * { box-sizing: border-box; }
@@ -57,6 +63,7 @@ body, html {
 .full-width { grid-column: span 2; }
 .gray-btn { border-color: #555; }
 .purple-btn { border-color: var(--accent-purple); }
+.pink-btn { border-color: var(--accent-pink); }
 
 .action-btn:disabled, .action-btn.disabled {
     background: rgba(30, 30, 30, 0.8);
@@ -554,6 +561,444 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 #in-game-skill-btn:hover { transform: scale(1.05); border-color: var(--accent-gold); }
 #skill-cooldown-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(255, 49, 49, 0.5); transition: height 1s linear; }
+
+/* =========================================
+   ガチャシステム
+   ========================================= */
+#screen-gacha {
+    justify-content: flex-start;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.gacha-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-pink);
+    border-radius: 30px;
+    padding: 30px;
+    max-width: 800px;
+    width: 100%;
+    margin: 20px auto;
+}
+
+.gacha-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 20px;
+}
+
+.gacha-rate-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rate-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+}
+
+.rate-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: inline-block;
+}
+
+.gacha-cost {
+    font-size: 1.5rem;
+    color: var(--accent-gold);
+    font-weight: bold;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 15px 25px;
+    border-radius: 15px;
+    border: 2px solid var(--accent-gold);
+}
+
+.gacha-result-area {
+    min-height: 200px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--accent-pink);
+}
+
+.gacha-result-placeholder {
+    color: #666;
+    font-size: 1.5rem;
+    text-align: center;
+}
+
+.gacha-result-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    animation: cardAppear 0.5s ease;
+}
+
+@keyframes cardAppear {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.gacha-result-rarity {
+    font-size: 2rem;
+    font-weight: bold;
+    padding: 10px 30px;
+    border-radius: 50px;
+    text-shadow: 0 0 15px currentColor;
+}
+
+.gacha-result-rarity.R { 
+    background: var(--rarity-r); 
+    color: white;
+    box-shadow: 0 0 30px var(--rarity-r);
+}
+.gacha-result-rarity.SR { 
+    background: var(--rarity-sr); 
+    color: white;
+    box-shadow: 0 0 30px var(--rarity-sr);
+}
+.gacha-result-rarity.UR { 
+    background: var(--rarity-ur); 
+    color: #000;
+    box-shadow: 0 0 30px var(--rarity-ur);
+}
+
+.gacha-result-name {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: white;
+}
+
+.gacha-result-desc {
+    font-size: 1.2rem;
+    color: #aaa;
+    max-width: 400px;
+    text-align: center;
+    white-space: pre-wrap;
+}
+
+.gacha-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.gacha-buttons .action-btn {
+    min-width: 200px;
+}
+
+/* コレクション画面 */
+#screen-gacha-collection {
+    justify-content: flex-start;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.collection-filters {
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.filter-btn {
+    background: var(--panel-bg);
+    border: 2px solid var(--accent-purple);
+    color: white;
+    padding: 10px 25px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.filter-btn.active {
+    background: var(--accent-purple);
+    box-shadow: 0 0 20px var(--accent-purple);
+    transform: scale(1.05);
+}
+
+.filter-btn:hover:not(.active) {
+    background: var(--accent-purple);
+}
+
+.collection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 1000px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 20px;
+    background: var(--panel-bg);
+    border-radius: 20px;
+    border: 1px solid var(--glass);
+    margin-bottom: 20px;
+}
+
+.collection-item {
+    background: rgba(0,0,0,0.6);
+    border: 2px solid;
+    border-radius: 15px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: 0.2s;
+    position: relative;
+}
+
+.collection-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px currentColor;
+}
+
+.collection-item.R { border-color: var(--rarity-r); }
+.collection-item.SR { border-color: var(--rarity-sr); }
+.collection-item.UR { border-color: var(--rarity-ur); }
+
+.collection-rarity {
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding: 5px 15px;
+    border-radius: 20px;
+    display: inline-block;
+    align-self: flex-start;
+}
+
+.collection-rarity.R { background: var(--rarity-r); color: white; }
+.collection-rarity.SR { background: var(--rarity-sr); color: white; }
+.collection-rarity.UR { background: var(--rarity-ur); color: black; }
+
+.collection-name {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: white;
+}
+
+.collection-desc {
+    font-size: 0.9rem;
+    color: #aaa;
+    white-space: pre-wrap;
+}
+
+.collection-equip-btn {
+    background: var(--accent-purple);
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+    margin-top: 10px;
+}
+
+.collection-equip-btn:hover {
+    background: #d400ff;
+    box-shadow: 0 0 15px var(--accent-purple);
+}
+
+.collection-equip-btn.equipped {
+    background: var(--accent-green);
+    cursor: default;
+}
+
+.collection-equip-btn.equipped:hover {
+    background: var(--accent-green);
+    box-shadow: none;
+}
+
+.collection-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+/* =========================================
+   アクションゲームオーバーレイ（ナレーター用）
+   ========================================= */
+#action-game-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 30000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-game-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-gold);
+    border-radius: 30px;
+    padding: 30px;
+    text-align: center;
+    min-width: 600px;
+}
+
+.action-game-area {
+    position: relative;
+    width: 500px;
+    height: 300px;
+    margin: 20px auto;
+    background: #87CEEB;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+#action-player {
+    position: absolute;
+    bottom: 50px;
+    left: 50px;
+    width: 30px;
+    height: 30px;
+    background: var(--accent-blue);
+    border-radius: 5px;
+    transition: left 0.1s, bottom 0.1s;
+}
+
+#action-ground {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    background: #8B4513;
+}
+
+#action-spikes {
+    position: absolute;
+    bottom: 50px;
+    left: 200px;
+    width: 30px;
+    height: 30px;
+    background: #ff0000;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+#action-goal {
+    position: absolute;
+    bottom: 50px;
+    right: 50px;
+    width: 40px;
+    height: 40px;
+    background: var(--accent-gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.action-controls {
+    margin: 20px 0;
+    color: var(--accent-blue);
+    font-size: 1.2rem;
+}
+
+#action-status {
+    font-size: 1.2rem;
+    color: var(--accent-gold);
+}
+
+/* =========================================
+   パズルゲームオーバーレイ（ナレーター用）
+   ========================================= */
+#puzzle-game-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 30000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.puzzle-game-container {
+    background: var(--panel-bg);
+    border: 3px solid var(--accent-gold);
+    border-radius: 30px;
+    padding: 30px;
+    text-align: center;
+}
+
+.puzzle-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 20px auto;
+    max-width: 500px;
+}
+
+.puzzle-dot {
+    aspect-ratio: 1;
+    background: #333;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    border: 2px solid #666;
+}
+
+.puzzle-dot.active {
+    background: var(--accent-blue);
+    border-color: white;
+    box-shadow: 0 0 20px var(--accent-blue);
+}
+
+.puzzle-dot.connected {
+    background: var(--accent-green);
+    border-color: white;
+}
+
+.puzzle-dot.connected::after {
+    content: "✓";
+}
+
+.puzzle-controls {
+    margin: 20px 0;
+    color: var(--accent-blue);
+    font-size: 1.2rem;
+}
+
+#puzzle-status {
+    font-size: 1.2rem;
+    color: var(--accent-gold);
+}
 
 /* =========================================
    スキンショップ（高さ調整済み）
@@ -1296,6 +1741,18 @@ body.poisoned .word-ja,
 body.poisoned .word-roma {
     filter: blur(3px) brightness(1.5);
     opacity: 0.7;
+}
+
+/* くらくらエフェクト（ライフルマン用） */
+body.dizzy {
+    animation: dizzy 0.5s infinite;
+}
+
+@keyframes dizzy {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(1deg); }
+    75% { transform: rotate(-1deg); }
+    100% { transform: rotate(0deg); }
 }
 
 @keyframes glitch {
