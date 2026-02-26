@@ -338,6 +338,8 @@
                             <div id="skill-cooldown-bar"></div>
                         </button>
                         <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
+                        <!-- 追加：マルチキー用の表示領域 -->
+                        <div id="skill-keys-info" class="skill-keys-info hidden"></div>
                     </div>
 
                     <div class="word-ja" id="q-ja">準備中...</div>
@@ -437,6 +439,42 @@
     <!-- 毒状態エフェクト -->
     <div id="poison-overlay" class="hidden">
         <div class="poison-effect"></div>
+    </div>
+
+    <!-- ================= 新規追加：アクションゲームオーバーレイ ================= -->
+    <div id="action-game-overlay" class="hidden">
+        <div class="action-game-container">
+            <h3>🎮 アクションゲーム</h3>
+            <div class="action-game-canvas" id="action-game-canvas">
+                <!-- 簡易的な表示：後でJSで描画 -->
+                <div class="action-game-ground">____________________</div>
+                <div class="action-game-player">😀</div>
+                <div class="action-game-spike">▲</div>
+                <div class="action-game-goal">🏁</div>
+            </div>
+            <div class="action-game-controls">
+                <button class="action-btn" onclick="window.moveActionGame('left')">← 左</button>
+                <button class="action-btn" onclick="window.moveActionGame('right')">→ 右</button>
+                <button class="action-btn" onclick="window.moveActionGame('jump')">␣ ジャンプ</button>
+            </div>
+            <div id="action-game-status">ゴールを目指せ！</div>
+            <button class="action-btn gray-btn" onclick="window.closeActionGame()">閉じる</button>
+        </div>
+    </div>
+
+    <!-- ================= 新規追加：パズルゲーム（ドットコネクト）オーバーレイ ================= -->
+    <div id="puzzle-game-overlay" class="hidden">
+        <div class="puzzle-game-container">
+            <h3>🧩 ドットコネクト</h3>
+            <div class="puzzle-grid" id="puzzle-grid">
+                <!-- 15個のドットがJSで生成されます -->
+            </div>
+            <div class="puzzle-controls">
+                <button class="action-btn" onclick="window.resetPuzzle()">リセット</button>
+            </div>
+            <div id="puzzle-status">すべての点をつなげ！</div>
+            <button class="action-btn gray-btn" onclick="window.closePuzzleGame()">閉じる</button>
+        </div>
     </div>
 
     <script type="module" src="script.js"></script>
