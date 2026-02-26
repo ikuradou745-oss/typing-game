@@ -111,6 +111,15 @@
                         <span>ショップ (スキル)</span>
                         <small>SKILL SHOP</small>
                     </button>
+                    <!-- 新しいボタン：ガチャと装備 -->
+                    <button id="btn-gacha" class="action-btn full-width gold-btn" onclick="window.openGacha()">
+                        <span>🎰 スキルガチャ</span>
+                        <small>SKILL GACHA</small>
+                    </button>
+                    <button id="btn-equip" class="action-btn full-width purple-btn" onclick="window.openEquip()">
+                        <span>⚙️ スキル装備</span>
+                        <small>EQUIP SKILLS</small>
+                    </button>
                 </div>
             </div>
 
@@ -202,6 +211,7 @@
                 </div>
             </div>
 
+            <!-- スキルショップ画面 -->
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
@@ -209,6 +219,85 @@
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
             </div>
 
+            <!-- スキルガチャ画面 (新規) -->
+            <div id="screen-gacha" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFD700;">🎰 スキルガチャ</h2>
+                <div class="gacha-container">
+                    <div class="gacha-info-panel">
+                        <div class="gacha-rates">
+                            <div class="rate-item" style="color: #aaa;">🟦 ノーマル: 75%</div>
+                            <div class="rate-item" style="color: #39ff14;">🟩 レア(R): 23.5%</div>
+                            <div class="rate-item" style="color: #bc00ff;">🟪 スーパーレア(SR): 1.5%</div>
+                            <div class="rate-item" style="color: #FFD700;">✨ ウルトラレア(UR): 1.5%</div>
+                        </div>
+                        <div class="gacha-cost">
+                            1回: <span class="gacha-price">5000</span>🪙
+                        </div>
+                    </div>
+
+                    <div class="gacha-buttons">
+                        <button class="action-btn gold-btn" onclick="window.pullGacha()">
+                            <span>🎲 1回引く</span>
+                            <small>5000🪙</small>
+                        </button>
+                        <button class="action-btn purple-btn" onclick="window.pullGachaMulti()">
+                            <span>🎲 10回引く</span>
+                            <small>45000🪙 (10%OFF)</small>
+                        </button>
+                    </div>
+
+                    <div class="gacha-result-area" id="gacha-result">
+                        <div class="gacha-result-placeholder">
+                            ガチャを回してスキルを獲得しよう！
+                        </div>
+                    </div>
+
+                    <div class="gacha-collection" id="gacha-collection">
+                        <h3>📋 獲得キャラクター</h3>
+                        <div class="collection-filters">
+                            <button class="filter-btn active" data-filter="all" onclick="window.filterGachaCollection('all')">全て</button>
+                            <button class="filter-btn" data-filter="R" onclick="window.filterGachaCollection('R')">レア(R)</button>
+                            <button class="filter-btn" data-filter="SR" onclick="window.filterGachaCollection('SR')">スーパーレア(SR)</button>
+                            <button class="filter-btn" data-filter="UR" onclick="window.filterGachaCollection('UR')">ウルトラレア(UR)</button>
+                        </div>
+                        <div class="collection-grid" id="collection-grid"></div>
+                    </div>
+                </div>
+                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
+            </div>
+
+            <!-- スキル装備画面 (新規) -->
+            <div id="screen-equip" class="screen hidden">
+                <h2 class="title-glow" style="color: #bc00ff;">⚙️ スキル装備</h2>
+                <div class="equip-container">
+                    <div class="equip-categories">
+                        <button class="equip-cat-btn active" data-cat="all" onclick="window.filterEquipSkills('all')">全て</button>
+                        <button class="equip-cat-btn" data-cat="R" onclick="window.filterEquipSkills('R')">レア(R)</button>
+                        <button class="equip-cat-btn" data-cat="SR" onclick="window.filterEquipSkills('SR')">スーパーレア(SR)</button>
+                        <button class="equip-cat-btn" data-cat="UR" onclick="window.filterEquipSkills('UR')">ウルトラレア(UR)</button>
+                        <button class="equip-cat-btn" data-cat="normal" onclick="window.filterEquipSkills('normal')">ノーマル</button>
+                    </div>
+
+                    <div class="equip-grid" id="equip-grid">
+                        <!-- 動的にスキルが表示される -->
+                    </div>
+
+                    <div class="equip-current">
+                        <h3>現在装備中</h3>
+                        <div id="current-equip-display" class="current-equip-card">
+                            <div class="equip-skill-icon">⚔️</div>
+                            <div class="equip-skill-info">
+                                <div class="equip-skill-name" id="current-skill-name">なし</div>
+                                <div class="equip-skill-rarity" id="current-skill-rarity">-</div>
+                                <div class="equip-skill-desc" id="current-skill-desc">スキルを装備してください</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">メインメニューに戻る</button>
+            </div>
+
+            <!-- 難易度選択画面 -->
             <div id="screen-single-select" class="screen hidden">
                 <h2 class="title-glow">難易度選択</h2>
                 <div class="btn-group">
@@ -219,6 +308,7 @@
                 </div>
             </div>
 
+            <!-- バトルセットアップ画面 -->
             <div id="screen-battle-setup" class="screen hidden">
                 <h2 class="title-glow">BATTLE SETUP</h2>
                 <div class="setup-panel">
@@ -242,6 +332,7 @@
                 </div>
             </div>
 
+            <!-- プレイ画面 -->
             <div id="screen-play" class="screen hidden">
                 <!-- スコアプログレスバー -->
                 <div id="story-progress-bar" class="hidden">
@@ -267,6 +358,16 @@
                     <button id="btn-dodge" onclick="window.executeDodge()">避ける！！</button>
                 </div>
 
+                <!-- バナナ警告オーバーレイ (新規) -->
+                <div id="banana-overlay" class="hidden">
+                    <div class="banana-text">🍌 バナナでやられた！3秒スタン！</div>
+                </div>
+
+                <!-- トラップ警告オーバーレイ (新規) -->
+                <div id="trap-overlay" class="hidden">
+                    <div class="trap-text">⚠️ トラップでやられた！5秒スタン！</div>
+                </div>
+
                 <div id="battle-alert" class="hidden"></div>
 
                 <div id="game-core">
@@ -278,6 +379,11 @@
                             <div id="skill-cooldown-bar"></div>
                         </button>
                         <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
+                    </div>
+
+                    <!-- バナナスタック表示 (新規) -->
+                    <div id="banana-stack" class="hidden">
+                        🍌 <span id="banana-count">0</span>
                     </div>
 
                     <div class="word-ja" id="q-ja">準備中...</div>
@@ -298,6 +404,7 @@
                 </div>
             </div>
 
+            <!-- 結果画面 -->
             <div id="screen-result" class="screen hidden">
                 <h1 class="finish-title">FINISH!</h1>
                 <div id="ranking-box" class="ranking-panel"></div>
@@ -372,6 +479,27 @@
     <!-- 毒状態エフェクト -->
     <div id="poison-overlay" class="hidden">
         <div class="poison-effect"></div>
+    </div>
+
+    <!-- アクションゲームオーバーレイ (ナレーター用) -->
+    <div id="action-game-overlay" class="hidden">
+        <div class="action-game-container">
+            <h3>🎮 アクションゲーム</h3>
+            <div id="action-game-canvas" class="action-game-canvas"></div>
+            <div class="action-controls">
+                <div>← → : 移動 | スペース : ジャンプ</div>
+                <div id="action-status">ゴールを目指せ！</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ドットコネクトオーバーレイ (ナレーター用) -->
+    <div id="dot-connect-overlay" class="hidden">
+        <div class="dot-connect-container">
+            <h3>🔷 ドットコネクト</h3>
+            <div id="dot-grid" class="dot-grid"></div>
+            <div id="dot-status">15個の丸を全て繋げ！</div>
+        </div>
     </div>
 
     <script type="module" src="script.js"></script>
