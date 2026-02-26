@@ -218,7 +218,64 @@ const NEW_SKILLS = {
     }
 };
 
-// スキルのデータ定義
+// =========================================
+// 追加：ガチャキャラクターデータベース
+// =========================================
+const GACHA_CHAR_DB = {
+    // R (レア) 3種
+    paintballer: {
+        id: "paintballer",
+        name: "ペイントボーラー",
+        rarity: "R",
+        desc: "【ペイント】CT15秒: 相手の画面に5秒間ペイントを塗り潰す（徐々に透明）",
+        cooldown: 15,
+        gacha: true
+    },
+    banana: {
+        id: "banana",
+        name: "バナナ",
+        rarity: "R",
+        desc: "【バナナをしく】CT5秒: バナナを設置（スタック可能）。スコアを奪う相手が自分を奪うと、奪った相手を3秒スタン",
+        cooldown: 5,
+        gacha: true
+    },
+    slate: {
+        id: "slate",
+        name: "スレート",
+        rarity: "R",
+        desc: "【パッシブ】スタン無効（ハッカータブ・高度なハックも無効）",
+        cooldown: 0,
+        gacha: true
+    },
+    // SR (スーパーレア) 2種
+    trapper: {
+        id: "trapper",
+        name: "トラッパー",
+        rarity: "SR",
+        desc: "【トラップ】CT15秒: トラップ設置（スタック可）。スコア奪取攻撃を受けると相手の奪取失敗＆5秒スタン\n【免疫力】CT200秒: スタン中のみ使用可、スタン解除",
+        cooldown: 15, // メインスキル用ベース
+        gacha: true
+    },
+    rifleman: {
+        id: "rifleman",
+        name: "ライフルマン",
+        rarity: "SR",
+        desc: "【ヘッドショット】CT45秒: ランダムな相手1人を5秒スタン＆5秒間画面ゆらゆら",
+        cooldown: 45,
+        gacha: true
+    },
+    // UR (ウルトラレア) 1種
+    narrator: {
+        id: "narrator",
+        name: "ナレーター",
+        rarity: "UR",
+        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（15個の丸を繋ぐ）\n【メガホン】CT? 相手画面を10秒間ぼやけさせる",
+        cooldown: 150, // 一番長いCTをベースに
+        gacha: true
+    }
+};
+
+// 既存の SKILL_DB にガチャキャラを追加
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
@@ -231,7 +288,29 @@ const SKILL_DB = {
     godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×20)のコインを直接獲得" },
     hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す（10秒間妨害）\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
     accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
-    ...NEW_SKILLS
+    ...NEW_SKILLS,
+    // ガチャキャラを追加（gachaフラグを付与）
+    ...Object.fromEntries(
+        Object.entries(GACHA_CHAR_DB).map(([key, val]) => [key, { ...val, cost: 0 }])
+    )
+};
+
+// --- ガチャ関連の追加グローバル変数 ---
+const GACHA_COST = 1000;        // 1回のコスト
+const GACHA_COST_10 = 9000;     // 10連のコスト（10%OFF）
+
+// ガチャ確率（%）
+const GACHA_RATES = {
+    R: 75,
+    SR: 23.5,
+    UR: 1.5
+};
+
+// 各レアリティに属するキャラID（GACHA_CHAR_DB から抽出）
+const GACHA_CHARS_BY_RARITY = {
+    R: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'R').map(c => c.id),
+    SR: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'SR').map(c => c.id),
+    UR: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'UR').map(c => c.id)
 };
 
 // --- デイリーコード生成関数 ---
@@ -526,6 +605,7 @@ function saveAndDisplayData() {
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
+    if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString(); // 追加
     
     updateProfileFace();
     
@@ -590,6 +670,7 @@ function updateButtonStates() {
     const btnSkin = el("btn-skin");
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
+    const btnGacha = el("btn-gacha"); // 追加
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking; 
@@ -597,6 +678,7 @@ function updateButtonStates() {
     if (btnSkin) btnSkin.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
     if (btnStory) btnStory.disabled = isBusy;
+    if (btnGacha) btnGacha.disabled = isBusy || myPartyId !== null; // 追加
 }
 
 // --- リアルタイム名前更新 ---
@@ -1004,7 +1086,7 @@ function equipAccessory(accessoryId) {
     saveAndDisplayData();
 }
 
-// --- ショップシステム ---
+// --- ショップシステム（修正：gachaフラグのあるスキルは表示しない） ---
 window.openShop = () => {
     openScreen("screen-shop");
     renderShop();
@@ -1029,6 +1111,10 @@ window.equipSkill = (skillId) => {
     equippedSkill = skillId;
     saveAndDisplayData();
     renderShop();
+    // ガチャ画面の装備表示も更新（あとで）
+    if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
+        renderGachaCharacters(getCurrentGachaTabRarity());
+    }
 };
 
 function renderShop() {
@@ -1036,6 +1122,9 @@ function renderShop() {
     if (!shopList) return;
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
+        // ガチャキャラはショップに表示しない
+        if (skill.gacha) return;
+        
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
         
@@ -1088,6 +1177,217 @@ window.unlockBossSkill = (skillId) => {
         renderShop();
         alert(`${SKILL_DB[skillId].name} を解除しました！`);
     }
+};
+
+// =========================================
+// ガチャ機能
+// =========================================
+
+// ガチャ画面を開く
+window.openGacha = () => {
+    openScreen("screen-gacha");
+    updateGachaCoinDisplay();
+    renderGachaCharacters('all'); // 初期表示は全キャラ
+};
+
+// コイン表示更新
+function updateGachaCoinDisplay() {
+    const gachaCoin = el("gacha-coin-amount");
+    if (gachaCoin) gachaCoin.innerText = coins.toLocaleString();
+}
+
+// 現在選択中のタブレアリティを取得（簡易）
+function getCurrentGachaTabRarity() {
+    const activeTab = document.querySelector('.gacha-tab.active');
+    if (!activeTab) return 'all';
+    const text = activeTab.textContent;
+    if (text.includes('全')) return 'all';
+    if (text.includes('R')) return 'R';
+    if (text.includes('SR')) return 'SR';
+    if (text.includes('UR')) return 'UR';
+    return 'all';
+}
+
+// タブ切り替え
+window.switchGachaTab = (rarity) => {
+    document.querySelectorAll('.gacha-tab').forEach(tab => tab.classList.remove('active'));
+    const targetTab = Array.from(document.querySelectorAll('.gacha-tab')).find(tab => 
+        (rarity === 'all' && tab.textContent.includes('全')) ||
+        (rarity === 'R' && tab.textContent.includes('R')) ||
+        (rarity === 'SR' && tab.textContent.includes('SR')) ||
+        (rarity === 'UR' && tab.textContent.includes('UR'))
+    );
+    if (targetTab) targetTab.classList.add('active');
+    renderGachaCharacters(rarity);
+};
+
+// 所持キャラ一覧を表示
+function renderGachaCharacters(rarity) {
+    const container = el("gacha-char-list");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // 所有しているガチャキャラのID一覧（ownedSkills から gacha フラグが true のものを抽出）
+    const ownedGachaIds = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
+
+    // 表示するキャラをフィルタ
+    let charsToShow = [];
+    if (rarity === 'all') {
+        charsToShow = Object.values(GACHA_CHAR_DB);
+    } else {
+        charsToShow = Object.values(GACHA_CHAR_DB).filter(c => c.rarity === rarity);
+    }
+
+    charsToShow.forEach(char => {
+        const isOwned = ownedGachaIds.includes(char.id);
+        const isEquipped = equippedSkill === char.id;
+        const item = document.createElement("div");
+        item.className = `gacha-char-item ${char.rarity.toLowerCase()} ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+        item.innerHTML = `
+            <div class="gacha-char-rarity">${char.rarity}</div>
+            <div class="gacha-char-name">${char.name}</div>
+            <div class="gacha-char-ability">${char.desc.substring(0, 20)}…</div>
+        `;
+        if (isOwned) {
+            item.onclick = () => equipGachaCharacter(char.id);
+        } else {
+            item.style.opacity = "0.4";
+            item.style.cursor = "default";
+        }
+        container.appendChild(item);
+    });
+
+    // 装備中表示更新
+    const equippedNameEl = el("gacha-equipped-name");
+    if (equippedNameEl) {
+        const equipped = SKILL_DB[equippedSkill];
+        if (equipped && equipped.gacha) {
+            equippedNameEl.innerText = equipped.name;
+        } else {
+            equippedNameEl.innerText = "なし（通常スキル装備中）";
+        }
+    }
+}
+
+// ガチャキャラを装備
+function equipGachaCharacter(charId) {
+    if (!ownedSkills.includes(charId)) {
+        alert("このキャラクターを所持していません");
+        return;
+    }
+    equippedSkill = charId;
+    saveAndDisplayData();
+    renderGachaCharacters(getCurrentGachaTabRarity());
+    // ショップの表示も更新（必要に応じて）
+    if (el("screen-shop") && !el("screen-shop").classList.contains("hidden")) {
+        renderShop();
+    }
+    sounds.notify.play();
+}
+
+// ガチャ実行（タイプ: "normal" または "normal10"）
+window.drawGacha = async (type) => {
+    const isTen = type === "normal10";
+    const cost = isTen ? GACHA_COST_10 : GACHA_COST;
+    if (coins < cost) {
+        alert(`コインが足りません！\n必要: ${cost}🪙`);
+        return;
+    }
+
+    // 抽選結果を格納する配列
+    let results = [];
+
+    // 所有済みガチャキャラID一覧
+    const ownedGachaIds = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
+    // 全ガチャキャラID
+    const allGachaIds = Object.keys(GACHA_CHAR_DB);
+
+    // 未所有のキャラがいるかチェック（全所有の場合はガチャ不可）
+    const unowned = allGachaIds.filter(id => !ownedGachaIds.includes(id));
+    if (unowned.length === 0) {
+        alert("すべてのガチャキャラを既に所持しています！");
+        return;
+    }
+
+    const drawCount = isTen ? 10 : 1;
+
+    for (let i = 0; i < drawCount; i++) {
+        // 現時点での未所有キャラを再計算（重複なし抽選のため）
+        const currentOwned = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
+        const currentUnowned = allGachaIds.filter(id => !currentOwned.includes(id));
+        if (currentUnowned.length === 0) break; // 全所有に達したら終了
+
+        // レアリティ抽選
+        const rnd = Math.random() * 100;
+        let selectedRarity;
+        if (rnd < GACHA_RATES.R) {
+            selectedRarity = 'R';
+        } else if (rnd < GACHA_RATES.R + GACHA_RATES.SR) {
+            selectedRarity = 'SR';
+        } else {
+            selectedRarity = 'UR';
+        }
+
+        // そのレアリティ内で未所有のキャラIDリスト
+        const candidates = GACHA_CHARS_BY_RARITY[selectedRarity].filter(id => currentUnowned.includes(id));
+        if (candidates.length === 0) {
+            // 該当レアリティの未所有がない場合はレアリティ再抽選？ここでは簡易的に再度抽選とせず、別レアリティから選ぶなどの処理が必要だが、一旦ランダムに再抽選（簡易実装）
+            // 全レアリティから未所有をランダムに選ぶ（フォールバック）
+            const fallback = currentUnowned[Math.floor(Math.random() * currentUnowned.length)];
+            results.push(fallback);
+            ownedSkills.push(fallback);
+            continue;
+        }
+
+        // キャラをランダム選択
+        const selectedChar = candidates[Math.floor(Math.random() * candidates.length)];
+        results.push(selectedChar);
+        ownedSkills.push(selectedChar);
+    }
+
+    // コイン消費
+    coins -= cost;
+    saveAndDisplayData();
+    updateGachaCoinDisplay();
+
+    // 結果表示
+    showGachaResult(results);
+
+    // 所持キャラ一覧を再表示
+    renderGachaCharacters(getCurrentGachaTabRarity());
+};
+
+// ガチャ結果表示
+function showGachaResult(results) {
+    const resultContainer = el("gacha-result-content");
+    const resultDiv = el("gacha-result");
+    if (!resultContainer || !resultDiv) return;
+
+    resultContainer.innerHTML = "";
+    results.forEach(charId => {
+        const char = GACHA_CHAR_DB[charId];
+        if (!char) return;
+        const item = document.createElement("div");
+        item.className = `gacha-result-item ${char.rarity.toLowerCase()}`;
+        item.innerHTML = `
+            <div class="gacha-result-rarity">${char.rarity}</div>
+            <div class="gacha-result-name">${char.name}</div>
+            <div class="gacha-result-new">NEW!</div>
+        `;
+        resultContainer.appendChild(item);
+    });
+
+    resultDiv.classList.remove("hidden");
+    // 4秒後に非表示
+    setTimeout(() => {
+        resultDiv.classList.add("hidden");
+    }, 4000);
+}
+
+// ガチャ画面からスキルショップへ
+window.openGachaSkillShop = () => {
+    openScreen("screen-shop");
+    renderShop();
 };
 
 // --- デバッグモード ---
@@ -1549,24 +1849,28 @@ function setupSkillUI() {
     const statusText = el("skill-status-text");
     
     if (equippedSkill && equippedSkill !== "none") {
+        const skill = SKILL_DB[equippedSkill];
         actionBox.classList.remove("hidden");
-        skillNameText.innerText = SKILL_DB[equippedSkill].name;
+        skillNameText.innerText = skill.name;
         
-        if (equippedSkill === "fundraiser") {
-            statusText.innerText = "【パッシブ】試合終了時にコイン2倍";
+        // パッシブ系の表示
+        if (skill.id === "fundraiser" || skill.id === "godfundraiser") {
+            statusText.innerText = `【パッシブ】${skill.desc}`;
             el("in-game-skill-btn").classList.add("hidden");
-        } else if (equippedSkill === "hacker" || equippedSkill === "accelerator" || equippedSkill === "hacker_milestone4") {
+        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4") {
             el("in-game-skill-btn").classList.add("hidden");
             updateCooldownText();
-        } else if (equippedSkill === "godfundraiser") {
-            statusText.innerText = "【パッシブ】試合終了時にコイン4倍";
-            el("in-game-skill-btn").classList.add("hidden");
-        } else if (equippedSkill === "comboGod") {
+        } else if (skill.id === "comboGod") {
             el("in-game-skill-btn").classList.remove("hidden");
             statusText.innerText = "✨ 1回のみ (スペースキーで発動)";
         } else {
+            // 通常アクティブスキル（ガチャキャラ含む）
             el("in-game-skill-btn").classList.remove("hidden");
-            statusText.innerText = "準備完了！(スペースキーで発動)";
+            if (skill.gacha) {
+                statusText.innerText = `【${skill.rarity}】${skill.desc} (スペースキーで発動)`;
+            } else {
+                statusText.innerText = "準備完了！(スペースキーで発動)";
+            }
         }
     } else {
         actionBox.classList.add("hidden");
@@ -1574,7 +1878,7 @@ function setupSkillUI() {
 }
 
 function updateCooldownText() {
-    if (equippedSkill === "none" || equippedSkill === "fundraiser") return;
+    if (equippedSkill === "none" || equippedSkill === "fundraiser" || equippedSkill === "godfundraiser") return;
     const skill = SKILL_DB[equippedSkill];
     let txt = "";
     
@@ -1592,6 +1896,9 @@ function updateCooldownText() {
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]高度なハックOK";
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]状態変異OK";
         txt = `${k1} | ${k2} | ${k3}`;
+    } else if (skill.gacha) {
+        // ガチャキャラは基本的にスペースキーのみ（個別分岐は activateSkill で）
+        txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     } else {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     }
@@ -1725,13 +2032,14 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
 
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
-    if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser") return;
+    if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser" || equippedSkill === "godfundraiser") return;
     
     const skill = SKILL_DB[equippedSkill];
 
     if (keySlot === "space") {
         if (cooldowns.space > 0) return;
         
+        // 既存スキル
         if (skill.id === "punch") {
             sendAttackToOthers("jam", 3000, 0);
             showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
@@ -1776,6 +2084,33 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOthers("dodge", 1000, 0);
             showBattleAlert("🎆 パチパチ発動！", "#FFD700");
         }
+        // ガチャキャラのスキル（仮実装：後で個別に処理を追加）
+        else if (skill.id === "paintballer") {
+            sendAttackToOthers("paint", 5000, 0);
+            showBattleAlert("🎨 ペイント発動！", "#FF69B4");
+        }
+        else if (skill.id === "banana") {
+            // バナナ設置処理（要実装）
+            showBattleAlert("🍌 バナナを設置！", "#FFD700");
+        }
+        else if (skill.id === "slate") {
+            // パッシブなので何もしない
+            showBattleAlert("🛡️ スレート（パッシブ）", "#AAAAAA");
+            return;
+        }
+        else if (skill.id === "trapper") {
+            // トラップ設置
+            showBattleAlert("🔫 トラップを設置！", "#FF4500");
+        }
+        else if (skill.id === "rifleman") {
+            sendRandomTargetAttack("snipe", 5000, 0);
+            showBattleAlert("🎯 ヘッドショット！", "#FF0000");
+        }
+        else if (skill.id === "narrator") {
+            // 複数能力あるが、スペースキーでは簡易的にメガホン？
+            sendAttackToOthers("megaphone", 10000, 0);
+            showBattleAlert("📢 メガホン！", "#FF69B4");
+        }
 
         if (skill.cooldown > 0) startSpecificCooldown("space", skill.cooldown);
     }
@@ -1798,6 +2133,12 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🔷 迷路を送信！", "#00ff00");
             startSpecificCooldown("key1", 45);
         }
+        // ガチャキャラのキー1能力（例：ナレーターのアクションゲーム）
+        else if (skill.id === "narrator") {
+            sendAttackToOthers("action_game", 0, 0);
+            showBattleAlert("🎮 アクションゲーム！", "#00ffff");
+            startSpecificCooldown("key1", 150);
+        }
     }
 
     if (keySlot === "key2") {
@@ -1819,6 +2160,11 @@ window.activateSkill = (keySlot = "space") => {
                 showBattleAlert("💻 高度なハック！", "#ff0000");
                 skill.used = true;
             }
+        }
+        else if (skill.id === "narrator") {
+            sendAttackToOthers("puzzle_game", 0, 0);
+            showBattleAlert("🧩 パズルゲーム！", "#00ff00");
+            startSpecificCooldown("key2", 100);
         }
     }
 
@@ -2106,6 +2452,15 @@ function startPoison(duration) {
 
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
+
+    // スレート（スタン無効パッシブ）のチェック
+    if (equippedSkill === "slate") {
+        // スタン系攻撃を無効化（ここではタイプで判断）
+        if (attack.type === "jam" || attack.type === "stun" || attack.type === "hacking" || attack.type === "maze") {
+            showBattleAlert("🛡️ スレートのパッシブで無効化！", "#AAAAAA");
+            return;
+        }
+    }
 
     if (attack.stealAmount > 0) {
         score = Math.max(0, score - attack.stealAmount);
