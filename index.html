@@ -466,7 +466,7 @@
                 <button class="action-btn" onclick="window.moveActionGame('jump')">␣ ジャンプ</button>
             </div>
             <div id="action-game-status">ゴールを目指せ！</div>
-            <button class="action-btn gray-btn" onclick="window.closeActionGame()">閉じる</button>
+            <button class="action-btn gray-btn" id="action-close-btn" onclick="window.closeActionGame()">閉じる</button>
         </div>
     </div>
 
@@ -475,13 +475,13 @@
         <div class="puzzle-game-container">
             <h3>🧩 ドットコネクト</h3>
             <div class="puzzle-grid" id="puzzle-grid">
-                <!-- 15個のドットがJSで生成されます -->
+                <!-- 16個のドットがJSで生成されます（偶数にするため） -->
             </div>
             <div class="puzzle-controls">
                 <button class="action-btn" onclick="window.resetPuzzle()">リセット</button>
             </div>
             <div id="puzzle-status">すべての点をつなげ！</div>
-            <button class="action-btn gray-btn" onclick="window.closePuzzleGame()">閉じる</button>
+            <button class="action-btn gray-btn" id="puzzle-close-btn" onclick="window.closePuzzleGame()">閉じる</button>
         </div>
     </div>
 
