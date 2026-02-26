@@ -1779,7 +1779,7 @@ body.swaying .stat-box {
 }
 
 /* =========================================
-   パズルゲーム（ドットコネクト）オーバーレイ
+   パズルゲーム（ドットコネクト）オーバーレイ（16個対応）
    ========================================= */
 #puzzle-game-overlay {
     position: fixed;
@@ -1812,17 +1812,18 @@ body.swaying .stat-box {
     text-shadow: 0 0 20px #00ff00;
 }
 
+/* 4x4グリッド（16個） */
 .puzzle-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
     width: 300px;
     margin: 20px auto;
 }
 
 .puzzle-dot {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     background: #333;
     border: 2px solid #00ff00;
     border-radius: 50%;
@@ -1831,19 +1832,29 @@ body.swaying .stat-box {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     color: #00ff00;
+    font-weight: bold;
 }
 
 .puzzle-dot.selected {
     background: #00ff00;
     color: #000;
     box-shadow: 0 0 15px #00ff00;
+    transform: scale(1.1);
 }
 
 .puzzle-dot.connected {
     background: #00ff00;
     border-color: #fff;
+    color: #000;
+    box-shadow: 0 0 15px #00ff00;
+}
+
+.puzzle-dot.connected::after {
+    content: "✓";
+    font-size: 1.2rem;
+    margin-left: 2px;
 }
 
 .puzzle-dot:hover:not(.connected) {
@@ -1861,37 +1872,7 @@ body.swaying .stat-box {
     color: #00ff00;
 }
 
-/* =========================================
-   BGM コントロールボタン
-   ========================================= */
-#bgm-control {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 10000;
-    display: flex;
-    gap: 10px;
-}
-
-.bgm-btn {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: var(--panel-bg);
-    border: 2px solid var(--accent-gold);
-    color: var(--accent-gold);
-    font-size: 1.5rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: 0.2s;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-}
-
-.bgm-btn:hover {
-    transform: scale(1.1);
-    background: var(--accent-gold);
-    color: #000;
-    box-shadow: 0 0 30px var(--accent-gold);
+/* 閉じるボタン（クリア時に非表示にする場合はJSで制御） */
+#puzzle-close-btn.hidden {
+    display: none;
 }
