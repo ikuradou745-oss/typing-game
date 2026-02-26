@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.6 (Final fixes)
+// FIREBASE & TYPING ENGINE V10.7 (Fixed)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -321,6 +321,18 @@ let bananaStacks = 0;           // バナナ設置数
 let trapperStacks = 0;          // トラップ設置数
 let isStunned = false;          // スタン状態（タイピング不可）
 let stunTimer = null;           // スタン解除タイマー
+
+// --- 効果残り時間表示用変数 ---
+let effectTimers = {
+    stun: null,
+    jamming: null,
+    poison: null,
+    sway: null,
+    maze: null,
+    hacking: null,
+    blur: null,
+    paint: null
+};
 
 // --- パーティーメンバー情報をキャッシュする変数（クリア判定用）---
 let partyMembers = {};           // { memberId: { name, score, ... } }
@@ -1518,6 +1530,95 @@ window.closeDebug = () => {
     el("debug-amount").value = "0";
 };
 
+// --- 効果残り時間表示関数 ---
+function updateEffectTimers() {
+    const timerDiv = document.getElementById('effect-timer');
+    if (!timerDiv && gameActive) {
+        // 効果残り時間表示用の要素を作成
+        const newTimerDiv = document.createElement('div');
+        newTimerDiv.id = 'effect-timer';
+        newTimerDiv.style.position = 'absolute';
+        newTimerDiv.style.top = '10px';
+        newTimerDiv.style.left = '50%';
+        newTimerDiv.style.transform = 'translateX(-50%)';
+        newTimerDiv.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        newTimerDiv.style.color = '#fff';
+        newTimerDiv.style.padding = '5px 15px';
+        newTimerDiv.style.borderRadius = '20px';
+        newTimerDiv.style.fontWeight = 'bold';
+        newTimerDiv.style.zIndex = '1000';
+        newTimerDiv.style.border = '2px solid';
+        document.getElementById('game-core').appendChild(newTimerDiv);
+    }
+    
+    const timerEl = document.getElementById('effect-timer');
+    if (!timerEl) return;
+    
+    let activeEffects = [];
+    
+    if (isStunned) {
+        if (effectTimers.stun && effectTimers.stun > 0) {
+            activeEffects.push({ name: 'スタン', time: Math.ceil(effectTimers.stun / 1000), color: '#ff0000' });
+        }
+    }
+    if (isJamming) {
+        if (effectTimers.jamming && effectTimers.jamming > 0) {
+            activeEffects.push({ name: '妨害', time: Math.ceil(effectTimers.jamming / 1000), color: '#ffff00' });
+        }
+    }
+    if (poisonActive) {
+        if (effectTimers.poison && effectTimers.poison > 0) {
+            activeEffects.push({ name: '毒', time: Math.ceil(effectTimers.poison / 1000), color: '#00ff00' });
+        }
+    }
+    if (document.body.classList.contains('swaying')) {
+        if (effectTimers.sway && effectTimers.sway > 0) {
+            activeEffects.push({ name: 'ゆらゆら', time: Math.ceil(effectTimers.sway / 1000), color: '#ff69b4' });
+        }
+    }
+    if (mazeActive) {
+        if (effectTimers.maze && effectTimers.maze > 0) {
+            activeEffects.push({ name: '迷路', time: Math.ceil(effectTimers.maze / 1000), color: '#00ffff' });
+        }
+    }
+    if (hackingActive) {
+        if (effectTimers.hacking && effectTimers.hacking > 0) {
+            activeEffects.push({ name: 'ハッキング', time: Math.ceil(effectTimers.hacking / 1000), color: '#00ff00' });
+        }
+    }
+    
+    if (activeEffects.length > 0) {
+        const effectText = activeEffects.map(e => `<span style="color:${e.color}">${e.name}:残り${e.time}秒</span>`).join(' | ');
+        timerEl.innerHTML = effectText;
+        timerEl.style.display = 'block';
+    } else {
+        timerEl.style.display = 'none';
+    }
+}
+
+// 効果タイマー開始関数
+function startEffectTimer(effectName, durationMs) {
+    effectTimers[effectName] = durationMs;
+    
+    const timerInterval = setInterval(() => {
+        if (!gameActive) {
+            clearInterval(timerInterval);
+            return;
+        }
+        effectTimers[effectName] = Math.max(0, effectTimers[effectName] - 1000);
+        updateEffectTimers();
+        
+        if (effectTimers[effectName] <= 0) {
+            clearInterval(timerInterval);
+        }
+    }, 1000);
+    
+    // 効果終了時にタイマーをクリア
+    setTimeout(() => {
+        effectTimers[effectName] = 0;
+    }, durationMs);
+}
+
 // --- ゲームエンジン ---
 function openScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
@@ -1701,7 +1802,7 @@ function giveBossSkill(skillId) {
 
 // タイピング可否判定（スタンと妨害を考慮）
 function canType() {
-    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0;
+    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0 && !mazeActive && !hackingActive;
 }
 
 window.addEventListener("keydown", e => {
@@ -1785,6 +1886,7 @@ function startGame(sec) {
         timer--; 
         el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
         if (myPartyId) syncRivals();
+        updateEffectTimers();
         if (timer <= 0) { 
             clearInterval(gameInterval); 
             endGame(); 
@@ -2035,6 +2137,18 @@ function resetSkillState() {
     hackingActive = false;
     poisonActive = false;
     
+    // 効果タイマーリセット
+    effectTimers = {
+        stun: null,
+        jamming: null,
+        poison: null,
+        sway: null,
+        maze: null,
+        hacking: null,
+        blur: null,
+        paint: null
+    };
+    
     const tabsContainer = document.getElementById("hacker-tabs-container");
     if (tabsContainer) tabsContainer.remove();
     
@@ -2048,6 +2162,7 @@ function resetSkillState() {
     el("maze-overlay").classList.add("hidden");
     el("hacking-overlay").classList.add("hidden");
     el("poison-overlay").classList.add("hidden");
+    el("paint-overlay").classList.add("hidden");
     document.body.classList.remove("poisoned");
     document.body.classList.remove("swaying");
     el("skill-cooldown-bar").style.height = "0%";
@@ -2322,6 +2437,8 @@ function setStun(durationMs) {
     }
     if (isStunned) return true; // 既にスタン中
     isStunned = true;
+    effectTimers.stun = durationMs;
+    startEffectTimer('stun', durationMs);
     el("jamming-overlay").classList.remove("hidden"); // 妨害オーバーレイを流用
     if (stunTimer) clearTimeout(stunTimer);
     stunTimer = setTimeout(() => {
@@ -2332,6 +2449,7 @@ function setStun(durationMs) {
 
 function clearStun() {
     isStunned = false;
+    effectTimers.stun = 0;
     el("jamming-overlay").classList.add("hidden");
     if (stunTimer) {
         clearTimeout(stunTimer);
@@ -2405,6 +2523,8 @@ function applyBlurEffect() {
     if (!playScreen) return;
     playScreen.style.transition = "none";
     playScreen.style.filter = "blur(20px)";
+    effectTimers.blur = 10000;
+    startEffectTimer('blur', 10000);
     
     let blurAmount = 20;
     clearInterval(blurIntervalTimer);
@@ -2415,6 +2535,7 @@ function applyBlurEffect() {
             blurAmount = 0;
             clearInterval(blurIntervalTimer);
             playScreen.style.filter = "none";
+            effectTimers.blur = 0;
         } else {
             playScreen.style.filter = `blur(${blurAmount}px)`;
         }
@@ -2427,6 +2548,9 @@ function applyPaintEffect(durationMs) {
     if (!paintOverlay) return;
     const paintEffect = paintOverlay.querySelector('.paint-effect');
     if (!paintEffect) return;
+
+    effectTimers.paint = durationMs;
+    startEffectTimer('paint', durationMs);
 
     // CSSアニメーションを無効化
     paintEffect.style.animation = 'none';
@@ -2451,6 +2575,7 @@ function applyPaintEffect(durationMs) {
                 // フェード終了後、オーバーレイを非表示
                 paintOverlay.classList.add("hidden");
                 paintEffect.style.opacity = ''; // リセット
+                effectTimers.paint = 0;
             }
         };
         requestAnimationFrame(fadeStep);
@@ -2460,8 +2585,11 @@ function applyPaintEffect(durationMs) {
 // ゆらゆらエフェクト
 function applySwayEffect(durationMs) {
     document.body.classList.add("swaying");
+    effectTimers.sway = durationMs;
+    startEffectTimer('sway', durationMs);
     setTimeout(() => {
         document.body.classList.remove("swaying");
+        effectTimers.sway = 0;
     }, durationMs);
 }
 
@@ -2562,6 +2690,7 @@ window.moveMaze = (direction) => {
             
             if (newX === mazeGoalPos.x && newY === mazeGoalPos.y) {
                 mazeActive = false;
+                effectTimers.maze = 0;
                 el("maze-overlay").classList.add("hidden");
                 showBattleAlert("✅ 迷路クリア！", "var(--accent-green)");
                 sounds.correct.play();
@@ -2584,6 +2713,9 @@ function startHacking(duration) {
     if (!overlay || !progress) return;
     overlay.classList.remove("hidden");
     
+    effectTimers.hacking = duration;
+    startEffectTimer('hacking', duration);
+    
     let count = 3;
     progress.innerText = "3";
     
@@ -2595,6 +2727,7 @@ function startHacking(duration) {
             clearInterval(interval);
             overlay.classList.add("hidden");
             hackingActive = false;
+            effectTimers.hacking = 0;
             
             const originalSkillState = equippedSkill;
             equippedSkill = "none";
@@ -2613,6 +2746,9 @@ function startPoison(duration) {
     el("poison-overlay").classList.remove("hidden");
     document.body.classList.add("poisoned");
     
+    effectTimers.poison = duration;
+    startEffectTimer('poison', duration);
+    
     const wordJa = el("q-ja");
     const wordRoma = el("q-roma");
     
@@ -2629,6 +2765,7 @@ function startPoison(duration) {
     
     setTimeout(() => {
         poisonActive = false;
+        effectTimers.poison = 0;
         el("poison-overlay").classList.add("hidden");
         document.body.classList.remove("poisoned");
         
@@ -2742,12 +2879,24 @@ function handleIncomingAttack(attack) {
         mazeGrid = attack.maze || generateMaze();
         mazePlayerPos = { x: 0, y: 0 };
         mazeGoalPos = { x: 9, y: 9 };
+        effectTimers.maze = 10000; // 10秒
+        startEffectTimer('maze', 10000);
         
         renderMaze();
         el("maze-overlay").classList.remove("hidden");
         sounds.miss.play();
         
-        showBattleAlert("🔍 矢印キーかボタンで移動！", "var(--accent-blue)");
+        // 10秒後に迷路を閉じる
+        setTimeout(() => {
+            if (mazeActive) {
+                mazeActive = false;
+                effectTimers.maze = 0;
+                el("maze-overlay").classList.add("hidden");
+                showBattleAlert("⏰ 迷路の時間切れ！", "var(--accent-red)");
+            }
+        }, 10000);
+        
+        showBattleAlert("🔍 矢印キーかボタンで移動！(10秒以内)", "var(--accent-blue)");
         return;
     }
     
@@ -2803,18 +2952,21 @@ function handleIncomingAttack(attack) {
 
 function applyJamming(durationMs) {
     isJamming = true;
+    effectTimers.jamming = durationMs;
+    startEffectTimer('jamming', durationMs);
     el("jamming-overlay").classList.remove("hidden");
     sounds.miss.play(); 
     
     clearTimeout(jammingTimer);
     jammingTimer = setTimeout(() => {
         isJamming = false;
+        effectTimers.jamming = 0;
         el("jamming-overlay").classList.add("hidden");
     }, durationMs);
 }
 
 // =========================================
-// アクションゲーム関連（改良版：地面修正＋敵追加）
+// アクションゲーム関連（改良版：重力修正＋敵復活機能）
 // =========================================
 let actionGameActive = false;
 let actionGamePlayer = { x: 50, y: 60, vy: 0 }; // 地面の高さを60に設定
@@ -2822,7 +2974,7 @@ let actionGameSpikePos = { x: 300, y: 60 };     // トゲ
 let actionGameGoalPos = { x: 350, y: 60 };      // ゴール
 let actionGameEnemyPos = { x: 200, y: 60 };     // 敵キャラ（クリボー風）
 let actionGameEnemyAlive = true;
-let actionGameGravity = 0.5;
+let actionGameGravity = 0.8;                     // 重力（正の値で下向き）
 let actionGameOnGround = true;
 let actionGameInterval = null;
 
@@ -2832,17 +2984,36 @@ window.startActionGame = () => {
     el("action-game-overlay").classList.remove("hidden");
     if (actionGameInterval) clearInterval(actionGameInterval);
     actionGameInterval = setInterval(updateActionGame, 50);
+    
+    // 効果時間表示
+    effectTimers.actionGame = 30000; // 30秒
+    startEffectTimer('actionGame', 30000);
+    
+    // 30秒後に自動終了
+    setTimeout(() => {
+        if (actionGameActive) {
+            closeActionGame();
+            showBattleAlert("⏰ アクションゲーム終了！", "var(--accent-red)");
+        }
+    }, 30000);
 };
 
 function resetActionGame() {
     actionGamePlayer = { x: 50, y: 60, vy: 0 };
     actionGameOnGround = true;
     actionGameEnemyAlive = true;
+    
+    // 敵要素を再表示
+    const enemy = document.querySelector('.action-game-enemy');
+    if (enemy) {
+        enemy.style.display = 'block';
+    }
     updateActionGameDisplay();
 }
 
 window.closeActionGame = () => {
     actionGameActive = false;
+    effectTimers.actionGame = 0;
     if (actionGameInterval) {
         clearInterval(actionGameInterval);
         actionGameInterval = null;
@@ -2858,7 +3029,7 @@ window.moveActionGame = (dir) => {
         actionGamePlayer.x = Math.min(350, actionGamePlayer.x + 20);
     } else if (dir === 'jump') {
         if (actionGameOnGround) {
-            actionGamePlayer.vy = -10; // 上向き速度
+            actionGamePlayer.vy = -12; // 上向き速度（負の値で上に）
             actionGameOnGround = false;
         }
     }
@@ -2867,11 +3038,11 @@ window.moveActionGame = (dir) => {
 function updateActionGame() {
     if (!actionGameActive) return;
     
-    // 重力適用
+    // 重力適用（速度を増加させて下に落ちる）
     actionGamePlayer.vy += actionGameGravity;
     actionGamePlayer.y += actionGamePlayer.vy;
     
-    // 地面チェック
+    // 地面チェック（地面より下に行かないように）
     if (actionGamePlayer.y >= 60) {
         actionGamePlayer.y = 60;
         actionGamePlayer.vy = 0;
@@ -2886,11 +3057,10 @@ function updateActionGameDisplay() {
     const player = document.querySelector('.action-game-player');
     const spike = document.querySelector('.action-game-spike');
     const goal = document.querySelector('.action-game-goal');
-    // 敵の表示はHTMLにないので、簡易的にテキストで追加（実際にはHTMLに要素を追加する必要あり）
-    // ここではデモのため、既存の要素を使い回すか、新たに作成する
+    // 敵の表示
     let enemy = document.querySelector('.action-game-enemy');
     if (!enemy && actionGameActive) {
-        // 敵要素がなければ作成（簡易）
+        // 敵要素がなければ作成
         enemy = document.createElement('div');
         enemy.className = 'action-game-enemy';
         enemy.style.position = 'absolute';
@@ -2903,18 +3073,21 @@ function updateActionGameDisplay() {
         player.style.left = actionGamePlayer.x + 'px';
         player.style.bottom = (actionGamePlayer.y - 30) + 'px';
     }
-    if (enemy && actionGameEnemyAlive) {
-        enemy.style.left = actionGameEnemyPos.x + 'px';
-        enemy.style.bottom = (actionGameEnemyPos.y - 30) + 'px';
-    } else if (enemy && !actionGameEnemyAlive) {
-        enemy.style.display = 'none';
+    if (enemy) {
+        if (actionGameEnemyAlive) {
+            enemy.style.display = 'block';
+            enemy.style.left = actionGameEnemyPos.x + 'px';
+            enemy.style.bottom = (actionGameEnemyPos.y - 30) + 'px';
+        } else {
+            enemy.style.display = 'none';
+        }
     }
 }
 
 function checkActionGameCollision() {
     // 棘との衝突（地面にいない時）
     if (Math.abs(actionGamePlayer.x - actionGameSpikePos.x) < 30 && !actionGameOnGround) {
-        alert("トゲに当たった！最初からやり直し");
+        showBattleAlert("トゲに当たった！最初からやり直し", "#ff0000");
         resetActionGame();
     }
     // 敵との衝突（地面にいない時のみ倒せる）
@@ -2926,19 +3099,20 @@ function checkActionGameCollision() {
             sounds.correct.play();
         } else {
             // 横からぶつかった
-            alert("敵にぶつかった！最初からやり直し");
+            showBattleAlert("敵にぶつかった！最初からやり直し", "#ff0000");
             resetActionGame();
         }
     }
     // ゴール
     if (Math.abs(actionGamePlayer.x - actionGameGoalPos.x) < 30) {
-        alert("ゴール！クリア！");
+        showBattleAlert("ゴール！クリア！", "var(--accent-green)");
+        sounds.correct.play();
         closeActionGame();
     }
 }
 
 // =========================================
-// パズルゲーム（ドットコネクト）改良版（閉じるボタン削除）
+// パズルゲーム（ドットコネクト）改良版（クリア時に自動終了）
 // =========================================
 let puzzleDots = [];
 let puzzleSelected = [];
@@ -2954,10 +3128,22 @@ window.startPuzzleGame = () => {
     puzzleConnections = [];
     renderPuzzleGrid();
     el("puzzle-game-overlay").classList.remove("hidden");
-    // 閉じるボタンの処理を削除
+    
+    // 効果時間表示
+    effectTimers.puzzleGame = 30000; // 30秒
+    startEffectTimer('puzzleGame', 30000);
+    
+    // 30秒後に自動終了
+    setTimeout(() => {
+        if (!el("puzzle-game-overlay").classList.contains("hidden")) {
+            closePuzzleGame();
+            showBattleAlert("⏰ パズルゲーム終了！", "var(--accent-red)");
+        }
+    }, 30000);
 };
 
 window.closePuzzleGame = () => {
+    effectTimers.puzzleGame = 0;
     el("puzzle-game-overlay").classList.add("hidden");
 };
 
@@ -3011,8 +3197,10 @@ function selectPuzzleDot(index) {
         
         // すべて接続されたかチェック
         if (puzzleDots.every(d => d.connected)) {
-            alert("全ての点をつなげた！クリア！");
-            // 閉じるボタンの処理を削除
+            showBattleAlert("全ての点をつなげた！クリア！", "var(--accent-green)");
+            sounds.correct.play();
+            // パズルゲームを閉じる
+            closePuzzleGame();
         }
     } else {
         // 選択中のハイライトを更新
