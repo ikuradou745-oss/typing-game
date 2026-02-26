@@ -103,6 +103,10 @@
                         <span>スキンを変える</span>
                         <small>SKIN SHOP</small>
                     </button>
+                    <button id="btn-gacha" class="action-btn" onclick="window.openGacha()" style="border-color: #FF69B4;">
+                        <span>スキルガチャ</span>
+                        <small>SKILL GACHA</small>
+                    </button>
                     <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
                         <span>ストーリーモード</span>
                         <small>STORY MODE</small>
@@ -199,6 +203,62 @@
                     <div id="party-restriction-msg" class="restriction-msg hidden">
                         ⚠️ メンバーがこのステージを解放していません
                     </div>
+                </div>
+            </div>
+
+            <!-- スキルガチャ画面（新規追加） -->
+            <div id="screen-gacha" class="screen hidden">
+                <h2 class="title-glow" style="color: #FF69B4;">SKILL GACHA</h2>
+                <div class="gacha-coin-display">所持コイン: <span id="gacha-coin-amount">0</span> 🪙</div>
+                
+                <!-- ガチャ確率表示 -->
+                <div class="gacha-rate-box">
+                    <div class="rate-item"><span class="rate-rarity rarity-r">R</span> 75%</div>
+                    <div class="rate-item"><span class="rate-rarity rarity-sr">SR</span> 23.5%</div>
+                    <div class="rate-item"><span class="rate-rarity rarity-ur">UR</span> 1.5%</div>
+                </div>
+
+                <!-- ガチャ実行ボタン -->
+                <div class="gacha-buttons">
+                    <button class="action-btn" onclick="window.drawGacha('normal')" id="gacha-normal-btn">
+                        <span>ノーマルガチャ</span>
+                        <small>1000🪙 / 1回</small>
+                    </button>
+                    <button class="action-btn" onclick="window.drawGacha('normal10')" id="gacha-normal10-btn">
+                        <span>10連ガチャ</span>
+                        <small>9000🪙 (10%OFF)</small>
+                    </button>
+                </div>
+
+                <!-- ガチャ結果表示エリア -->
+                <div id="gacha-result" class="gacha-result hidden">
+                    <h3>獲得スキル</h3>
+                    <div id="gacha-result-content" class="gacha-result-content"></div>
+                </div>
+
+                <!-- レアリティ別タブ -->
+                <div class="gacha-char-tabs">
+                    <button class="gacha-tab active" onclick="window.switchGachaTab('all')">全キャラ</button>
+                    <button class="gacha-tab" onclick="window.switchGachaTab('r')">R</button>
+                    <button class="gacha-tab" onclick="window.switchGachaTab('sr')">SR</button>
+                    <button class="gacha-tab" onclick="window.switchGachaTab('ur')">UR</button>
+                </div>
+
+                <!-- 所持キャラクター一覧 -->
+                <div class="gacha-char-grid-container">
+                    <div id="gacha-char-list" class="gacha-char-grid">
+                        <!-- 所持キャラクターがJSで動的に生成されます -->
+                    </div>
+                </div>
+
+                <!-- 装備中のキャラ表示 -->
+                <div class="gacha-equipped-info">
+                    装備中: <span id="gacha-equipped-name">なし</span>
+                </div>
+
+                <div class="gacha-footer-buttons">
+                    <button class="action-btn purple-btn" onclick="window.openGachaSkillShop()">スキルショップへ</button>
+                    <button class="action-btn gray-btn" onclick="window.goHome()">戻る</button>
                 </div>
             </div>
 
