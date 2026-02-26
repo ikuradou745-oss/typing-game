@@ -1600,3 +1600,48 @@ body.poisoned .word-roma {
 .gacha-result.hidden {
     display: none;
 }
+
+/* =========================================
+   ペイント効果（ペイントボーラー用）
+   ========================================= */
+#paint-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.paint-effect {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 105, 180, 0.8) 0%, rgba(255, 105, 180, 0.3) 70%, transparent 100%);
+    animation: paint-fade 5s ease-out forwards;
+    mix-blend-mode: multiply;
+}
+
+@keyframes paint-fade {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* =========================================
+   ゆらゆら効果（ライフルマン用）
+   ========================================= */
+@keyframes sway {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    50% { transform: translateX(10px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+
+body.swaying .word-ja,
+body.swaying .word-roma,
+body.swaying #timer-display,
+body.swaying .stat-box {
+    animation: sway 0.5s infinite;
+    filter: blur(1px);
+}
