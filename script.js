@@ -1,10 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.1 (Bug fixes)
+// FIREBASE & TYPING ENGINE V10.2 (Full Feature)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
@@ -29,6 +29,54 @@ const sounds = {
     coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3")
 };
 
+// --- BGM関連（追加）---
+const bgm = {
+    audio: new Audio(),
+    isPlaying: false,
+    isMuted: false,
+    fallbackInterval: null,
+    useFallback: false,
+    init() {
+        // ルードバスターのURL（実際の音源に差し替えてください）
+        this.audio.src = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"; // 仮のURL
+        this.audio.loop = true;
+        this.audio.volume = 0.5;
+        this.audio.addEventListener('error', () => {
+            console.warn("BGM not found, using fallback sound.");
+            this.useFallback = true;
+        });
+    },
+    play() {
+        if (this.useFallback) {
+            if (this.fallbackInterval) clearInterval(this.fallbackInterval);
+            this.fallbackInterval = setInterval(() => {
+                if (!this.isMuted) sounds.notify.play();
+            }, 1000);
+            this.isPlaying = true;
+        } else {
+            this.audio.play().catch(() => {});
+            this.isPlaying = true;
+        }
+    },
+    stop() {
+        if (this.useFallback) {
+            if (this.fallbackInterval) clearInterval(this.fallbackInterval);
+            this.fallbackInterval = null;
+        } else {
+            this.audio.pause();
+            this.audio.currentTime = 0;
+        }
+        this.isPlaying = false;
+    },
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (!this.useFallback) {
+            this.audio.muted = this.isMuted;
+        }
+    }
+};
+bgm.init();
+
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
 const generateId = () => Math.floor(10000000 + Math.random() * 89999999).toString();
@@ -49,6 +97,7 @@ let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
 let gameInterval; 
+let gameStartTime = null; // サーバー時刻同期用
 
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000;
 
@@ -253,7 +302,7 @@ const GACHA_CHAR_DB = {
         name: "トラッパー",
         rarity: "SR",
         desc: "【トラップ】CT15秒: トラップ設置（スタック可）。スコア奪取攻撃を受けると相手の奪取失敗＆5秒スタン\n【免疫力】CT200秒: スタン中のみ使用可、スタン解除",
-        cooldown: 15, // メインスキル用ベース
+        cooldown: 15,
         gacha: true
     },
     rifleman: {
@@ -270,7 +319,7 @@ const GACHA_CHAR_DB = {
         name: "ナレーター",
         rarity: "UR",
         desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（15個の丸を繋ぐ）\n【メガホン】CT10秒: 相手画面を10秒間ぼやけさせる",
-        cooldown: 150, // 一番長いCTをベースに
+        cooldown: 150,
         gacha: true
     }
 };
@@ -441,12 +490,62 @@ async function loadCodeStatusFromFirebase() {
     }
 }
 
+// データ全リセット関数（隠しコードBA3用）(追加)
+async function resetAllData() {
+    // ローカルストレージをクリア
+    localStorage.clear();
+    // Firebase上のユーザーデータを初期化
+    const userRef = ref(db, `users/${myId}`);
+    await set(userRef, {
+        name: myName,
+        status: "online",
+        partyId: null,
+        coins: 1000,
+        skills: ["none"],
+        equipped: "none",
+        story_progress: { chapter1: 0, chapter2: 0 },
+        skin: { skin: "skin-1", face: "face-1", accessories: [] },
+        accessory: null,
+        tysm_used: false,
+        byramo_used: false,
+        yuseSyazai2_used: false,
+        daily_code: dailyCode,
+        daily_code_date: dailyCodeDate,
+        used_codes: [],
+        lastSeen: Date.now()
+    });
+    // 現在の変数もリセット
+    coins = 1000;
+    ownedSkills = ["none"];
+    equippedSkill = "none";
+    storyProgress = { chapter1: 0, chapter2: 0 };
+    skinData = { skin: "skin-1", face: "face-1", accessories: [] };
+    equippedAccessory = null;
+    tysmUsed = false;
+    byramoUsed = false;
+    yuseSyazai2Used = false;
+    usedCodes = [];
+    
+    saveAndDisplayData();
+    alert("すべてのデータをリセットしました。");
+}
+
 window.submitCode = async () => {
     const input = el("code-input").value.trim().toUpperCase();
     if (!input) return;
     
     // Firebaseから最新の使用状況を取得
     await loadCodeStatusFromFirebase();
+    
+    // 隠しコード BA3 (データ全リセット) (追加)
+    if (input === "BA3") {
+        if (confirm("本当にすべてのデータをリセットしますか？この操作は元に戻せません。")) {
+            await resetAllData();
+        }
+        el("code-input").value = "";
+        closeCodeUI();
+        return;
+    }
     
     // TYSMコード (25000コイン)
     if (input === "TYSM") {
@@ -1504,6 +1603,7 @@ window.goHome = () => {
     openScreen("screen-home"); 
     updateButtonStates();
     saveAndDisplayData();
+    bgm.stop(); // BGM停止
 };
 
 function nextQuestion() {
@@ -1751,6 +1851,9 @@ function startGame(sec) {
             endGame(); 
         }
     }, 1000);
+    
+    // BGM再生
+    bgm.play();
 }
 
 function syncRivals() {
@@ -1871,13 +1974,26 @@ function endGame() {
                 <span>結果</span><span>${coinText}</span>
             </div>`;
     }
+    
+    // BGM停止
+    bgm.stop();
 }
 
 // --- スキル・バトルエフェクト処理 ---
 function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
-    const statusText = el("skill-status-text");
+    // 各キー表示要素
+    const keySpace = el("skill-key-space");
+    const key1 = el("skill-key-1");
+    const key2 = el("skill-key-2");
+    const key3 = el("skill-key-3");
+    
+    // デフォルト非表示
+    keySpace.classList.add("hidden");
+    key1.classList.add("hidden");
+    key2.classList.add("hidden");
+    key3.classList.add("hidden");
     
     if (equippedSkill && equippedSkill !== "none") {
         const skill = SKILL_DB[equippedSkill];
@@ -1886,21 +2002,45 @@ function setupSkillUI() {
         
         // パッシブ系の表示
         if (skill.id === "fundraiser" || skill.id === "godfundraiser") {
-            statusText.innerText = `【パッシブ】${skill.desc}`;
-            el("in-game-skill-btn").classList.add("hidden");
+            // キー情報なし
         } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4") {
             el("in-game-skill-btn").classList.add("hidden");
-            updateCooldownText();
+            // 各キーの説明を表示
+            if (skill.id === "hacker") {
+                key1.classList.remove("hidden"); key1.innerText = "1: タブ追加 (30s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: ウイルス (70s)";
+            } else if (skill.id === "accelerator") {
+                key1.classList.remove("hidden"); key1.innerText = "1: 熱い温度 (40s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: 特別加熱 (70s)";
+                key3.classList.remove("hidden"); key3.innerText = "3: 自爆 (200s)";
+            } else if (skill.id === "hacker_milestone4") {
+                key1.classList.remove("hidden"); key1.innerText = "1: 迷路 (45s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: 高度なハック (1回)";
+                key3.classList.remove("hidden"); key3.innerText = "3: 状態変異 (35s)";
+            }
         } else if (skill.id === "comboGod") {
             el("in-game-skill-btn").classList.remove("hidden");
-            statusText.innerText = "✨ 1回のみ (スペースキーで発動)";
+            keySpace.classList.remove("hidden"); keySpace.innerText = "Space: コンボアップの神 (1回)";
         } else {
             // 通常アクティブスキル（ガチャキャラ含む）
             el("in-game-skill-btn").classList.remove("hidden");
+            // ガチャキャラは個別のキー情報がある場合
             if (skill.gacha) {
-                statusText.innerText = `【${skill.rarity}】${skill.desc}`;
+                if (skill.id === "narrator") {
+                    keySpace.classList.remove("hidden"); keySpace.innerText = "Space: メガホン (10s)";
+                    key1.classList.remove("hidden"); key1.innerText = "1: アクションゲーム (150s)";
+                    key2.classList.remove("hidden"); key2.innerText = "2: パズルゲーム (100s)";
+                } else if (skill.id === "trapper") {
+                    keySpace.classList.remove("hidden"); keySpace.innerText = "Space: トラップ設置 (15s)";
+                    key2.classList.remove("hidden"); key2.innerText = "2: 免疫力 (200s, スタン中のみ)";
+                } else if (skill.id === "rifleman") {
+                    keySpace.classList.remove("hidden"); keySpace.innerText = "Space: ヘッドショット (45s)";
+                } else {
+                    // その他はスペースのみ
+                    keySpace.classList.remove("hidden"); keySpace.innerText = `Space: ${skill.desc}`;
+                }
             } else {
-                statusText.innerText = "準備完了！(スペースキーで発動)";
+                keySpace.classList.remove("hidden"); keySpace.innerText = `Space: ${skill.desc}`;
             }
         }
     } else {
@@ -2679,13 +2819,15 @@ function handleIncomingAttack(attack) {
     }
 
     if (attack.type === "action_game") {
-        alert("アクションゲーム（未実装）");
-        // TODO: 専用ミニゲームオーバーレイ表示
+        // アクションゲーム開始
+        startActionGame();
+        return;
     }
 
     if (attack.type === "puzzle_game") {
-        alert("パズルゲーム（未実装）");
-        // TODO: 専用ミニゲームオーバーレイ表示
+        // パズルゲーム開始
+        startPuzzleGame();
+        return;
     }
 
     if (attack.duration > 0) {
@@ -2703,6 +2845,153 @@ function applyJamming(durationMs) {
         isJamming = false;
         el("jamming-overlay").classList.add("hidden");
     }, durationMs);
+}
+
+// =========================================
+// アクションゲーム関連（追加）
+// =========================================
+let actionGameActive = false;
+let actionGamePlayerPos = { x: 50, y: 150 };
+let actionGameSpikePos = { x: 300, y: 150 };
+let actionGameGoalPos = { x: 350, y: 150 };
+let actionGameJumping = false;
+let actionGameJumpTimer = null;
+
+window.startActionGame = () => {
+    actionGameActive = true;
+    actionGamePlayerPos = { x: 50, y: 150 };
+    el("action-game-overlay").classList.remove("hidden");
+    updateActionGameDisplay();
+};
+
+window.closeActionGame = () => {
+    actionGameActive = false;
+    el("action-game-overlay").classList.add("hidden");
+    if (actionGameJumpTimer) clearTimeout(actionGameJumpTimer);
+};
+
+window.moveActionGame = (dir) => {
+    if (!actionGameActive) return;
+    if (dir === 'left') {
+        actionGamePlayerPos.x = Math.max(0, actionGamePlayerPos.x - 20);
+    } else if (dir === 'right') {
+        actionGamePlayerPos.x = Math.min(350, actionGamePlayerPos.x + 20);
+    } else if (dir === 'jump') {
+        if (!actionGameJumping) {
+            actionGameJumping = true;
+            actionGamePlayerPos.y -= 40;
+            updateActionGameDisplay();
+            actionGameJumpTimer = setTimeout(() => {
+                actionGamePlayerPos.y += 40;
+                actionGameJumping = false;
+                updateActionGameDisplay();
+                actionGameJumpTimer = null;
+            }, 200);
+        }
+    }
+    updateActionGameDisplay();
+    checkActionGameCollision();
+};
+
+function updateActionGameDisplay() {
+    const player = document.querySelector('.action-game-player');
+    const spike = document.querySelector('.action-game-spike');
+    const goal = document.querySelector('.action-game-goal');
+    if (player) {
+        player.style.left = actionGamePlayerPos.x + 'px';
+        player.style.bottom = (actionGamePlayerPos.y - 30) + 'px';
+    }
+}
+
+function checkActionGameCollision() {
+    // 簡易衝突判定
+    if (Math.abs(actionGamePlayerPos.x - actionGameSpikePos.x) < 30 && !actionGameJumping) {
+        alert("トゲに当たった！失敗…");
+        closeActionGame();
+    }
+    if (Math.abs(actionGamePlayerPos.x - actionGameGoalPos.x) < 30) {
+        alert("ゴール！クリア！");
+        closeActionGame();
+    }
+}
+
+// =========================================
+// パズルゲーム（ドットコネクト）関連（追加）
+// =========================================
+let puzzleDots = [];
+let puzzleSelected = [];
+let puzzleConnected = [];
+
+window.startPuzzleGame = () => {
+    puzzleDots = [];
+    for (let i = 0; i < 15; i++) {
+        puzzleDots.push({ id: i, connected: false });
+    }
+    puzzleSelected = [];
+    puzzleConnected = [];
+    renderPuzzleGrid();
+    el("puzzle-game-overlay").classList.remove("hidden");
+};
+
+window.closePuzzleGame = () => {
+    el("puzzle-game-overlay").classList.add("hidden");
+};
+
+window.resetPuzzle = () => {
+    puzzleDots.forEach(d => d.connected = false);
+    puzzleSelected = [];
+    puzzleConnected = [];
+    renderPuzzleGrid();
+};
+
+function renderPuzzleGrid() {
+    const grid = el("puzzle-grid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    puzzleDots.forEach((dot, index) => {
+        const dotEl = document.createElement("div");
+        dotEl.className = `puzzle-dot ${dot.connected ? 'connected' : ''}`;
+        dotEl.dataset.index = index;
+        dotEl.onclick = () => selectPuzzleDot(index);
+        dotEl.innerText = dot.connected ? '✓' : '';
+        grid.appendChild(dotEl);
+    });
+}
+
+function selectPuzzleDot(index) {
+    if (puzzleDots[index].connected) return;
+    if (puzzleSelected.includes(index)) {
+        // 既に選択中なら解除
+        puzzleSelected = puzzleSelected.filter(i => i !== index);
+    } else {
+        puzzleSelected.push(index);
+    }
+    
+    // 2つ選択されたら接続
+    if (puzzleSelected.length === 2) {
+        const [a, b] = puzzleSelected;
+        if (!puzzleDots[a].connected && !puzzleDots[b].connected) {
+            puzzleDots[a].connected = true;
+            puzzleDots[b].connected = true;
+            puzzleConnected.push([a, b]);
+        }
+        puzzleSelected = [];
+        renderPuzzleGrid();
+        
+        // すべて接続されたかチェック
+        if (puzzleDots.every(d => d.connected)) {
+            alert("全ての点をつなげた！クリア！");
+            closePuzzleGame();
+        }
+    } else {
+        // 選択中のハイライトを更新
+        renderPuzzleGrid();
+        document.querySelectorAll('.puzzle-dot').forEach((el, i) => {
+            if (puzzleSelected.includes(i)) {
+                el.classList.add('selected');
+            }
+        });
+    }
 }
 
 // --- ストーリーモード制御 ---
@@ -3081,6 +3370,12 @@ if (timeSlider && timeLabel) {
         timeLabel.innerText = e.target.value;
     });
 }
+
+// BGMミュートボタンを追加（HTMLにボタンがない場合は後で追加）
+const bgmControl = document.createElement('div');
+bgmControl.id = 'bgm-control';
+bgmControl.innerHTML = '<button class="bgm-btn" onclick="bgm.toggleMute()">🔊</button>';
+document.body.appendChild(bgmControl);
 
 // デイリーコードの初期化とタイマー開始
 checkDailyCode();
