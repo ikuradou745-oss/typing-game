@@ -296,8 +296,8 @@ const SKILL_DB = {
 };
 
 // --- ガチャ関連の追加グローバル変数 ---
-const GACHA_COST = 1000;        // 1回のコスト
-const GACHA_COST_10 = 9000;     // 10連のコスト（10%OFF）
+const GACHA_COST = 50000;        // 1回のコスト
+const GACHA_COST_10 = 450000;     // 10連のコスト（10%OFF）
 
 // ガチャ確率（%）
 const GACHA_RATES = {
