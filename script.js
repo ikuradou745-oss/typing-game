@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.0 (Fixed Code System)
+// FIREBASE & TYPING ENGINE V10.1 (Bug fixes)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -321,6 +321,9 @@ let trapperStacks = 0;          // トラップ設置数
 let isStunned = false;          // スタン状態（タイピング不可）
 let stunTimer = null;           // スタン解除タイマー
 
+// --- パーティーメンバー情報をキャッシュする変数（クリア判定用）---
+let partyMembers = {};           // { memberId: { name, score, ... } }
+
 // --- デイリーコード生成関数 ---
 function generateDailyCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -613,7 +616,7 @@ function saveAndDisplayData() {
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
-    if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString(); // 追加
+    if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString();
     
     updateProfileFace();
     
@@ -678,7 +681,7 @@ function updateButtonStates() {
     const btnSkin = el("btn-skin");
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
-    const btnGacha = el("btn-gacha"); // 追加
+    const btnGacha = el("btn-gacha");
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking; 
@@ -686,7 +689,7 @@ function updateButtonStates() {
     if (btnSkin) btnSkin.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
     if (btnStory) btnStory.disabled = isBusy;
-    if (btnGacha) btnGacha.disabled = isBusy || myPartyId !== null; // 追加
+    if (btnGacha) btnGacha.disabled = isBusy || myPartyId !== null;
 }
 
 // --- リアルタイム名前更新 ---
@@ -872,6 +875,11 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             isLeader = (p.leader === myId);
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
             
+            // メンバー情報をキャッシュ
+            if (p.members) {
+                partyMembers = p.members;
+            }
+
             const membersHtml = Object.entries(p.members || {}).map(([id, m]) => {
                 const memberSkin = m.skin || { skin: "skin-1", face: "face-1" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
@@ -925,6 +933,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
         el("party-actions").classList.add("hidden"); 
         el("party-label").innerText = "パーティー (未参加)"; 
         el("party-list-ui").innerHTML = ""; 
+        partyMembers = {};
     }
 });
 
@@ -1108,6 +1117,10 @@ window.buySkill = (skillId) => {
         equippedSkill = skillId; 
         saveAndDisplayData();
         renderShop();
+        // ガチャ画面の装備表示も更新
+        if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
+            renderGachaCharacters(getCurrentGachaTabRarity());
+        }
         sounds.notify.play();
         alert(`${skill.name} を購入・装備しました！`);
     } else {
@@ -1531,20 +1544,18 @@ function processCorrectType() {
     
     if (isStoryMode) {
         if (myPartyId) {
-            get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
-                const members = snap.val();
-                if (members) {
-                    const memberCount = Object.keys(members).length;
-                    const contributionScore = Math.floor(score / memberCount);
-                    updateProgressBar(contributionScore);
-                    
-                    if (contributionScore >= storyTargetScore && gameActive) {
-                        clearInterval(gameInterval);
-                        gameActive = false;
-                        storyClear();
-                    }
-                }
-            });
+            // チーム全体の合計スコアを計算（partyMembers は最新の状態）
+            let totalScore = 0;
+            for (let id in partyMembers) {
+                totalScore += partyMembers[id].score || 0;
+            }
+            updateProgressBar(totalScore);
+            
+            if (totalScore >= storyTargetScore && gameActive) {
+                clearInterval(gameInterval);
+                gameActive = false;
+                storyClear();
+            }
         } else {
             updateProgressBar(score);
             
