@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.5 (Gacha with duplicates)
+// FIREBASE & TYPING ENGINE V10.6 (Final fixes)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -2421,27 +2421,40 @@ function applyBlurEffect() {
     }, 1000);
 }
 
-// ペイントエフェクト（改良：より濃く）
+// ペイントエフェクト（改良：最初の2.5秒は不透明）
 function applyPaintEffect(durationMs) {
     const paintOverlay = el("paint-overlay");
     if (!paintOverlay) return;
     const paintEffect = paintOverlay.querySelector('.paint-effect');
-    if (paintEffect) {
-        // より濃いピンクに変更
-        paintEffect.style.background = "radial-gradient(circle at 50% 50%, rgba(255,105,180,1) 0%, rgba(255,105,180,0.8) 70%, transparent 100%)";
-        // アニメーションはCSSで既に定義されているので、クラスを外して再追加することで再実行
-        paintEffect.style.animation = 'none';
-        paintEffect.offsetHeight; // リフロー
-        paintEffect.style.animation = 'paint-fade 5s ease-out forwards';
-    }
+    if (!paintEffect) return;
+
+    // CSSアニメーションを無効化
+    paintEffect.style.animation = 'none';
+    paintEffect.style.opacity = '1';
     paintOverlay.classList.remove("hidden");
+
+    const totalDuration = durationMs; // 5000ms
+    const holdDuration = 2500; // 2.5秒間不透明
+    const fadeDuration = totalDuration - holdDuration; // 残り2.5秒でフェード
+
+    // ホールド時間後にフェード開始
     setTimeout(() => {
-        paintOverlay.classList.add("hidden");
-        // 元の背景に戻す（任意）
-        if (paintEffect) {
-            paintEffect.style.background = ""; // CSSの値に戻す
-        }
-    }, durationMs);
+        let startTime = null;
+        const fadeStep = (timestamp) => {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(elapsed / fadeDuration, 1);
+            paintEffect.style.opacity = (1 - progress).toString();
+            if (progress < 1) {
+                requestAnimationFrame(fadeStep);
+            } else {
+                // フェード終了後、オーバーレイを非表示
+                paintOverlay.classList.add("hidden");
+                paintEffect.style.opacity = ''; // リセット
+            }
+        };
+        requestAnimationFrame(fadeStep);
+    }, holdDuration);
 }
 
 // ゆらゆらエフェクト
@@ -2801,12 +2814,14 @@ function applyJamming(durationMs) {
 }
 
 // =========================================
-// アクションゲーム関連（改良版）
+// アクションゲーム関連（改良版：地面修正＋敵追加）
 // =========================================
 let actionGameActive = false;
-let actionGamePlayer = { x: 50, y: 150, vy: 0 };
-let actionGameSpikePos = { x: 300, y: 150 };
-let actionGameGoalPos = { x: 350, y: 150 };
+let actionGamePlayer = { x: 50, y: 60, vy: 0 }; // 地面の高さを60に設定
+let actionGameSpikePos = { x: 300, y: 60 };     // トゲ
+let actionGameGoalPos = { x: 350, y: 60 };      // ゴール
+let actionGameEnemyPos = { x: 200, y: 60 };     // 敵キャラ（クリボー風）
+let actionGameEnemyAlive = true;
 let actionGameGravity = 0.5;
 let actionGameOnGround = true;
 let actionGameInterval = null;
@@ -2820,8 +2835,9 @@ window.startActionGame = () => {
 };
 
 function resetActionGame() {
-    actionGamePlayer = { x: 50, y: 150, vy: 0 };
+    actionGamePlayer = { x: 50, y: 60, vy: 0 };
     actionGameOnGround = true;
+    actionGameEnemyAlive = true;
     updateActionGameDisplay();
 }
 
@@ -2856,8 +2872,8 @@ function updateActionGame() {
     actionGamePlayer.y += actionGamePlayer.vy;
     
     // 地面チェック
-    if (actionGamePlayer.y >= 150) {
-        actionGamePlayer.y = 150;
+    if (actionGamePlayer.y >= 60) {
+        actionGamePlayer.y = 60;
         actionGamePlayer.vy = 0;
         actionGameOnGround = true;
     }
@@ -2870,9 +2886,28 @@ function updateActionGameDisplay() {
     const player = document.querySelector('.action-game-player');
     const spike = document.querySelector('.action-game-spike');
     const goal = document.querySelector('.action-game-goal');
+    // 敵の表示はHTMLにないので、簡易的にテキストで追加（実際にはHTMLに要素を追加する必要あり）
+    // ここではデモのため、既存の要素を使い回すか、新たに作成する
+    let enemy = document.querySelector('.action-game-enemy');
+    if (!enemy && actionGameActive) {
+        // 敵要素がなければ作成（簡易）
+        enemy = document.createElement('div');
+        enemy.className = 'action-game-enemy';
+        enemy.style.position = 'absolute';
+        enemy.style.bottom = '30px';
+        enemy.style.fontSize = '30px';
+        enemy.innerText = '🐢'; // クリボーの代わり
+        document.querySelector('.action-game-canvas').appendChild(enemy);
+    }
     if (player) {
         player.style.left = actionGamePlayer.x + 'px';
         player.style.bottom = (actionGamePlayer.y - 30) + 'px';
+    }
+    if (enemy && actionGameEnemyAlive) {
+        enemy.style.left = actionGameEnemyPos.x + 'px';
+        enemy.style.bottom = (actionGameEnemyPos.y - 30) + 'px';
+    } else if (enemy && !actionGameEnemyAlive) {
+        enemy.style.display = 'none';
     }
 }
 
@@ -2882,6 +2917,19 @@ function checkActionGameCollision() {
         alert("トゲに当たった！最初からやり直し");
         resetActionGame();
     }
+    // 敵との衝突（地面にいない時のみ倒せる）
+    if (actionGameEnemyAlive && Math.abs(actionGamePlayer.x - actionGameEnemyPos.x) < 30) {
+        if (!actionGameOnGround) {
+            // 上から踏んだ
+            actionGameEnemyAlive = false;
+            showBattleAlert("敵を倒した！", "var(--accent-green)");
+            sounds.correct.play();
+        } else {
+            // 横からぶつかった
+            alert("敵にぶつかった！最初からやり直し");
+            resetActionGame();
+        }
+    }
     // ゴール
     if (Math.abs(actionGamePlayer.x - actionGameGoalPos.x) < 30) {
         alert("ゴール！クリア！");
@@ -2890,7 +2938,7 @@ function checkActionGameCollision() {
 }
 
 // =========================================
-// パズルゲーム（ドットコネクト）改良版
+// パズルゲーム（ドットコネクト）改良版（閉じるボタン削除）
 // =========================================
 let puzzleDots = [];
 let puzzleSelected = [];
@@ -2906,8 +2954,7 @@ window.startPuzzleGame = () => {
     puzzleConnections = [];
     renderPuzzleGrid();
     el("puzzle-game-overlay").classList.remove("hidden");
-    // 閉じるボタンを表示
-    document.getElementById('puzzle-close-btn').classList.remove('hidden');
+    // 閉じるボタンの処理を削除
 };
 
 window.closePuzzleGame = () => {
@@ -2919,8 +2966,6 @@ window.resetPuzzle = () => {
     puzzleSelected = [];
     puzzleConnections = [];
     renderPuzzleGrid();
-    // 閉じるボタンを再表示
-    document.getElementById('puzzle-close-btn').classList.remove('hidden');
 };
 
 function renderPuzzleGrid() {
@@ -2967,8 +3012,7 @@ function selectPuzzleDot(index) {
         // すべて接続されたかチェック
         if (puzzleDots.every(d => d.connected)) {
             alert("全ての点をつなげた！クリア！");
-            // 閉じるボタンを非表示（オーバーレイは開いたまま）
-            document.getElementById('puzzle-close-btn').classList.add('hidden');
+            // 閉じるボタンの処理を削除
         }
     } else {
         // 選択中のハイライトを更新
