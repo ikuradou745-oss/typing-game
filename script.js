@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.3 (Bug fixes & Mini-games)
+// FIREBASE & TYPING ENGINE V10.5 (Gacha with duplicates)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1252,7 +1252,7 @@ window.unlockBossSkill = (skillId) => {
 };
 
 // =========================================
-// ガチャ機能
+// ガチャ機能（重複ありに修正）
 // =========================================
 
 // ガチャ画面を開く
@@ -1293,16 +1293,16 @@ window.switchGachaTab = (rarity) => {
     renderGachaCharacters(rarity);
 };
 
-// 所持キャラ一覧を表示
+// 所持キャラ一覧を表示（重複があってもユニーク表示）
 function renderGachaCharacters(rarity) {
     const container = el("gacha-char-list");
     if (!container) return;
     container.innerHTML = "";
 
-    // 所有しているガチャキャラのID一覧（ownedSkills から gacha フラグが true のものを抽出）
+    // 所有しているガチャキャラのID一覧（重複を含む可能性あり）
     const ownedGachaIds = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
 
-    // 表示するキャラをフィルタ
+    // 表示するキャラをフィルタ（ユニーク）
     let charsToShow = [];
     if (rarity === 'all') {
         charsToShow = Object.values(GACHA_CHAR_DB);
@@ -1311,7 +1311,7 @@ function renderGachaCharacters(rarity) {
     }
 
     charsToShow.forEach(char => {
-        const isOwned = ownedGachaIds.includes(char.id);
+        const isOwned = ownedGachaIds.includes(char.id); // 重複があっても1回所有と判定
         const isEquipped = equippedSkill === char.id;
         const item = document.createElement("div");
         item.className = `gacha-char-item ${char.rarity.toLowerCase()} ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
@@ -1357,7 +1357,7 @@ function equipGachaCharacter(charId) {
     sounds.notify.play();
 }
 
-// ガチャ実行（タイプ: "normal" または "normal10"）
+// ガチャ実行（重複あり）
 window.drawGacha = async (type) => {
     const isTen = type === "normal10";
     const cost = isTen ? GACHA_COST_10 : GACHA_COST;
@@ -1369,26 +1369,11 @@ window.drawGacha = async (type) => {
     // 抽選結果を格納する配列
     let results = [];
 
-    // 所有済みガチャキャラID一覧
-    const ownedGachaIds = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
     // 全ガチャキャラID
     const allGachaIds = Object.keys(GACHA_CHAR_DB);
-
-    // 未所有のキャラがいるかチェック（全所有の場合はガチャ不可）
-    const unowned = allGachaIds.filter(id => !ownedGachaIds.includes(id));
-    if (unowned.length === 0) {
-        alert("すべてのガチャキャラを既に所持しています！");
-        return;
-    }
-
     const drawCount = isTen ? 10 : 1;
 
     for (let i = 0; i < drawCount; i++) {
-        // 現時点での未所有キャラを再計算（重複なし抽選のため）
-        const currentOwned = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
-        const currentUnowned = allGachaIds.filter(id => !currentOwned.includes(id));
-        if (currentUnowned.length === 0) break; // 全所有に達したら終了
-
         // レアリティ抽選
         const rnd = Math.random() * 100;
         let selectedRarity;
@@ -1400,17 +1385,17 @@ window.drawGacha = async (type) => {
             selectedRarity = 'UR';
         }
 
-        // そのレアリティ内で未所有のキャラIDリスト
-        const candidates = GACHA_CHARS_BY_RARITY[selectedRarity].filter(id => currentUnowned.includes(id));
+        // そのレアリティ内の全キャラからランダムに選択（所有済みでもOK）
+        const candidates = GACHA_CHARS_BY_RARITY[selectedRarity];
+        // 万が一そのレアリティにキャラが1体もいない場合はフォールバック（起こり得ない）
         if (candidates.length === 0) {
-            // 該当レアリティの未所有がない場合は、他のレアリティからランダムに選ぶ（フォールバック）
-            const fallback = currentUnowned[Math.floor(Math.random() * currentUnowned.length)];
+            console.warn(`No characters in rarity ${selectedRarity}, falling back to all.`);
+            const fallback = allGachaIds[Math.floor(Math.random() * allGachaIds.length)];
             results.push(fallback);
             ownedSkills.push(fallback);
             continue;
         }
 
-        // キャラをランダム選択
         const selectedChar = candidates[Math.floor(Math.random() * candidates.length)];
         results.push(selectedChar);
         ownedSkills.push(selectedChar);
@@ -1424,7 +1409,7 @@ window.drawGacha = async (type) => {
     // 結果表示
     showGachaResult(results);
 
-    // 所持キャラ一覧を再表示
+    // 所持キャラ一覧を再表示（重複しても表示は変わらない）
     renderGachaCharacters(getCurrentGachaTabRarity());
 };
 
@@ -2436,14 +2421,26 @@ function applyBlurEffect() {
     }, 1000);
 }
 
-// ペイントエフェクト
+// ペイントエフェクト（改良：より濃く）
 function applyPaintEffect(durationMs) {
     const paintOverlay = el("paint-overlay");
     if (!paintOverlay) return;
+    const paintEffect = paintOverlay.querySelector('.paint-effect');
+    if (paintEffect) {
+        // より濃いピンクに変更
+        paintEffect.style.background = "radial-gradient(circle at 50% 50%, rgba(255,105,180,1) 0%, rgba(255,105,180,0.8) 70%, transparent 100%)";
+        // アニメーションはCSSで既に定義されているので、クラスを外して再追加することで再実行
+        paintEffect.style.animation = 'none';
+        paintEffect.offsetHeight; // リフロー
+        paintEffect.style.animation = 'paint-fade 5s ease-out forwards';
+    }
     paintOverlay.classList.remove("hidden");
-    // 5秒後に非表示（フェードはCSS任せ）
     setTimeout(() => {
         paintOverlay.classList.add("hidden");
+        // 元の背景に戻す（任意）
+        if (paintEffect) {
+            paintEffect.style.background = ""; // CSSの値に戻す
+        }
     }, durationMs);
 }
 
@@ -2763,8 +2760,12 @@ function handleIncomingAttack(attack) {
     }
 
     if (attack.type === "snipe" || attack.type === "stun") {
+        // まずスタン
         setStun(attack.duration);
-        applySwayEffect(attack.duration);
+        // スタン終了後にゆらゆらを開始
+        setTimeout(() => {
+            applySwayEffect(attack.duration);
+        }, attack.duration);
         showBattleAlert("🎯 ヘッドショット！くらくら…", "#FF0000");
         sounds.miss.play();
         return;
@@ -2918,6 +2919,8 @@ window.resetPuzzle = () => {
     puzzleSelected = [];
     puzzleConnections = [];
     renderPuzzleGrid();
+    // 閉じるボタンを再表示
+    document.getElementById('puzzle-close-btn').classList.remove('hidden');
 };
 
 function renderPuzzleGrid() {
@@ -2925,14 +2928,14 @@ function renderPuzzleGrid() {
     if (!grid) return;
     grid.innerHTML = "";
     
-    // 各ドットをランダムな位置に配置（簡易：CSS Grid 内で少しずらす）
+    // 各ドットをランダムな位置に配置（CSS Grid 内で少しずらす）
     puzzleDots.forEach((dot, index) => {
         const dotEl = document.createElement("div");
         dotEl.className = `puzzle-dot ${dot.connected ? 'connected' : ''}`;
         dotEl.dataset.index = index;
         dotEl.onclick = () => selectPuzzleDot(index);
         dotEl.innerText = dot.connected ? '✓' : dot.id;
-        // ランダムなオフセット（CSS Grid 内で少しずらす）
+        // ランダムなオフセット
         const xOffset = Math.random() * 20 - 10;
         const yOffset = Math.random() * 20 - 10;
         dotEl.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
@@ -2964,7 +2967,7 @@ function selectPuzzleDot(index) {
         // すべて接続されたかチェック
         if (puzzleDots.every(d => d.connected)) {
             alert("全ての点をつなげた！クリア！");
-            // 閉じるボタンを非表示
+            // 閉じるボタンを非表示（オーバーレイは開いたまま）
             document.getElementById('puzzle-close-btn').classList.add('hidden');
         }
     } else {
