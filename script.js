@@ -1,10 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.2 (Full Feature)
+// FIREBASE & TYPING ENGINE V10.3 (Bug fixes & Mini-games)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, update, remove, onDisconnect, get, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBXnNXQ5khcR0EvRide4C0PjshJZpSF4oM",
@@ -29,54 +29,6 @@ const sounds = {
     coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3")
 };
 
-// --- BGM関連（追加）---
-const bgm = {
-    audio: new Audio(),
-    isPlaying: false,
-    isMuted: false,
-    fallbackInterval: null,
-    useFallback: false,
-    init() {
-        // ルードバスターのURL（実際の音源に差し替えてください）
-        this.audio.src = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"; // 仮のURL
-        this.audio.loop = true;
-        this.audio.volume = 0.5;
-        this.audio.addEventListener('error', () => {
-            console.warn("BGM not found, using fallback sound.");
-            this.useFallback = true;
-        });
-    },
-    play() {
-        if (this.useFallback) {
-            if (this.fallbackInterval) clearInterval(this.fallbackInterval);
-            this.fallbackInterval = setInterval(() => {
-                if (!this.isMuted) sounds.notify.play();
-            }, 1000);
-            this.isPlaying = true;
-        } else {
-            this.audio.play().catch(() => {});
-            this.isPlaying = true;
-        }
-    },
-    stop() {
-        if (this.useFallback) {
-            if (this.fallbackInterval) clearInterval(this.fallbackInterval);
-            this.fallbackInterval = null;
-        } else {
-            this.audio.pause();
-            this.audio.currentTime = 0;
-        }
-        this.isPlaying = false;
-    },
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        if (!this.useFallback) {
-            this.audio.muted = this.isMuted;
-        }
-    }
-};
-bgm.init();
-
 // --- グローバル変数 ---
 const el = (id) => document.getElementById(id);
 const generateId = () => Math.floor(10000000 + Math.random() * 89999999).toString();
@@ -97,7 +49,7 @@ let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
 let gameInterval; 
-let gameStartTime = null; // サーバー時刻同期用
+let gameStartTime = null; // サーバー時刻同期用（今回は未使用）
 
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000;
 
@@ -318,7 +270,7 @@ const GACHA_CHAR_DB = {
         id: "narrator",
         name: "ナレーター",
         rarity: "UR",
-        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（15個の丸を繋ぐ）\n【メガホン】CT10秒: 相手画面を10秒間ぼやけさせる",
+        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（16個の丸を繋ぐ）\n【メガホン】CT10秒: 相手画面を10秒間ぼやけさせる",
         cooldown: 150,
         gacha: true
     }
@@ -490,7 +442,7 @@ async function loadCodeStatusFromFirebase() {
     }
 }
 
-// データ全リセット関数（隠しコードBA3用）(追加)
+// データ全リセット関数（隠しコードBA3用）
 async function resetAllData() {
     // ローカルストレージをクリア
     localStorage.clear();
@@ -537,7 +489,7 @@ window.submitCode = async () => {
     // Firebaseから最新の使用状況を取得
     await loadCodeStatusFromFirebase();
     
-    // 隠しコード BA3 (データ全リセット) (追加)
+    // 隠しコード BA3 (データ全リセット)
     if (input === "BA3") {
         if (confirm("本当にすべてのデータをリセットしますか？この操作は元に戻せません。")) {
             await resetAllData();
@@ -1603,7 +1555,7 @@ window.goHome = () => {
     openScreen("screen-home"); 
     updateButtonStates();
     saveAndDisplayData();
-    bgm.stop(); // BGM停止
+    // BGMなし
 };
 
 function nextQuestion() {
@@ -1644,14 +1596,16 @@ function processCorrectType() {
     
     if (isStoryMode) {
         if (myPartyId) {
-            // チーム全体の合計スコアを計算（partyMembers は最新の状態）
+            // チーム全体の合計スコアを計算
             let totalScore = 0;
             for (let id in partyMembers) {
                 totalScore += partyMembers[id].score || 0;
             }
-            updateProgressBar(totalScore);
+            const memberCount = Object.keys(partyMembers).length;
+            const avgScore = memberCount > 0 ? Math.floor(totalScore / memberCount) : 0;
+            updateProgressBar(avgScore);
             
-            if (totalScore >= storyTargetScore && gameActive) {
+            if (avgScore >= storyTargetScore && gameActive) {
                 clearInterval(gameInterval);
                 gameActive = false;
                 storyClear();
@@ -1852,8 +1806,7 @@ function startGame(sec) {
         }
     }, 1000);
     
-    // BGM再生
-    bgm.play();
+    // BGMなし
 }
 
 function syncRivals() {
@@ -1975,8 +1928,7 @@ function endGame() {
             </div>`;
     }
     
-    // BGM停止
-    bgm.stop();
+    // BGMなし
 }
 
 // --- スキル・バトルエフェクト処理 ---
@@ -2848,89 +2800,113 @@ function applyJamming(durationMs) {
 }
 
 // =========================================
-// アクションゲーム関連（追加）
+// アクションゲーム関連（改良版）
 // =========================================
 let actionGameActive = false;
-let actionGamePlayerPos = { x: 50, y: 150 };
+let actionGamePlayer = { x: 50, y: 150, vy: 0 };
 let actionGameSpikePos = { x: 300, y: 150 };
 let actionGameGoalPos = { x: 350, y: 150 };
-let actionGameJumping = false;
-let actionGameJumpTimer = null;
+let actionGameGravity = 0.5;
+let actionGameOnGround = true;
+let actionGameInterval = null;
 
 window.startActionGame = () => {
     actionGameActive = true;
-    actionGamePlayerPos = { x: 50, y: 150 };
+    resetActionGame();
     el("action-game-overlay").classList.remove("hidden");
-    updateActionGameDisplay();
+    if (actionGameInterval) clearInterval(actionGameInterval);
+    actionGameInterval = setInterval(updateActionGame, 50);
 };
+
+function resetActionGame() {
+    actionGamePlayer = { x: 50, y: 150, vy: 0 };
+    actionGameOnGround = true;
+    updateActionGameDisplay();
+}
 
 window.closeActionGame = () => {
     actionGameActive = false;
+    if (actionGameInterval) {
+        clearInterval(actionGameInterval);
+        actionGameInterval = null;
+    }
     el("action-game-overlay").classList.add("hidden");
-    if (actionGameJumpTimer) clearTimeout(actionGameJumpTimer);
 };
 
 window.moveActionGame = (dir) => {
     if (!actionGameActive) return;
     if (dir === 'left') {
-        actionGamePlayerPos.x = Math.max(0, actionGamePlayerPos.x - 20);
+        actionGamePlayer.x = Math.max(0, actionGamePlayer.x - 20);
     } else if (dir === 'right') {
-        actionGamePlayerPos.x = Math.min(350, actionGamePlayerPos.x + 20);
+        actionGamePlayer.x = Math.min(350, actionGamePlayer.x + 20);
     } else if (dir === 'jump') {
-        if (!actionGameJumping) {
-            actionGameJumping = true;
-            actionGamePlayerPos.y -= 40;
-            updateActionGameDisplay();
-            actionGameJumpTimer = setTimeout(() => {
-                actionGamePlayerPos.y += 40;
-                actionGameJumping = false;
-                updateActionGameDisplay();
-                actionGameJumpTimer = null;
-            }, 200);
+        if (actionGameOnGround) {
+            actionGamePlayer.vy = -10; // 上向き速度
+            actionGameOnGround = false;
         }
     }
+};
+
+function updateActionGame() {
+    if (!actionGameActive) return;
+    
+    // 重力適用
+    actionGamePlayer.vy += actionGameGravity;
+    actionGamePlayer.y += actionGamePlayer.vy;
+    
+    // 地面チェック
+    if (actionGamePlayer.y >= 150) {
+        actionGamePlayer.y = 150;
+        actionGamePlayer.vy = 0;
+        actionGameOnGround = true;
+    }
+    
     updateActionGameDisplay();
     checkActionGameCollision();
-};
+}
 
 function updateActionGameDisplay() {
     const player = document.querySelector('.action-game-player');
     const spike = document.querySelector('.action-game-spike');
     const goal = document.querySelector('.action-game-goal');
     if (player) {
-        player.style.left = actionGamePlayerPos.x + 'px';
-        player.style.bottom = (actionGamePlayerPos.y - 30) + 'px';
+        player.style.left = actionGamePlayer.x + 'px';
+        player.style.bottom = (actionGamePlayer.y - 30) + 'px';
     }
 }
 
 function checkActionGameCollision() {
-    // 簡易衝突判定
-    if (Math.abs(actionGamePlayerPos.x - actionGameSpikePos.x) < 30 && !actionGameJumping) {
-        alert("トゲに当たった！失敗…");
-        closeActionGame();
+    // 棘との衝突（地面にいない時）
+    if (Math.abs(actionGamePlayer.x - actionGameSpikePos.x) < 30 && !actionGameOnGround) {
+        alert("トゲに当たった！最初からやり直し");
+        resetActionGame();
     }
-    if (Math.abs(actionGamePlayerPos.x - actionGameGoalPos.x) < 30) {
+    // ゴール
+    if (Math.abs(actionGamePlayer.x - actionGameGoalPos.x) < 30) {
         alert("ゴール！クリア！");
         closeActionGame();
     }
 }
 
 // =========================================
-// パズルゲーム（ドットコネクト）関連（追加）
+// パズルゲーム（ドットコネクト）改良版
 // =========================================
 let puzzleDots = [];
 let puzzleSelected = [];
-let puzzleConnected = [];
+let puzzleConnections = [];
 
 window.startPuzzleGame = () => {
+    // 16個のドットを生成（1〜16の番号）
     puzzleDots = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 1; i <= 16; i++) {
         puzzleDots.push({ id: i, connected: false });
     }
     puzzleSelected = [];
-    puzzleConnected = [];
+    puzzleConnections = [];
     renderPuzzleGrid();
     el("puzzle-game-overlay").classList.remove("hidden");
+    // 閉じるボタンを表示
+    document.getElementById('puzzle-close-btn').classList.remove('hidden');
 };
 
 window.closePuzzleGame = () => {
@@ -2940,7 +2916,7 @@ window.closePuzzleGame = () => {
 window.resetPuzzle = () => {
     puzzleDots.forEach(d => d.connected = false);
     puzzleSelected = [];
-    puzzleConnected = [];
+    puzzleConnections = [];
     renderPuzzleGrid();
 };
 
@@ -2948,22 +2924,29 @@ function renderPuzzleGrid() {
     const grid = el("puzzle-grid");
     if (!grid) return;
     grid.innerHTML = "";
+    
+    // 各ドットをランダムな位置に配置（簡易：CSS Grid 内で少しずらす）
     puzzleDots.forEach((dot, index) => {
         const dotEl = document.createElement("div");
         dotEl.className = `puzzle-dot ${dot.connected ? 'connected' : ''}`;
         dotEl.dataset.index = index;
         dotEl.onclick = () => selectPuzzleDot(index);
-        dotEl.innerText = dot.connected ? '✓' : '';
+        dotEl.innerText = dot.connected ? '✓' : dot.id;
+        // ランダムなオフセット（CSS Grid 内で少しずらす）
+        const xOffset = Math.random() * 20 - 10;
+        const yOffset = Math.random() * 20 - 10;
+        dotEl.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
         grid.appendChild(dotEl);
     });
 }
 
 function selectPuzzleDot(index) {
     if (puzzleDots[index].connected) return;
+    
     if (puzzleSelected.includes(index)) {
         // 既に選択中なら解除
         puzzleSelected = puzzleSelected.filter(i => i !== index);
-    } else {
+    } else if (puzzleSelected.length < 2) {
         puzzleSelected.push(index);
     }
     
@@ -2973,7 +2956,7 @@ function selectPuzzleDot(index) {
         if (!puzzleDots[a].connected && !puzzleDots[b].connected) {
             puzzleDots[a].connected = true;
             puzzleDots[b].connected = true;
-            puzzleConnected.push([a, b]);
+            puzzleConnections.push({ from: a, to: b });
         }
         puzzleSelected = [];
         renderPuzzleGrid();
@@ -2981,7 +2964,8 @@ function selectPuzzleDot(index) {
         // すべて接続されたかチェック
         if (puzzleDots.every(d => d.connected)) {
             alert("全ての点をつなげた！クリア！");
-            closePuzzleGame();
+            // 閉じるボタンを非表示
+            document.getElementById('puzzle-close-btn').classList.add('hidden');
         }
     } else {
         // 選択中のハイライトを更新
@@ -3371,11 +3355,7 @@ if (timeSlider && timeLabel) {
     });
 }
 
-// BGMミュートボタンを追加（HTMLにボタンがない場合は後で追加）
-const bgmControl = document.createElement('div');
-bgmControl.id = 'bgm-control';
-bgmControl.innerHTML = '<button class="bgm-btn" onclick="bgm.toggleMute()">🔊</button>';
-document.body.appendChild(bgmControl);
+// BGMはなし（bgmControl削除）
 
 // デイリーコードの初期化とタイマー開始
 checkDailyCode();
