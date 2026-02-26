@@ -269,7 +269,7 @@ const GACHA_CHAR_DB = {
         id: "narrator",
         name: "ナレーター",
         rarity: "UR",
-        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（15個の丸を繋ぐ）\n【メガホン】CT? 相手画面を10秒間ぼやけさせる",
+        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（15個の丸を繋ぐ）\n【メガホン】CT10秒: 相手画面を10秒間ぼやけさせる",
         cooldown: 150, // 一番長いCTをベースに
         gacha: true
     }
@@ -312,6 +312,14 @@ const GACHA_CHARS_BY_RARITY = {
     SR: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'SR').map(c => c.id),
     UR: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'UR').map(c => c.id)
 };
+
+// =========================================
+// 追加：ガチャ能力用の変数
+// =========================================
+let bananaStacks = 0;           // バナナ設置数
+let trapperStacks = 0;          // トラップ設置数
+let isStunned = false;          // スタン状態（タイピング不可）
+let stunTimer = null;           // スタン解除タイマー
 
 // --- デイリーコード生成関数 ---
 function generateDailyCode() {
@@ -1111,7 +1119,7 @@ window.equipSkill = (skillId) => {
     equippedSkill = skillId;
     saveAndDisplayData();
     renderShop();
-    // ガチャ画面の装備表示も更新（あとで）
+    // ガチャ画面の装備表示も更新
     if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
         renderGachaCharacters(getCurrentGachaTabRarity());
     }
@@ -1196,7 +1204,7 @@ function updateGachaCoinDisplay() {
     if (gachaCoin) gachaCoin.innerText = coins.toLocaleString();
 }
 
-// 現在選択中のタブレアリティを取得（簡易）
+// 現在選択中のタブレアリティを取得
 function getCurrentGachaTabRarity() {
     const activeTab = document.querySelector('.gacha-tab.active');
     if (!activeTab) return 'all';
@@ -1235,7 +1243,7 @@ function renderGachaCharacters(rarity) {
     if (rarity === 'all') {
         charsToShow = Object.values(GACHA_CHAR_DB);
     } else {
-        charsToShow = Object.values(GACHA_CHAR_DB).filter(c => c.rarity === rarity);
+        charsToShow = Object.values(GACHA_CHAR_DB).filter(c => c.rarity === rarity.toUpperCase());
     }
 
     charsToShow.forEach(char => {
@@ -1331,8 +1339,7 @@ window.drawGacha = async (type) => {
         // そのレアリティ内で未所有のキャラIDリスト
         const candidates = GACHA_CHARS_BY_RARITY[selectedRarity].filter(id => currentUnowned.includes(id));
         if (candidates.length === 0) {
-            // 該当レアリティの未所有がない場合はレアリティ再抽選？ここでは簡易的に再度抽選とせず、別レアリティから選ぶなどの処理が必要だが、一旦ランダムに再抽選（簡易実装）
-            // 全レアリティから未所有をランダムに選ぶ（フォールバック）
+            // 該当レアリティの未所有がない場合は、他のレアリティからランダムに選ぶ（フォールバック）
             const fallback = currentUnowned[Math.floor(Math.random() * currentUnowned.length)];
             results.push(fallback);
             ownedSkills.push(fallback);
@@ -1642,6 +1649,11 @@ function giveBossSkill(skillId) {
     }
 }
 
+// タイピング可否判定（スタンと妨害を考慮）
+function canType() {
+    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0;
+}
+
 window.addEventListener("keydown", e => {
     if (!gameActive) return;
     
@@ -1668,7 +1680,7 @@ window.addEventListener("keydown", e => {
         if (e.code === "ArrowRight") { e.preventDefault(); window.moveMaze('right'); return; }
     }
     
-    if (isJamming) return;
+    if (!canType()) return;
 
     if (e.key === currentRoma[romaIdx]) {
         processCorrectType();
@@ -1689,6 +1701,14 @@ function startGame(sec) {
     currentWordIdx = 0;
     
     resetSkillState();
+
+    // スタック変数をリセット
+    bananaStacks = 0;
+    trapperStacks = 0;
+    isStunned = false;
+    if (stunTimer) clearTimeout(stunTimer);
+    stunTimer = null;
+
     setupSkillUI();
 
     if (!myPartyId) {
@@ -1867,7 +1887,7 @@ function setupSkillUI() {
             // 通常アクティブスキル（ガチャキャラ含む）
             el("in-game-skill-btn").classList.remove("hidden");
             if (skill.gacha) {
-                statusText.innerText = `【${skill.rarity}】${skill.desc} (スペースキーで発動)`;
+                statusText.innerText = `【${skill.rarity}】${skill.desc}`;
             } else {
                 statusText.innerText = "準備完了！(スペースキーで発動)";
             }
@@ -1915,6 +1935,9 @@ function resetSkillState() {
     cooldowns = { space: 0, key1: 0, key2: 0, key3: 0 };
     
     isJamming = false;
+    isStunned = false;
+    if (stunTimer) clearTimeout(stunTimer);
+    stunTimer = null;
     comboMultiplier = 1;
     timeSlipUsed = false;
     isGodfatherMissionActive = false;
@@ -1938,6 +1961,7 @@ function resetSkillState() {
     el("hacking-overlay").classList.add("hidden");
     el("poison-overlay").classList.add("hidden");
     document.body.classList.remove("poisoned");
+    document.body.classList.remove("swaying");
     el("skill-cooldown-bar").style.height = "0%";
     el("in-game-skill-btn").classList.remove("cooldown", "hidden");
     el("skill-status-text").innerText = "準備完了！(指定キーで発動)";
@@ -2015,11 +2039,7 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
             const targets = Object.keys(members).filter(id => id !== myId);
             if (targets.length > 0) {
                 const randomTarget = targets[Math.floor(Math.random() * targets.length)];
-                const attackId = generateId();
-                update(ref(db, `parties/${myPartyId}/members/${randomTarget}/attacks/${attackId}`), {
-                    type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now()
-                });
-                
+                sendAttackToTarget(randomTarget, type, duration, stealAmount);
                 if (stealAmount > 0) {
                     score += stealAmount;
                     el("stat-score").innerText = score.toLocaleString();
@@ -2027,6 +2047,15 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
                 }
             }
         }
+    });
+}
+
+// 特定のターゲットに攻撃を送信
+function sendAttackToTarget(targetId, type, duration, stealAmount) {
+    if (!myPartyId) return;
+    const attackId = generateId();
+    update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
+        type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now()
     });
 }
 
@@ -2084,30 +2113,29 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOthers("dodge", 1000, 0);
             showBattleAlert("🎆 パチパチ発動！", "#FFD700");
         }
-        // ガチャキャラのスキル（仮実装：後で個別に処理を追加）
+        // ガチャキャラのスキル
         else if (skill.id === "paintballer") {
             sendAttackToOthers("paint", 5000, 0);
             showBattleAlert("🎨 ペイント発動！", "#FF69B4");
         }
         else if (skill.id === "banana") {
-            // バナナ設置処理（要実装）
-            showBattleAlert("🍌 バナナを設置！", "#FFD700");
+            bananaStacks++;
+            showBattleAlert(`🍌 バナナを設置！（残り ${bananaStacks}個）`, "#FFD700");
         }
         else if (skill.id === "slate") {
-            // パッシブなので何もしない
             showBattleAlert("🛡️ スレート（パッシブ）", "#AAAAAA");
-            return;
+            return; // クールダウン不要
         }
         else if (skill.id === "trapper") {
-            // トラップ設置
-            showBattleAlert("🔫 トラップを設置！", "#FF4500");
+            trapperStacks++;
+            showBattleAlert(`🔫 トラップを設置！（残り ${trapperStacks}個）`, "#FF4500");
         }
         else if (skill.id === "rifleman") {
             sendRandomTargetAttack("snipe", 5000, 0);
             showBattleAlert("🎯 ヘッドショット！", "#FF0000");
         }
         else if (skill.id === "narrator") {
-            // 複数能力あるが、スペースキーでは簡易的にメガホン？
+            // メガホンをスペースキーに割り当て（簡易）
             sendAttackToOthers("megaphone", 10000, 0);
             showBattleAlert("📢 メガホン！", "#FF69B4");
         }
@@ -2133,7 +2161,6 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🔷 迷路を送信！", "#00ff00");
             startSpecificCooldown("key1", 45);
         }
-        // ガチャキャラのキー1能力（例：ナレーターのアクションゲーム）
         else if (skill.id === "narrator") {
             sendAttackToOthers("action_game", 0, 0);
             showBattleAlert("🎮 アクションゲーム！", "#00ffff");
@@ -2166,6 +2193,17 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🧩 パズルゲーム！", "#00ff00");
             startSpecificCooldown("key2", 100);
         }
+        // トラッパーの免疫力（スタン中のみ発動可能）
+        else if (skill.id === "trapper") {
+            if (!isStunned) {
+                showBattleAlert("スタンしていないと使えません！", "#FF0000");
+                return;
+            }
+            // スタン解除
+            clearStun();
+            showBattleAlert("💊 免疫力発動！スタンを解除！", "#00FF00");
+            startSpecificCooldown("key2", 200);
+        }
     }
 
     if (keySlot === "key3") {
@@ -2188,10 +2226,35 @@ window.activateSkill = (keySlot = "space") => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 };
 
+// スタン状態をセット
+function setStun(durationMs) {
+    if (equippedSkill === "slate") {
+        showBattleAlert("🛡️ スレートがスタンを無効化！", "#AAAAAA");
+        return false;
+    }
+    if (isStunned) return true; // 既にスタン中
+    isStunned = true;
+    el("jamming-overlay").classList.remove("hidden"); // 妨害オーバーレイを流用
+    if (stunTimer) clearTimeout(stunTimer);
+    stunTimer = setTimeout(() => {
+        clearStun();
+    }, durationMs);
+    return true;
+}
+
+function clearStun() {
+    isStunned = false;
+    el("jamming-overlay").classList.add("hidden");
+    if (stunTimer) {
+        clearTimeout(stunTimer);
+        stunTimer = null;
+    }
+}
+
 function startAutoTypeEngine(durationMs, intervalMs) {
     clearInterval(autoTypeTimer);
     autoTypeTimer = setInterval(() => {
-        if (!gameActive || isJamming || hackerTabsActive > 0) return;
+        if (!gameActive || isJamming || isStunned || hackerTabsActive > 0) return;
         processCorrectType();
     }, intervalMs);
     
@@ -2268,6 +2331,25 @@ function applyBlurEffect() {
             playScreen.style.filter = `blur(${blurAmount}px)`;
         }
     }, 1000);
+}
+
+// ペイントエフェクト
+function applyPaintEffect(durationMs) {
+    const paintOverlay = el("paint-overlay");
+    if (!paintOverlay) return;
+    paintOverlay.classList.remove("hidden");
+    // 5秒後に非表示（フェードはCSS任せ）
+    setTimeout(() => {
+        paintOverlay.classList.add("hidden");
+    }, durationMs);
+}
+
+// ゆらゆらエフェクト
+function applySwayEffect(durationMs) {
+    document.body.classList.add("swaying");
+    setTimeout(() => {
+        document.body.classList.remove("swaying");
+    }, durationMs);
 }
 
 function generateMaze() {
@@ -2455,9 +2537,26 @@ function handleIncomingAttack(attack) {
 
     // スレート（スタン無効パッシブ）のチェック
     if (equippedSkill === "slate") {
-        // スタン系攻撃を無効化（ここではタイプで判断）
-        if (attack.type === "jam" || attack.type === "stun" || attack.type === "hacking" || attack.type === "maze") {
+        // スタン系攻撃を無効化
+        if (attack.type === "jam" || attack.type === "stun" || attack.type === "hacking" || attack.type === "maze" || attack.type === "snipe" || attack.type === "dodge") {
             showBattleAlert("🛡️ スレートのパッシブで無効化！", "#AAAAAA");
+            return;
+        }
+    }
+
+    // バナナ・トラップによる奪取防止
+    if (attack.type === "steal" && attack.stealAmount > 0) {
+        if (bananaStacks > 0) {
+            bananaStacks--;
+            showBattleAlert("🍌 バナナでやられた！相手がスタン！", "#FFD700");
+            // 攻撃元にスタンを返す
+            sendAttackToTarget(attack.from, "stun", 3000, 0);
+            return; // スコア奪取を防ぐ
+        }
+        if (trapperStacks > 0) {
+            trapperStacks--;
+            showBattleAlert("🔫 トラップでやられた！相手がスタン！", "#FF4500");
+            sendAttackToTarget(attack.from, "stun", 5000, 0);
             return;
         }
     }
@@ -2482,7 +2581,7 @@ function handleIncomingAttack(attack) {
         return;
     }
     
-    if (attack.type === "blur") {
+    if (attack.type === "blur" || attack.type === "megaphone") {
         applyBlurEffect();
         sounds.miss.play();
         return;
@@ -2552,6 +2651,30 @@ function handleIncomingAttack(attack) {
         }, attack.duration);
         sounds.miss.play();
         return;
+    }
+
+    if (attack.type === "paint") {
+        applyPaintEffect(attack.duration);
+        sounds.miss.play();
+        return;
+    }
+
+    if (attack.type === "snipe" || attack.type === "stun") {
+        setStun(attack.duration);
+        applySwayEffect(attack.duration);
+        showBattleAlert("🎯 ヘッドショット！くらくら…", "#FF0000");
+        sounds.miss.play();
+        return;
+    }
+
+    if (attack.type === "action_game") {
+        alert("アクションゲーム（未実装）");
+        // TODO: 専用ミニゲームオーバーレイ表示
+    }
+
+    if (attack.type === "puzzle_game") {
+        alert("パズルゲーム（未実装）");
+        // TODO: 専用ミニゲームオーバーレイ表示
     }
 
     if (attack.duration > 0) {
