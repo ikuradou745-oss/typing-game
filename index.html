@@ -107,7 +107,7 @@
                         <span>スキルガチャ</span>
                         <small>SKILL GACHA</small>
                     </button>
-                    <button id="btn-story" class="action-btn" onclick="window.openStoryMode()" style="border-color: #FFD700;">
+                    <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
                         <span>ストーリーモード</span>
                         <small>STORY MODE</small>
                     </button>
@@ -333,13 +333,22 @@
                     <div id="timer-display">00:30</div>
                     
                     <div id="skill-action-box" class="hidden">
+                        <!-- メインスキルボタン（スペースキー用） -->
                         <button id="in-game-skill-btn" onclick="window.activateSkill()">
                             <span id="skill-btn-name">スキルなし</span>
                             <div id="skill-cooldown-bar"></div>
                         </button>
-                        <div id="skill-status-text">準備完了！(スペースキーで発動)</div>
-                        <!-- 追加：マルチキー用の表示領域 -->
-                        <div id="skill-keys-info" class="skill-keys-info hidden"></div>
+                        
+                        <!-- 個別キー表示エリア（新設） -->
+                        <div id="skill-keys-container">
+                            <div id="skill-key-space" class="skill-key-item hidden">Space: スキル名</div>
+                            <div id="skill-key-1" class="skill-key-item hidden">1: スキル名</div>
+                            <div id="skill-key-2" class="skill-key-item hidden">2: スキル名</div>
+                            <div id="skill-key-3" class="skill-key-item hidden">3: スキル名</div>
+                        </div>
+                        
+                        <!-- 旧キー情報表示領域（削除しても良いが、互換性のため残しつつ非表示に） -->
+                        <div id="skill-status-text" class="hidden"></div>
                     </div>
 
                     <div class="word-ja" id="q-ja">準備中...</div>
@@ -441,12 +450,11 @@
         <div class="poison-effect"></div>
     </div>
 
-    <!-- ================= 新規追加：アクションゲームオーバーレイ ================= -->
+    <!-- ================= アクションゲームオーバーレイ ================= -->
     <div id="action-game-overlay" class="hidden">
         <div class="action-game-container">
             <h3>🎮 アクションゲーム</h3>
             <div class="action-game-canvas" id="action-game-canvas">
-                <!-- 簡易的な表示：後でJSで描画 -->
                 <div class="action-game-ground">____________________</div>
                 <div class="action-game-player">😀</div>
                 <div class="action-game-spike">▲</div>
@@ -462,7 +470,7 @@
         </div>
     </div>
 
-    <!-- ================= 新規追加：パズルゲーム（ドットコネクト）オーバーレイ ================= -->
+    <!-- ================= パズルゲーム（ドットコネクト）オーバーレイ ================= -->
     <div id="puzzle-game-overlay" class="hidden">
         <div class="puzzle-game-container">
             <h3>🧩 ドットコネクト</h3>
