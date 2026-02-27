@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.7 (Fixed)
+// FIREBASE & TYPING ENGINE V10.8 (Fixed)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -228,7 +228,7 @@ const GACHA_CHAR_DB = {
         id: "paintballer",
         name: "ペイントボーラー",
         rarity: "R",
-        desc: "【ペイント】CT15秒: 相手の画面に5秒間ペイントを塗り潰す（徐々に透明）",
+        desc: "【ペイント】CT15秒: 相手の画面全体を5秒間ピンク色のペイントで塗り潰す（最初の2.5秒は完全に不透明、その後フェードアウト）",
         cooldown: 15,
         gacha: true
     },
@@ -2542,7 +2542,7 @@ function applyBlurEffect() {
     }, 1000);
 }
 
-// ペイントエフェクト（改良：最初の2.5秒は不透明）
+// ペイントエフェクト（改良：画面全体に広がり、周りの透明度をなくす）
 function applyPaintEffect(durationMs) {
     const paintOverlay = el("paint-overlay");
     if (!paintOverlay) return;
@@ -2555,10 +2555,19 @@ function applyPaintEffect(durationMs) {
     // CSSアニメーションを無効化
     paintEffect.style.animation = 'none';
     paintEffect.style.opacity = '1';
+    
+    // 画面全体を覆うようにスタイルを変更
+    paintEffect.style.background = 'radial-gradient(circle at 50% 50%, rgba(255, 105, 180, 1) 0%, rgba(255, 105, 180, 1) 100%)';
+    paintEffect.style.width = '100%';
+    paintEffect.style.height = '100%';
+    paintEffect.style.position = 'absolute';
+    paintEffect.style.top = '0';
+    paintEffect.style.left = '0';
+    
     paintOverlay.classList.remove("hidden");
 
     const totalDuration = durationMs; // 5000ms
-    const holdDuration = 2500; // 2.5秒間不透明
+    const holdDuration = 2500; // 2.5秒間完全に不透明
     const fadeDuration = totalDuration - holdDuration; // 残り2.5秒でフェード
 
     // ホールド時間後にフェード開始
@@ -2575,6 +2584,7 @@ function applyPaintEffect(durationMs) {
                 // フェード終了後、オーバーレイを非表示
                 paintOverlay.classList.add("hidden");
                 paintEffect.style.opacity = ''; // リセット
+                paintEffect.style.background = ''; // リセット
                 effectTimers.paint = 0;
             }
         };
@@ -2966,7 +2976,7 @@ function applyJamming(durationMs) {
 }
 
 // =========================================
-// アクションゲーム関連（改良版：重力修正＋敵復活機能）
+// アクションゲーム関連（修正：ジャンプとトゲ避け）
 // =========================================
 let actionGameActive = false;
 let actionGamePlayer = { x: 50, y: 60, vy: 0 }; // 地面の高さを60に設定
@@ -2977,6 +2987,7 @@ let actionGameEnemyAlive = true;
 let actionGameGravity = 0.8;                     // 重力（正の値で下向き）
 let actionGameOnGround = true;
 let actionGameInterval = null;
+let actionGameJumpPower = -12;                    // ジャンプ力（負の値で上に）
 
 window.startActionGame = () => {
     actionGameActive = true;
@@ -3029,7 +3040,7 @@ window.moveActionGame = (dir) => {
         actionGamePlayer.x = Math.min(350, actionGamePlayer.x + 20);
     } else if (dir === 'jump') {
         if (actionGameOnGround) {
-            actionGamePlayer.vy = -12; // 上向き速度（負の値で上に）
+            actionGamePlayer.vy = actionGameJumpPower; // ジャンプ（負の値で上に）
             actionGameOnGround = false;
         }
     }
@@ -3085,7 +3096,7 @@ function updateActionGameDisplay() {
 }
 
 function checkActionGameCollision() {
-    // 棘との衝突（地面にいない時）
+    // 棘との衝突（ジャンプ中のみ当たるように修正）
     if (Math.abs(actionGamePlayer.x - actionGameSpikePos.x) < 30 && !actionGameOnGround) {
         showBattleAlert("トゲに当たった！最初からやり直し", "#ff0000");
         resetActionGame();
