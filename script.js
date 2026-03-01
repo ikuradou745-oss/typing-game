@@ -2987,7 +2987,7 @@ let actionGameEnemyAlive = true;
 let actionGameGravity = 0.8;                     // 重力（正の値で下向き）
 let actionGameOnGround = true;
 let actionGameInterval = null;
-let actionGameJumpPower = 12;                    // ジャンプ力（負の値で上に）
+let actionGameJumpPower = -12;                    // ジャンプ力（負の値で上に）
 
 window.startActionGame = () => {
     actionGameActive = true;
