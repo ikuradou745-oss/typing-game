@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V11.1 (Fixed)
+// FIREBASE & TYPING ENGINE V11.2 (Fixed)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1032,7 +1032,7 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- チーム設定（改良版：メンバー一覧表示）---
+// --- チーム設定（改良版：メンバーをタップして赤・青を選択）---
 window.toggleTeamSetup = () => {
     const teamSetup = el("team-setup");
     if (teamSetup) {
@@ -1052,22 +1052,27 @@ function updateTeamSetupUI() {
         const currentTeam = m.team || "red";
         const memberDiv = document.createElement("div");
         memberDiv.className = `team-member-item ${currentTeam}`;
+        memberDiv.onclick = () => toggleMemberTeam(id); // メンバー行をタップでチーム切り替え
         memberDiv.innerHTML = `
             <span class="team-member-name">${m.name}</span>
-            <button class="member-team-badge ${currentTeam}" onclick="window.switchTeam('${id}')">
+            <span class="member-team-badge ${currentTeam}">
                 ${currentTeam === "red" ? "🔴 赤" : "🔵 青"}
-            </button>
+            </span>
         `;
         teamList.appendChild(memberDiv);
     });
 }
 
-window.switchTeam = (memberId) => {
+// メンバーのチームを切り替える（赤↔青）
+function toggleMemberTeam(memberId) {
     if (!isLeader) return;
     const currentTeam = partyMembers[memberId]?.team || "red";
     const newTeam = currentTeam === "red" ? "blue" : "red";
     update(ref(db, `parties/${myPartyId}/members/${memberId}/team`), newTeam);
-};
+}
+
+// 互換性のため残す（従来の切り替え関数）
+window.switchTeam = toggleMemberTeam;
 
 window.setAllTeam = (team) => {
     if (!isLeader || !partyMembers) return;
@@ -1089,26 +1094,53 @@ function updateHandicapSetupUI() {
         const memberDiv = document.createElement("div");
         memberDiv.className = "handicap-member-item";
         memberDiv.innerHTML = `
-            <div class="handicap-member-header">
+            <div class="handicap-member-header" onclick="window.toggleMemberHandicap('${id}')">
                 <span class="handicap-member-face">${memberFace}</span>
                 <span class="handicap-member-name">${m.name}</span>
+                <span class="handicap-current">${getHandicapName(currentHandicap)}</span>
             </div>
-            <select class="handicap-select" onchange="window.setMemberHandicap('${id}', this.value)">
-                <option value="none" ${currentHandicap === "none" ? "selected" : ""}>ハンデなし</option>
-                <option value="score_half" ${currentHandicap === "score_half" ? "selected" : ""}>スコア半減</option>
-                <option value="no_type_10" ${currentHandicap === "no_type_10" ? "selected" : ""}>最初の10秒タイピング不可</option>
-                <option value="combo_start_0" ${currentHandicap === "combo_start_0" ? "selected" : ""}>コンボ0スタート</option>
-                <option value="slow_typing" ${currentHandicap === "slow_typing" ? "selected" : ""}>タイピング速度半減</option>
-            </select>
+            <div class="handicap-options hidden" id="handicap-options-${id}">
+                <button class="handicap-option ${currentHandicap === 'none' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'none')">ハンデなし</button>
+                <button class="handicap-option ${currentHandicap === 'score_half' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'score_half')">スコア半減</button>
+                <button class="handicap-option ${currentHandicap === 'no_type_10' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'no_type_10')">最初の10秒タイピング不可</button>
+                <button class="handicap-option ${currentHandicap === 'combo_start_0' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'combo_start_0')">コンボ0スタート</button>
+                <button class="handicap-option ${currentHandicap === 'slow_typing' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'slow_typing')">タイピング速度半減</button>
+            </div>
         `;
         handicapList.appendChild(memberDiv);
     });
 }
 
+function getHandicapName(handicap) {
+    const names = {
+        'none': 'なし',
+        'score_half': 'スコア半減',
+        'no_type_10': '最初の10秒不可',
+        'combo_start_0': 'コンボ0',
+        'slow_typing': '速度半減'
+    };
+    return names[handicap] || 'なし';
+}
+
+// ハンデオプションの表示/非表示を切り替え
+window.toggleMemberHandicap = (memberId) => {
+    const options = document.getElementById(`handicap-options-${memberId}`);
+    if (options) {
+        options.classList.toggle('hidden');
+    }
+};
+
 window.setMemberHandicap = (memberId, handicap) => {
     if (!isLeader) return;
     update(ref(db, `parties/${myPartyId}/members/${memberId}/handicap`), handicap);
     memberHandicaps[memberId] = handicap;
+    // オプションを非表示に戻す
+    const options = document.getElementById(`handicap-options-${memberId}`);
+    if (options) {
+        options.classList.add('hidden');
+    }
+    // UI更新
+    updateHandicapSetupUI();
 };
 
 // 自分のハンデを取得
@@ -3574,8 +3606,9 @@ function renderStoryMap() {
         map1.innerHTML = "";
         STORY_STAGES.chapter1.forEach((stage, index) => {
             const stageNum = index + 1;
-            const isCompleted = storyProgress.chapter1 >= stageNum;
+            // 第1章のロック条件: 前のステージをクリアしていないとロック
             const isLocked = storyProgress.chapter1 < stageNum - 1;
+            const isCompleted = storyProgress.chapter1 >= stageNum;
             const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
             
             const node = document.createElement("div");
@@ -3597,9 +3630,11 @@ function renderStoryMap() {
         map2.innerHTML = "";
         STORY_STAGES.chapter2.forEach((stage, index) => {
             const stageNum = index + 1;
-            const isCompleted = storyProgress.chapter2 >= stageNum;
-            const isLocked = (storyProgress.chapter1 < 7) || (storyProgress.chapter2 < stageNum - 1);
-            const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && storyProgress.chapter1 >= 7;
+            // 第2章のロック条件: 第1章をクリアしていないと章全体がロック、かつ前のステージをクリアしていないとステージがロック
+            const chapterLocked = storyProgress.chapter1 < 7;
+            const isLocked = chapterLocked || storyProgress.chapter2 < stageNum - 1;
+            const isCompleted = !chapterLocked && storyProgress.chapter2 >= stageNum;
+            const isCurrent = !chapterLocked && storyProgress.chapter2 === stageNum - 1 && !isCompleted;
             
             const node = document.createElement("div");
             node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -3620,9 +3655,11 @@ function renderStoryMap() {
         map3.innerHTML = "";
         STORY_STAGES.chapter3.forEach((stage, index) => {
             const stageNum = index + 1;
-            const isCompleted = storyProgress.chapter3 >= stageNum;
-            const isLocked = (storyProgress.chapter2 < 7) || (storyProgress.chapter3 < stageNum - 1);
-            const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && storyProgress.chapter2 >= 7;
+            // 第3章のロック条件: 第2章をクリアしていないと章全体がロック、かつ前のステージをクリアしていないとステージがロック
+            const chapterLocked = storyProgress.chapter2 < 7;
+            const isLocked = chapterLocked || storyProgress.chapter3 < stageNum - 1;
+            const isCompleted = !chapterLocked && storyProgress.chapter3 >= stageNum;
+            const isCurrent = !chapterLocked && storyProgress.chapter3 === stageNum - 1 && !isCompleted;
             
             const node = document.createElement("div");
             node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
@@ -3675,18 +3712,30 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
-    // ステージのロックチェック
-    if (chapter === 1 && stage > storyProgress.chapter1 + 1) {
-        alert("前のステージをクリアしてください");
-        return;
-    }
-    if (chapter === 2 && (storyProgress.chapter1 < 7 || stage > storyProgress.chapter2 + 1)) {
-        alert("第1章をクリアするか、前のステージをクリアしてください");
-        return;
-    }
-    if (chapter === 3 && (storyProgress.chapter2 < 7 || stage > storyProgress.chapter3 + 1)) {
-        alert("第2章をクリアするか、前のステージをクリアしてください");
-        return;
+    // ステージのロックチェック（厳密に）
+    if (chapter === 1) {
+        if (stage > storyProgress.chapter1 + 1) {
+            alert("前のステージをクリアしてください");
+            return;
+        }
+    } else if (chapter === 2) {
+        if (storyProgress.chapter1 < 7) {
+            alert("第1章をクリアしてください");
+            return;
+        }
+        if (stage > storyProgress.chapter2 + 1) {
+            alert("前のステージをクリアしてください");
+            return;
+        }
+    } else if (chapter === 3) {
+        if (storyProgress.chapter2 < 7) {
+            alert("第2章をクリアしてください");
+            return;
+        }
+        if (stage > storyProgress.chapter3 + 1) {
+            alert("前のステージをクリアしてください");
+            return;
+        }
     }
     
     currentStage = { chapter, stage };
@@ -3770,9 +3819,9 @@ async function checkPartyProgress() {
         if (currentStage.chapter === 1) {
             if (progress.chapter1 < currentStage.stage - 1) allCleared = false;
         } else if (currentStage.chapter === 2) {
-            if (progress.chapter2 < currentStage.stage - 1) allCleared = false;
+            if (progress.chapter1 < 7 || progress.chapter2 < currentStage.stage - 1) allCleared = false;
         } else {
-            if (progress.chapter3 < currentStage.stage - 1) allCleared = false;
+            if (progress.chapter2 < 7 || progress.chapter3 < currentStage.stage - 1) allCleared = false;
         }
     }
     
