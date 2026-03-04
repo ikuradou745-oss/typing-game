@@ -38,11 +38,11 @@
 
                 <div class="special-codes-section">
                     <div class="special-code-item">
-                        <span class="special-code">????</span>
+                        <span class="special-code">TYSM</span>
                         <span class="special-reward">25000コイン</span>
                     </div>
                     <div class="special-code-item">
-                        <span class="special-code">??????</span>
+                        <span class="special-code">BYRAMO</span>
                         <span class="special-reward">コンボアップの神</span>
                     </div>
                 </div>
@@ -164,13 +164,13 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面 -->
+            <!-- ストーリーモード画面（第3章ロック機能強化） -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
                     <button class="chapter-tab active" data-chapter="1">第1章</button>
-                    <button class="chapter-tab" data-chapter="2">第2章</button>
-                    <button class="chapter-tab" data-chapter="3">第3章</button>
+                    <button class="chapter-tab" data-chapter="2" id="chapter2-tab">第2章</button>
+                    <button class="chapter-tab" data-chapter="3" id="chapter3-tab">第3章</button>
                 </div>
                 
                 <div id="story-chapter-1" class="story-chapter active">
@@ -316,6 +316,7 @@
                 </div>
             </div>
 
+            <!-- バトルセットアップ画面（チーム戦・ハンデUI改善） -->
             <div id="screen-battle-setup" class="screen hidden">
                 <h2 class="title-glow">BATTLE SETUP</h2>
                 <div class="setup-panel">
@@ -340,12 +341,12 @@
                         </select>
                     </div>
                     
-                    <!-- チーム設定エリア（改良版） -->
+                    <!-- チーム設定エリア（改良版：クリックでチーム切り替え） -->
                     <div id="team-setup" class="team-setup hidden">
-                        <h4 class="team-setup-title">チーム割り当て</h4>
+                        <h4 class="team-setup-title">チーム割り当て（クリックで赤/青切替）</h4>
                         <div class="team-members-container">
                             <div id="team-members-list" class="team-members-list">
-                                <!-- メンバー一覧がJSで動的に生成されます -->
+                                <!-- メンバー一覧がJSで動的に生成されます（クリックでチーム切替） -->
                             </div>
                         </div>
                         <div class="team-bulk-actions">
@@ -354,7 +355,7 @@
                         </div>
                     </div>
 
-                    <!-- ハンデ設定エリア（改良版：メンバー個別） -->
+                    <!-- ハンデ設定エリア（改良版：選択状態がわかりやすいスタイル） -->
                     <div class="handicap-section">
                         <h4 class="handicap-title">ハンデ設定 (メンバー個別)</h4>
                         <div class="handicap-members-container">
@@ -409,13 +410,17 @@
                     <div class="blood-overlay"></div>
                 </div>
 
-                <!-- BANルーレット -->
+                <!-- BANルーレット（全員表示用） -->
                 <div id="ban-roulette" class="hidden">
                     <div class="roulette-container">
                         <h2>🎲 BANルーレット 🎲</h2>
-                        <div class="roulette-wheel" id="roulette-wheel">?</div>
-                        <button class="roulette-spin-btn" onclick="window.spinBanRoulette()">回す！</button>
-                        <div id="roulette-result" class="roulette-result"></div>
+                        <div class="roulette-spinner" id="ban-roulette-spinner">
+                            <div class="roulette-wheel" id="roulette-wheel">?</div>
+                        </div>
+                        <div class="roulette-participants" id="roulette-participants">
+                            <div>参加者: <span id="participant-count">0</span>人</div>
+                        </div>
+                        <div id="roulette-status" class="roulette-status"></div>
                     </div>
                 </div>
 
