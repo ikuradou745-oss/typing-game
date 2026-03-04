@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V10.8 (Fixed)
+// FIREBASE & TYPING ENGINE V11.0 (Full Update)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -26,7 +26,9 @@ const sounds = {
     correct: new Audio("https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3"),
     finish: new Audio("https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"),
     notify: new Audio("https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3"),
-    coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3")
+    coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"),
+    cut: new Audio("https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3"),
+    blood: new Audio("https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3")
 };
 
 // --- グローバル変数 ---
@@ -49,7 +51,7 @@ let currentWordIdx = 0;
 let currentRoma = "";
 let romaIdx = 0;
 let gameInterval; 
-let gameStartTime = null; // サーバー時刻同期用（今回は未使用）
+let gameStartTime = null;
 
 let coins = parseInt(localStorage.getItem("ramo_coins")) || 1000;
 
@@ -59,7 +61,7 @@ let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
 let dailyCodeDate = localStorage.getItem("ramo_daily_date") || new Date().toDateString();
 let codeTimer = null;
 
-// 特殊コード使用フラグ（Firebaseでも管理）
+// 特殊コード使用フラグ
 let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
 let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
 let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
@@ -68,7 +70,7 @@ let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
 let comboGodActive = false;
 let comboGodTimer = null;
 
-// --- スキンシステム用グローバル変数 ---
+// --- スキンシステム ---
 let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
     skin: "skin-1",
     face: "face-1",
@@ -125,11 +127,11 @@ const FACE_DATA = {
     "face-money": "🤑"
 };
 
-// --- スキルシステム用グローバル変数 ---
+// --- スキルシステム ---
 let ownedSkills = JSON.parse(localStorage.getItem("ramo_skills")) || ["none"];
 let equippedSkill = localStorage.getItem("ramo_equipped") || "none";
 
-// マルチクールダウン管理システム
+// マルチクールダウン管理
 let cooldowns = { space: 0, key1: 0, key2: 0, key3: 0 };
 let maxCooldowns = { space: 0, key1: 0, key2: 0, key3: 0 };
 let cooldownTimers = { space: null, key1: null, key2: null, key3: null };
@@ -144,8 +146,8 @@ let isGodfatherMissionActive = false;
 let hackerTabsActive = 0;
 let attackListenerReference = null;
 
-// --- ストーリーモード用グローバル変数 ---
-let storyProgress = JSON.parse(localStorage.getItem("ramo_story_progress")) || { chapter1: 0, chapter2: 0 };
+// --- ストーリーモード ---
+let storyProgress = JSON.parse(localStorage.getItem("ramo_story_progress")) || { chapter1: 0, chapter2: 0, chapter3: 0 };
 let currentStage = { chapter: 1, stage: 1 };
 let isStoryMode = false;
 let storyTargetScore = 8000;
@@ -156,14 +158,30 @@ let mazeGoalPos = { x: 9, y: 9 };
 let mazeGrid = [];
 let poisonActive = false;
 let hackingActive = false;
+let bleedingActive = false;
 let partyStoryProgress = {};
 
-// --- デバッグモード用変数 ---
+// --- デバッグモード ---
 let debugCode = "";
 let debugActive = false;
 let debugKeys = { w: false, l: false };
 
-// ストーリーモードのステージデータ
+// --- チーム戦関連 ---
+let teamMode = "solo";
+let playerTeams = {}; // { playerId: "red" or "blue" }
+
+// --- ハンデ関連 ---
+let handicapType = "none";
+let handicapNoTypeTimer = null;
+let handicapSlowTimer = null;
+
+// --- 修行モード関連 ---
+let trainingMode = false;
+let trainingAttackTimer = null;
+let trainingType = 0; // 1 or 2
+let trainingScore = 0;
+
+// ストーリーモードのステージデータ（第3章追加）
 const STORY_STAGES = {
     chapter1: [
         { stage: 1, target: 8000, reward: 100 },
@@ -182,6 +200,18 @@ const STORY_STAGES = {
         { stage: 5, target: 30000, reward: 1200 },
         { stage: 6, target: 31000, reward: 1300 },
         { stage: 7, target: 45000, reward: 1400, boss: true, skill: "hacker_milestone4" }
+    ],
+    chapter3: [
+        { stage: 1, target: 50000, reward: 1500 },
+        { stage: 2, target: 50500, reward: 1600 },
+        { stage: 3, target: 51000, reward: 1700 },
+        { stage: 4, target: 51500, reward: 1800 },
+        { stage: 5, target: 52000, reward: 1900 },
+        { stage: 6, target: 52500, reward: 2000 },
+        { stage: 7, target: 53000, reward: 2100 },
+        { stage: 8, target: 53500, reward: 2200 },
+        { stage: 9, target: 54000, reward: 2300 },
+        { stage: 10, target: 70000, reward: 10000, boss: true, skill: "invincible_survivor" }
     ]
 };
 
@@ -216,19 +246,45 @@ const NEW_SKILLS = {
         cooldown: 0,
         desc: "【1回のみ使用可能】7秒間、コンボの数が3.5倍になる",
         special: true
+    },
+    invincible_survivor: {
+        id: "invincible_survivor",
+        name: "無敵サバイバー",
+        cost: 0,
+        cooldown: 0,
+        desc: "【無敵/キー:1】CT50秒: 15秒間、全ての妨害・スタン・スコア奪取を無効化\n【カウントスコア/キー:2】CT40秒: ルーレットで「5秒スタン」か「500スコア奪取」をランダム発動",
+        boss: true,
+        chapter: 3,
+        stage: 10,
+        requirement: "第3章 3-10 クリア"
+    },
+    swordsman: {
+        id: "swordsman",
+        name: "剣士",
+        cost: 0,
+        cooldown: 0,
+        desc: "【切り傷/キー:1】CT15秒: 相手に切り傷を2箇所出し、2秒間タイピング不可＆300スコア減少\n【大きな傷/キー:2】CT35秒: 相手を4秒間タイピング不可＆10秒間「血」状態",
+        training: true,
+        trainingLevel: 1
+    },
+    hacker_trainee: {
+        id: "hacker_trainee",
+        name: "ハッカー修行人",
+        cost: 0,
+        cooldown: 0,
+        desc: "【タブ追加α/キー:1】CT30秒: 相手にタブ10個を出す\n【異常状態α/キー:2】CT40秒: 相手を3秒スタン後、毒か血状態\n【画面妨害α/キー:3】CT70秒: 画面をくらくらさせた後、高速回転（7秒）\n【ランダム/キー:Space】CT600秒: ランダムなスキルを発動",
+        training: true,
+        trainingLevel: 2
     }
 };
 
-// =========================================
-// 追加：ガチャキャラクターデータベース
-// =========================================
+// ガチャキャラクターデータベース
 const GACHA_CHAR_DB = {
-    // R (レア) 3種
     paintballer: {
         id: "paintballer",
         name: "ペイントボーラー",
         rarity: "R",
-        desc: "【ペイント】CT15秒: 相手の画面全体を5秒間ピンク色のペイントで塗り潰す（最初の2.5秒は完全に不透明、その後フェードアウト）",
+        desc: "【ペイント】CT15秒: 相手の画面全体を5秒間ピンク色のペイントで塗り潰す",
         cooldown: 15,
         gacha: true
     },
@@ -236,7 +292,7 @@ const GACHA_CHAR_DB = {
         id: "banana",
         name: "バナナ",
         rarity: "R",
-        desc: "【バナナをしく】CT5秒: バナナを設置（スタック可能）。スコアを奪う相手が自分を奪うと、奪った相手を3秒スタン",
+        desc: "【バナナをしく】CT5秒: バナナを設置。スコア奪取攻撃を受けると相手を3秒スタン",
         cooldown: 5,
         gacha: true
     },
@@ -244,16 +300,15 @@ const GACHA_CHAR_DB = {
         id: "slate",
         name: "スレート",
         rarity: "R",
-        desc: "【パッシブ】スタン無効（ハッカータブ・高度なハックも無効）",
+        desc: "【パッシブ】スタン無効",
         cooldown: 0,
         gacha: true
     },
-    // SR (スーパーレア) 2種
     trapper: {
         id: "trapper",
         name: "トラッパー",
         rarity: "SR",
-        desc: "【トラップ】CT15秒: トラップ設置（スタック可）。スコア奪取攻撃を受けると相手の奪取失敗＆5秒スタン\n【免疫力】CT200秒: スタン中のみ使用可、スタン解除",
+        desc: "【トラップ】CT15秒: トラップ設置\n【免疫力】CT200秒: スタン解除",
         cooldown: 15,
         gacha: true
     },
@@ -261,68 +316,64 @@ const GACHA_CHAR_DB = {
         id: "rifleman",
         name: "ライフルマン",
         rarity: "SR",
-        desc: "【ヘッドショット】CT45秒: ランダムな相手1人を5秒スタン＆5秒間画面ゆらゆら",
+        desc: "【ヘッドショット】CT45秒: ランダムな相手を5秒スタン＆ゆらゆら",
         cooldown: 45,
         gacha: true
     },
-    // UR (ウルトラレア) 1種
     narrator: {
         id: "narrator",
         name: "ナレーター",
         rarity: "UR",
-        desc: "【アクションゲーム】CT150秒: 相手全員にアクションゲーム画面表示（操作：←→移動、Spaceジャンプ）\n【パズルゲーム】CT100秒: ドットコネクト（16個の丸を繋ぐ）\n【メガホン】CT10秒: 相手画面を10秒間ぼやけさせる",
+        desc: "【アクションゲーム】CT150秒\n【パズルゲーム】CT100秒\n【メガホン】CT10秒: 画面ぼやけ",
         cooldown: 150,
         gacha: true
     }
 };
 
-// 既存の SKILL_DB にガチャキャラを追加
+// スキルデータベース統合
 const SKILL_DB = {
     punch: { id: "punch", name: "パンチ", cost: 15000, cooldown: 45, desc: "相手は3秒間タイピング不可" },
     autotype: { id: "autotype", name: "自動入力", cost: 50000, cooldown: 25, desc: "3秒間爆速で自動タイピング" },
     comboUp: { id: "comboUp", name: "コンボアップ", cost: 50000, cooldown: 35, desc: "5秒間コンボ増加量が2倍" },
     revolver: { id: "revolver", name: "リボルバー", cost: 100000, cooldown: 45, desc: "相手は6秒間タイピング不可＆500スコア奪う" },
     thief: { id: "thief", name: "泥棒", cost: 75000, cooldown: 25, desc: "相手から1200スコア奪う" },
-    timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手スコア半減＆3秒妨害。自分は6秒爆速自動入力" },
+    timeslip: { id: "timeslip", name: "タイムスリップ", cost: 250000, cooldown: 0, desc: "【1回使い切り】相手のスコアを1000〜3000減少、3秒間自動入力" },
     fundraiser: { id: "fundraiser", name: "資金稼ぎ", cost: 15000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に2倍になる" },
     godfundraiser: { id: "godfundraiser", name: "神資金稼ぎ", cost: 100000, cooldown: 0, desc: "【パッシブ】試合後にもらえるコインが常に4倍になる" },
-    godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×20)のコインを直接獲得" },
-    hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: 相手画面の中央付近に消去必須タブを10個出す（10秒間妨害）\n【ウイルス/キー:2】CT70秒: ランダムな相手を5秒スタン＆800スコア奪う" },
-    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: 相手の画面全体を10秒間ぼやけさせる\n【特別加熱/キー:2】CT70秒: 相手を3秒スタン＆500スコア減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手のコンボを0にする" },
+    godfather: { id: "godfather", name: "ゴッドファザー", cost: 50000, cooldown: 25, desc: "【任務/Space】10秒間、タイピング成功時に(コンボ数×5)のコインを獲得" },
+    hacker: { id: "hacker", name: "ハッカー", cost: 250000, cooldown: 0, desc: "【タブ追加/キー:1】CT30秒: タブ10個\n【ウイルス/キー:2】CT70秒: スタン＆800スコア奪取" },
+    accelerator: { id: "accelerator", name: "アクセラレーター", cost: 500000, cooldown: 0, desc: "【熱い温度/キー:1】CT40秒: ぼやけ\n【特別加熱/キー:2】CT70秒: スタン＆500減少\n【自爆/キー:3】CT200秒: 自スコア3000減＆相手コンボ0" },
     ...NEW_SKILLS,
-    // ガチャキャラを追加（gachaフラグを付与）
     ...Object.fromEntries(
         Object.entries(GACHA_CHAR_DB).map(([key, val]) => [key, { ...val, cost: 0 }])
     )
 };
 
-// --- ガチャ関連の追加グローバル変数 ---
-const GACHA_COST = 50000;        // 1回のコスト
-const GACHA_COST_10 = 450000;     // 10連のコスト（10%OFF）
+// ガチャ関連
+const GACHA_COST = 50000;
+const GACHA_COST_10 = 450000;
 
-// ガチャ確率（%）
 const GACHA_RATES = {
     R: 75,
     SR: 23.5,
     UR: 1.5
 };
 
-// 各レアリティに属するキャラID（GACHA_CHAR_DB から抽出）
 const GACHA_CHARS_BY_RARITY = {
     R: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'R').map(c => c.id),
     SR: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'SR').map(c => c.id),
     UR: Object.values(GACHA_CHAR_DB).filter(c => c.rarity === 'UR').map(c => c.id)
 };
 
-// =========================================
-// 追加：ガチャ能力用の変数
-// =========================================
-let bananaStacks = 0;           // バナナ設置数
-let trapperStacks = 0;          // トラップ設置数
-let isStunned = false;          // スタン状態（タイピング不可）
-let stunTimer = null;           // スタン解除タイマー
+// ガチャ能力用変数
+let bananaStacks = 0;
+let trapperStacks = 0;
+let isStunned = false;
+let stunTimer = null;
+let invincibleActive = false;
+let invincibleTimer = null;
 
-// --- 効果残り時間表示用変数 ---
+// 効果残り時間表示用変数
 let effectTimers = {
     stun: null,
     jamming: null,
@@ -331,11 +382,12 @@ let effectTimers = {
     maze: null,
     hacking: null,
     blur: null,
-    paint: null
+    paint: null,
+    bleeding: null
 };
 
-// --- パーティーメンバー情報をキャッシュする変数（クリア判定用）---
-let partyMembers = {};           // { memberId: { name, score, ... } }
+// パーティーメンバー情報キャッシュ
+let partyMembers = {};
 
 // --- デイリーコード生成関数 ---
 function generateDailyCode() {
@@ -352,18 +404,15 @@ function checkDailyCode() {
     const now = new Date();
     const today = now.toDateString();
     
-    // 日付が変わっていたら新しいコードを生成
     if (dailyCodeDate !== today) {
         dailyCode = generateDailyCode();
         dailyCodeDate = today;
-        // デイリーコードの使用済みリセット（デイリーコードのみ）
         const dailyUsedCodes = usedCodes.filter(code => code !== dailyCode);
         usedCodes = dailyUsedCodes;
         localStorage.setItem("ramo_daily_code", dailyCode);
         localStorage.setItem("ramo_daily_date", dailyCodeDate);
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
         
-        // Firebaseにも保存
         const userRef = ref(db, `users/${myId}`);
         update(userRef, {
             daily_code: dailyCode,
@@ -371,27 +420,20 @@ function checkDailyCode() {
         }).catch(err => console.error("Firebase daily code update error:", err));
     }
     
-    // UI更新
     updateDailyCodeDisplay();
 }
 
-// デイリーコード表示更新
 function updateDailyCodeDisplay() {
     const dailyCodeEl = el("daily-code");
-    if (dailyCodeEl) {
-        dailyCodeEl.innerText = dailyCode;
-    }
+    if (dailyCodeEl) dailyCodeEl.innerText = dailyCode;
 }
 
-// 次の更新までの時間を計算
 function getTimeUntilNextUpdate() {
     const now = new Date();
     const nextUpdate = new Date();
-    nextUpdate.setHours(7, 0, 0, 0); // 朝7時
+    nextUpdate.setHours(7, 0, 0, 0);
     
-    if (now > nextUpdate) {
-        nextUpdate.setDate(nextUpdate.getDate() + 1);
-    }
+    if (now > nextUpdate) nextUpdate.setDate(nextUpdate.getDate() + 1);
     
     const diff = nextUpdate - now;
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -401,15 +443,11 @@ function getTimeUntilNextUpdate() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// タイマー更新
 function startCodeTimer() {
     if (codeTimer) clearInterval(codeTimer);
-    
     codeTimer = setInterval(() => {
         const timerEl = el("daily-code-timer");
-        if (timerEl) {
-            timerEl.innerText = `更新まで: ${getTimeUntilNextUpdate()}`;
-        }
+        if (timerEl) timerEl.innerText = `更新まで: ${getTimeUntilNextUpdate()}`;
     }, 1000);
 }
 
@@ -427,7 +465,6 @@ window.closeCodeUI = () => {
     el("code-input").value = "";
 };
 
-// Firebaseからコード使用状況を読み込む関数
 async function loadCodeStatusFromFirebase() {
     try {
         const userRef = ref(db, `users/${myId}`);
@@ -441,7 +478,6 @@ async function loadCodeStatusFromFirebase() {
             if (data.daily_code_date) dailyCodeDate = data.daily_code_date;
             if (data.used_codes) usedCodes = data.used_codes;
             
-            // ローカルストレージも更新
             localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
             localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
             localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
@@ -454,11 +490,8 @@ async function loadCodeStatusFromFirebase() {
     }
 }
 
-// データ全リセット関数（隠しコードBA3用）
 async function resetAllData() {
-    // ローカルストレージをクリア
     localStorage.clear();
-    // Firebase上のユーザーデータを初期化
     const userRef = ref(db, `users/${myId}`);
     await set(userRef, {
         name: myName,
@@ -467,7 +500,7 @@ async function resetAllData() {
         coins: 1000,
         skills: ["none"],
         equipped: "none",
-        story_progress: { chapter1: 0, chapter2: 0 },
+        story_progress: { chapter1: 0, chapter2: 0, chapter3: 0 },
         skin: { skin: "skin-1", face: "face-1", accessories: [] },
         accessory: null,
         tysm_used: false,
@@ -478,11 +511,11 @@ async function resetAllData() {
         used_codes: [],
         lastSeen: Date.now()
     });
-    // 現在の変数もリセット
+    
     coins = 1000;
     ownedSkills = ["none"];
     equippedSkill = "none";
-    storyProgress = { chapter1: 0, chapter2: 0 };
+    storyProgress = { chapter1: 0, chapter2: 0, chapter3: 0 };
     skinData = { skin: "skin-1", face: "face-1", accessories: [] };
     equippedAccessory = null;
     tysmUsed = false;
@@ -498,12 +531,10 @@ window.submitCode = async () => {
     const input = el("code-input").value.trim().toUpperCase();
     if (!input) return;
     
-    // Firebaseから最新の使用状況を取得
     await loadCodeStatusFromFirebase();
     
-    // 隠しコード BA3 (データ全リセット)
     if (input === "BA3") {
-        if (confirm("本当にすべてのデータをリセットしますか？この操作は元に戻せません。")) {
+        if (confirm("本当にすべてのデータをリセットしますか？")) {
             await resetAllData();
         }
         el("code-input").value = "";
@@ -511,7 +542,6 @@ window.submitCode = async () => {
         return;
     }
     
-    // TYSMコード (25000コイン)
     if (input === "TYSM") {
         if (tysmUsed) {
             alert("このコードは既に使用済みです！");
@@ -520,11 +550,9 @@ window.submitCode = async () => {
             tysmUsed = true;
             usedCodes.push("TYSM");
             
-            // ローカルストレージに保存
             localStorage.setItem("ramo_tysm_used", "true");
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
             
-            // Firebaseに保存
             const userRef = ref(db, `users/${myId}`);
             await update(userRef, {
                 tysm_used: true,
@@ -537,7 +565,6 @@ window.submitCode = async () => {
             saveAndDisplayData();
         }
     }
-    // ByRamoコード (コンボアップの神スキル)
     else if (input === "BYRAMO") {
         if (byramoUsed) {
             alert("このコードは既に使用済みです！");
@@ -547,12 +574,10 @@ window.submitCode = async () => {
                 byramoUsed = true;
                 usedCodes.push("BYRAMO");
                 
-                // ローカルストレージに保存
                 localStorage.setItem("ramo_byramo_used", "true");
                 localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
                 localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
                 
-                // Firebaseに保存
                 const userRef = ref(db, `users/${myId}`);
                 await update(userRef, {
                     byramo_used: true,
@@ -561,25 +586,22 @@ window.submitCode = async () => {
                 });
                 
                 sounds.notify.play();
-                alert(`🎉 ByRamoコード入力成功！\n「コンボアップの神」スキルを獲得しました！\n(7秒間、コンボが6倍になる 1回のみ使用可能)`);
+                alert(`🎉 ByRamoコード入力成功！\n「コンボアップの神」スキルを獲得しました！`);
                 saveAndDisplayData();
             }
         }
     }
-    // YuseSyazai2コード (2億コイン)
     else if (input === "YUSESYAZAI2") {
         if (yuseSyazai2Used) {
             alert("このコードは既に使用済みです！");
         } else {
-            coins += 200000000; // 2億コイン
+            coins += 200000000;
             yuseSyazai2Used = true;
             usedCodes.push("YUSESYAZAI2");
             
-            // ローカルストレージに保存
             localStorage.setItem("ramo_yuseSyazai2_used", "true");
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
             
-            // Firebaseに保存
             const userRef = ref(db, `users/${myId}`);
             await update(userRef, {
                 yuseSyazai2_used: true,
@@ -588,24 +610,21 @@ window.submitCode = async () => {
             });
             
             sounds.coin.play();
-            sounds.coin.play(); // 特別感を出すために2回鳴らす
+            sounds.coin.play();
             alert(`🎉✨ YuseSyazai2コード入力成功！\n200,000,000コインを獲得しました！ ✨🎉`);
             saveAndDisplayData();
         }
     }
-    // デイリーコード
     else if (input === dailyCode) {
         if (usedCodes.includes(dailyCode)) {
             alert("このコードは既に使用済みです！");
         } else {
-            const reward = Math.floor(Math.random() * 4500) + 500; // 500-5000
+            const reward = Math.floor(Math.random() * 4500) + 500;
             coins += reward;
             usedCodes.push(dailyCode);
             
-            // ローカルストレージに保存
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
             
-            // Firebaseに保存
             const userRef = ref(db, `users/${myId}`);
             await update(userRef, {
                 used_codes: usedCodes,
@@ -644,16 +663,12 @@ function activateComboGod() {
         comboMultiplier = originalMultiplier;
         showBattleAlert("コンボアップの神終了", "#FFD700");
         
-        // 使用済みにする（1回のみ）
         const index = ownedSkills.indexOf("comboGod");
         if (index > -1) {
             ownedSkills.splice(index, 1);
-            if (equippedSkill === "comboGod") {
-                equippedSkill = "none";
-            }
+            if (equippedSkill === "comboGod") equippedSkill = "none";
             saveAndDisplayData();
             
-            // Firebaseも更新
             const userRef = ref(db, `users/${myId}`);
             update(userRef, {
                 skills: ownedSkills,
@@ -663,7 +678,7 @@ function activateComboGod() {
     }, 7000);
 }
 
-// --- セーブデータ保存・表示更新用関数 ---
+// --- セーブデータ保存・表示更新 ---
 function saveAndDisplayData() {
     localStorage.setItem("ramo_coins", coins);
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
@@ -699,7 +714,6 @@ function saveAndDisplayData() {
     }).catch(err => console.error("Firebase save error:", err));
 }
 
-// --- プロフィールの顔更新 ---
 function updateProfileFace() {
     const profileSkin = el("profile-skin");
     const profileFace = el("profile-face-layer");
@@ -713,9 +727,7 @@ function updateProfileFace() {
         }
     }
     
-    if (profileFace) {
-        profileFace.innerText = FACE_DATA[skinData.face] || "😊";
-    }
+    if (profileFace) profileFace.innerText = FACE_DATA[skinData.face] || "😊";
     
     if (profileAccessory) {
         if (equippedAccessory && ACCESSORY_DB[equippedAccessory]) {
@@ -735,9 +747,8 @@ const WORD_DB = {
     hard: ["じぶんだけのものものものすごくひろいせかい","るびーちゃんのあいすくりーむ","ばくだいなせかいがまちうけている","ぷろぐらまーのぷろぐらみんぐ","このげーむをつくったひとはらもです","おあそびはここまでだここからがほんばん","ゆーちゅーぶぷれみあむはさいこうである","いしばしをよくたたいてわたる"]
 };
 
-// --- ボタン状態の制御 ---
 function updateButtonStates() {
-    const isBusy = isMatchmaking;
+    const isBusy = isMatchmaking || trainingMode;
     const btnSingle = el("btn-single");
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
@@ -745,24 +756,25 @@ function updateButtonStates() {
     const btnShop = el("btn-shop");
     const btnStory = el("btn-story");
     const btnGacha = el("btn-gacha");
+    const btnTraining = el("btn-training");
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
-    if (btnParty) btnParty.disabled = isMatchmaking; 
+    if (btnParty) btnParty.disabled = isMatchmaking || trainingMode; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
     if (btnSkin) btnSkin.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
     if (btnStory) btnStory.disabled = isBusy;
     if (btnGacha) btnGacha.disabled = isBusy || myPartyId !== null;
+    if (btnTraining) btnTraining.disabled = isBusy || myPartyId !== null;
 }
 
-// --- リアルタイム名前更新 ---
 window.updateMyName = () => {
     myName = el("my-name-input").value || `園名：${myId}`;
     localStorage.setItem("ramo_name", myName);
     saveAndDisplayData();
 };
 
-// --- ローマ字変換テーブル ---
+// --- ローマ字変換 ---
 const KANA_MAP = {
     'あ':'a','い':'i','う':'u','え':'e','お':'o','か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
     'さ':'sa','し':['si','shi'],'す':'su','せ':'se','そ':'so','た':'ta','ち':['ti','chi'],'つ':['tu','tsu'],'て':'te','と':'to',
@@ -850,7 +862,7 @@ window.removeFriend = (fid) => {
     remove(ref(db, `users/${fid}/friends/${myId}`)); 
 };
 
-// --- パーティー機能 ---
+// --- パーティー機能（チーム戦対応）---
 window.inviteToParty = (fid) => {
     if (!myPartyId) {
         myPartyId = myId;
@@ -863,9 +875,12 @@ window.inviteToParty = (fid) => {
                     score: 0, 
                     ready: false, 
                     skin: skinData, 
-                    accessory: equippedAccessory 
+                    accessory: equippedAccessory,
+                    team: "red" // デフォルトは赤チーム
                 } 
-            } 
+            },
+            teamMode: "solo",
+            handicap: "none"
         });
         update(ref(db, `users/${myId}`), { partyId: myPartyId });
     }
@@ -884,7 +899,7 @@ onValue(ref(db, `users/${myId}/invite`), snap => {
 });
 
 window.acceptInvite = () => {
-    if (gameActive || isMatchmaking) {
+    if (gameActive || isMatchmaking || trainingMode) {
         alert("プレイ中・待機中は参加できません。");
         window.declineInvite();
         return;
@@ -897,7 +912,8 @@ window.acceptInvite = () => {
             score: 0, 
             ready: false,
             skin: skinData,
-            accessory: equippedAccessory
+            accessory: equippedAccessory,
+            team: "red"
         });
         update(ref(db, `users/${myId}`), { partyId: pId });
         remove(ref(db, `users/${myId}/invite`));
@@ -936,24 +952,24 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                 return; 
             }
             isLeader = (p.leader === myId);
+            teamMode = p.teamMode || "solo";
+            handicapType = p.handicap || "none";
             el("party-label").innerText = isLeader ? "パーティー (リーダー)" : "パーティー (メンバー)";
             
-            // メンバー情報をキャッシュ
-            if (p.members) {
-                partyMembers = p.members;
-            }
+            if (p.members) partyMembers = p.members;
 
             const membersHtml = Object.entries(p.members || {}).map(([id, m]) => {
                 const memberSkin = m.skin || { skin: "skin-1", face: "face-1" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
                 const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
+                const teamColor = m.team === "red" ? "🔴" : m.team === "blue" ? "🔵" : "";
                 return `<div class="friend-item">
                     <div class="friend-left">
                         <div class="friend-face">
                             <span>${memberFace}</span>
                             ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
                         </div>
-                        <span class="friend-name">${m.name}</span>
+                        <span class="friend-name">${m.name} ${teamColor}</span>
                         ${m.ready ? '<span style="color: var(--accent-green); margin-left: 5px;">✅</span>' : ''}
                         ${id === p.leader ? '<span style="color: var(--accent-gold); margin-left: 5px;">👑</span>' : ''}
                     </div>
@@ -1004,7 +1020,44 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- スキンショップシステム ---
+// --- チーム設定 ---
+window.toggleTeamSetup = () => {
+    const teamSetup = el("team-setup");
+    if (teamSetup) teamSetup.classList.toggle("hidden");
+};
+
+window.setTeam = (team) => {
+    if (!myPartyId || !isLeader) return;
+    playerTeams[myId] = team;
+    update(ref(db, `parties/${myPartyId}/members/${myId}/team`), team);
+    updateTeamDisplay();
+};
+
+function updateTeamDisplay() {
+    const teamMembers = el("team-members");
+    if (!teamMembers || !partyMembers) return;
+    
+    teamMembers.innerHTML = Object.entries(partyMembers).map(([id, m]) => {
+        const currentTeam = m.team || "red";
+        return `
+            <div class="team-member-item ${currentTeam}">
+                <span>${m.name}</span>
+                <span class="member-team-badge ${currentTeam}" onclick="window.switchTeam('${id}')">
+                    ${currentTeam === "red" ? "🔴赤" : "🔵青"}
+                </span>
+            </div>
+        `;
+    }).join("");
+}
+
+window.switchTeam = (memberId) => {
+    if (!isLeader) return;
+    const currentTeam = partyMembers[memberId]?.team || "red";
+    const newTeam = currentTeam === "red" ? "blue" : "red";
+    update(ref(db, `parties/${myPartyId}/members/${memberId}/team`), newTeam);
+};
+
+// --- スキンショップ ---
 window.openSkinShop = () => {
     openScreen("screen-skin-shop");
     updateSkinPreview();
@@ -1029,9 +1082,7 @@ function updateSkinPreview() {
         }
     }
     
-    if (previewFace) {
-        previewFace.innerText = FACE_DATA[skinData.face] || "😊";
-    }
+    if (previewFace) previewFace.innerText = FACE_DATA[skinData.face] || "😊";
     
     if (previewAccessory) {
         if (equippedAccessory && ACCESSORY_DB[equippedAccessory]) {
@@ -1166,7 +1217,7 @@ function equipAccessory(accessoryId) {
     saveAndDisplayData();
 }
 
-// --- ショップシステム（修正：gachaフラグのあるスキルは表示しない） ---
+// --- ショップシステム ---
 window.openShop = () => {
     openScreen("screen-shop");
     renderShop();
@@ -1180,7 +1231,6 @@ window.buySkill = (skillId) => {
         equippedSkill = skillId; 
         saveAndDisplayData();
         renderShop();
-        // ガチャ画面の装備表示も更新
         if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
             renderGachaCharacters(getCurrentGachaTabRarity());
         }
@@ -1195,7 +1245,6 @@ window.equipSkill = (skillId) => {
     equippedSkill = skillId;
     saveAndDisplayData();
     renderShop();
-    // ガチャ画面の装備表示も更新
     if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
         renderGachaCharacters(getCurrentGachaTabRarity());
     }
@@ -1206,8 +1255,7 @@ function renderShop() {
     if (!shopList) return;
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
-        // ガチャキャラはショップに表示しない
-        if (skill.gacha) return;
+        if (skill.gacha || skill.training) return;
         
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
@@ -1222,6 +1270,9 @@ function renderShop() {
             } else if (skill.id === "hacker_milestone4") {
                 canUseBossSkill = storyProgress.chapter2 >= 7;
                 requirementText = `【条件: ${canUseBossSkill ? '✓ クリア済み' : '第2章 2-7 をクリアすると使用可能'}】`;
+            } else if (skill.id === "invincible_survivor") {
+                canUseBossSkill = storyProgress.chapter3 >= 10;
+                requirementText = `【条件: ${canUseBossSkill ? '✓ クリア済み' : '第3章 3-10 をクリアすると使用可能'}】`;
             }
         }
         
@@ -1264,23 +1315,20 @@ window.unlockBossSkill = (skillId) => {
 };
 
 // =========================================
-// ガチャ機能（重複ありに修正）
+// ガチャ機能（バグ修正：装備可能に）
 // =========================================
 
-// ガチャ画面を開く
 window.openGacha = () => {
     openScreen("screen-gacha");
     updateGachaCoinDisplay();
-    renderGachaCharacters('all'); // 初期表示は全キャラ
+    renderGachaCharacters('all');
 };
 
-// コイン表示更新
 function updateGachaCoinDisplay() {
     const gachaCoin = el("gacha-coin-amount");
     if (gachaCoin) gachaCoin.innerText = coins.toLocaleString();
 }
 
-// 現在選択中のタブレアリティを取得
 function getCurrentGachaTabRarity() {
     const activeTab = document.querySelector('.gacha-tab.active');
     if (!activeTab) return 'all';
@@ -1292,7 +1340,6 @@ function getCurrentGachaTabRarity() {
     return 'all';
 }
 
-// タブ切り替え
 window.switchGachaTab = (rarity) => {
     document.querySelectorAll('.gacha-tab').forEach(tab => tab.classList.remove('active'));
     const targetTab = Array.from(document.querySelectorAll('.gacha-tab')).find(tab => 
@@ -1305,16 +1352,13 @@ window.switchGachaTab = (rarity) => {
     renderGachaCharacters(rarity);
 };
 
-// 所持キャラ一覧を表示（重複があってもユニーク表示）
 function renderGachaCharacters(rarity) {
     const container = el("gacha-char-list");
     if (!container) return;
     container.innerHTML = "";
 
-    // 所有しているガチャキャラのID一覧（重複を含む可能性あり）
     const ownedGachaIds = ownedSkills.filter(id => SKILL_DB[id] && SKILL_DB[id].gacha);
 
-    // 表示するキャラをフィルタ（ユニーク）
     let charsToShow = [];
     if (rarity === 'all') {
         charsToShow = Object.values(GACHA_CHAR_DB);
@@ -1323,7 +1367,7 @@ function renderGachaCharacters(rarity) {
     }
 
     charsToShow.forEach(char => {
-        const isOwned = ownedGachaIds.includes(char.id); // 重複があっても1回所有と判定
+        const isOwned = ownedGachaIds.includes(char.id);
         const isEquipped = equippedSkill === char.id;
         const item = document.createElement("div");
         item.className = `gacha-char-item ${char.rarity.toLowerCase()} ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
@@ -1341,7 +1385,6 @@ function renderGachaCharacters(rarity) {
         container.appendChild(item);
     });
 
-    // 装備中表示更新
     const equippedNameEl = el("gacha-equipped-name");
     if (equippedNameEl) {
         const equipped = SKILL_DB[equippedSkill];
@@ -1353,7 +1396,7 @@ function renderGachaCharacters(rarity) {
     }
 }
 
-// ガチャキャラを装備
+// ガチャキャラを装備（バグ修正）
 function equipGachaCharacter(charId) {
     if (!ownedSkills.includes(charId)) {
         alert("このキャラクターを所持していません");
@@ -1362,14 +1405,13 @@ function equipGachaCharacter(charId) {
     equippedSkill = charId;
     saveAndDisplayData();
     renderGachaCharacters(getCurrentGachaTabRarity());
-    // ショップの表示も更新（必要に応じて）
     if (el("screen-shop") && !el("screen-shop").classList.contains("hidden")) {
         renderShop();
     }
     sounds.notify.play();
+    alert(`${GACHA_CHAR_DB[charId].name}を装備しました！`);
 }
 
-// ガチャ実行（重複あり）
 window.drawGacha = async (type) => {
     const isTen = type === "normal10";
     const cost = isTen ? GACHA_COST_10 : GACHA_COST;
@@ -1378,15 +1420,11 @@ window.drawGacha = async (type) => {
         return;
     }
 
-    // 抽選結果を格納する配列
     let results = [];
-
-    // 全ガチャキャラID
     const allGachaIds = Object.keys(GACHA_CHAR_DB);
     const drawCount = isTen ? 10 : 1;
 
     for (let i = 0; i < drawCount; i++) {
-        // レアリティ抽選
         const rnd = Math.random() * 100;
         let selectedRarity;
         if (rnd < GACHA_RATES.R) {
@@ -1397,11 +1435,8 @@ window.drawGacha = async (type) => {
             selectedRarity = 'UR';
         }
 
-        // そのレアリティ内の全キャラからランダムに選択（所有済みでもOK）
         const candidates = GACHA_CHARS_BY_RARITY[selectedRarity];
-        // 万が一そのレアリティにキャラが1体もいない場合はフォールバック（起こり得ない）
         if (candidates.length === 0) {
-            console.warn(`No characters in rarity ${selectedRarity}, falling back to all.`);
             const fallback = allGachaIds[Math.floor(Math.random() * allGachaIds.length)];
             results.push(fallback);
             ownedSkills.push(fallback);
@@ -1413,19 +1448,13 @@ window.drawGacha = async (type) => {
         ownedSkills.push(selectedChar);
     }
 
-    // コイン消費
     coins -= cost;
     saveAndDisplayData();
     updateGachaCoinDisplay();
-
-    // 結果表示
     showGachaResult(results);
-
-    // 所持キャラ一覧を再表示（重複しても表示は変わらない）
     renderGachaCharacters(getCurrentGachaTabRarity());
 };
 
-// ガチャ結果表示
 function showGachaResult(results) {
     const resultContainer = el("gacha-result-content");
     const resultDiv = el("gacha-result");
@@ -1446,19 +1475,15 @@ function showGachaResult(results) {
     });
 
     resultDiv.classList.remove("hidden");
-    // 4秒後に非表示
-    setTimeout(() => {
-        resultDiv.classList.add("hidden");
-    }, 4000);
+    setTimeout(() => resultDiv.classList.add("hidden"), 4000);
 }
 
-// ガチャ画面からスキルショップへ
 window.openGachaSkillShop = () => {
     openScreen("screen-shop");
     renderShop();
 };
 
-// --- デバッグモード ---
+// --- デバッグモード（コード修正）---
 window.addEventListener("keydown", (e) => {
     if (e.key.toLowerCase() === 'w') debugKeys.w = true;
     if (e.key.toLowerCase() === 'l') debugKeys.l = true;
@@ -1476,7 +1501,7 @@ window.addEventListener("keyup", (e) => {
 
 function showDebugInput() {
     const code = prompt("デバッグコードを入力してください:");
-    if (code === "1x4x") {
+    if (code === "1x4x5f") {  // 修正
         el("debug-overlay").classList.remove("hidden");
     }
     debugActive = false;
@@ -1530,11 +1555,41 @@ window.closeDebug = () => {
     el("debug-amount").value = "0";
 };
 
+// BANルーレット
+window.showBanRoulette = () => {
+    if (!gameActive) {
+        alert("ゲームプレイ中のみ使用できます");
+        return;
+    }
+    el("ban-roulette").classList.remove("hidden");
+};
+
+window.spinBanRoulette = () => {
+    const wheel = el("roulette-wheel");
+    const result = el("roulette-result");
+    
+    wheel.classList.add("spinning");
+    result.innerHTML = "";
+    
+    setTimeout(() => {
+        wheel.classList.remove("spinning");
+        // 絶対セーフ！
+        wheel.innerText = "✓";
+        result.innerHTML = "🎉 セーフ！ 🎉";
+        result.style.color = "#00ff00";
+        
+        setTimeout(() => {
+            el("ban-roulette").classList.add("hidden");
+            wheel.innerText = "?";
+            result.innerHTML = "";
+        }, 2000);
+    }, 2000);
+};
+
 // --- 効果残り時間表示関数 ---
 function updateEffectTimers() {
     const timerDiv = document.getElementById('effect-timer');
     if (!timerDiv && gameActive) {
-        // 効果残り時間表示用の要素を作成
         const newTimerDiv = document.createElement('div');
         newTimerDiv.id = 'effect-timer';
         newTimerDiv.style.position = 'absolute';
@@ -1556,35 +1611,26 @@ function updateEffectTimers() {
     
     let activeEffects = [];
     
-    if (isStunned) {
-        if (effectTimers.stun && effectTimers.stun > 0) {
-            activeEffects.push({ name: 'スタン', time: Math.ceil(effectTimers.stun / 1000), color: '#ff0000' });
-        }
+    if (isStunned && effectTimers.stun > 0) {
+        activeEffects.push({ name: 'スタン', time: Math.ceil(effectTimers.stun / 1000), color: '#ff0000' });
     }
-    if (isJamming) {
-        if (effectTimers.jamming && effectTimers.jamming > 0) {
-            activeEffects.push({ name: '妨害', time: Math.ceil(effectTimers.jamming / 1000), color: '#ffff00' });
-        }
+    if (isJamming && effectTimers.jamming > 0) {
+        activeEffects.push({ name: '妨害', time: Math.ceil(effectTimers.jamming / 1000), color: '#ffff00' });
     }
-    if (poisonActive) {
-        if (effectTimers.poison && effectTimers.poison > 0) {
-            activeEffects.push({ name: '毒', time: Math.ceil(effectTimers.poison / 1000), color: '#00ff00' });
-        }
+    if (poisonActive && effectTimers.poison > 0) {
+        activeEffects.push({ name: '毒', time: Math.ceil(effectTimers.poison / 1000), color: '#00ff00' });
     }
-    if (document.body.classList.contains('swaying')) {
-        if (effectTimers.sway && effectTimers.sway > 0) {
-            activeEffects.push({ name: 'ゆらゆら', time: Math.ceil(effectTimers.sway / 1000), color: '#ff69b4' });
-        }
+    if (document.body.classList.contains('swaying') && effectTimers.sway > 0) {
+        activeEffects.push({ name: 'ゆらゆら', time: Math.ceil(effectTimers.sway / 1000), color: '#ff69b4' });
     }
-    if (mazeActive) {
-        if (effectTimers.maze && effectTimers.maze > 0) {
-            activeEffects.push({ name: '迷路', time: Math.ceil(effectTimers.maze / 1000), color: '#00ffff' });
-        }
+    if (mazeActive && effectTimers.maze > 0) {
+        activeEffects.push({ name: '迷路', time: Math.ceil(effectTimers.maze / 1000), color: '#00ffff' });
     }
-    if (hackingActive) {
-        if (effectTimers.hacking && effectTimers.hacking > 0) {
-            activeEffects.push({ name: 'ハッキング', time: Math.ceil(effectTimers.hacking / 1000), color: '#00ff00' });
-        }
+    if (hackingActive && effectTimers.hacking > 0) {
+        activeEffects.push({ name: 'ハッキング', time: Math.ceil(effectTimers.hacking / 1000), color: '#00ff00' });
+    }
+    if (bleedingActive && effectTimers.bleeding > 0) {
+        activeEffects.push({ name: '血', time: Math.ceil(effectTimers.bleeding / 1000), color: '#ff0000' });
     }
     
     if (activeEffects.length > 0) {
@@ -1596,7 +1642,6 @@ function updateEffectTimers() {
     }
 }
 
-// 効果タイマー開始関数
 function startEffectTimer(effectName, durationMs) {
     effectTimers[effectName] = durationMs;
     
@@ -1608,15 +1653,8 @@ function startEffectTimer(effectName, durationMs) {
         effectTimers[effectName] = Math.max(0, effectTimers[effectName] - 1000);
         updateEffectTimers();
         
-        if (effectTimers[effectName] <= 0) {
-            clearInterval(timerInterval);
-        }
+        if (effectTimers[effectName] <= 0) clearInterval(timerInterval);
     }, 1000);
-    
-    // 効果終了時にタイマーをクリア
-    setTimeout(() => {
-        effectTimers[effectName] = 0;
-    }, durationMs);
 }
 
 // --- ゲームエンジン ---
@@ -1628,8 +1666,10 @@ function openScreen(id) {
 
 window.goHome = () => { 
     gameActive = false; 
+    trainingMode = false;
     clearInterval(gameInterval);
     resetSkillState();
+    clearHandicapEffects();
 
     if (myPartyId && myPartyId.startsWith("match_")) {
         window.leaveParty();
@@ -1641,8 +1681,14 @@ window.goHome = () => {
     openScreen("screen-home"); 
     updateButtonStates();
     saveAndDisplayData();
-    // BGMなし
 };
+
+function clearHandicapEffects() {
+    if (handicapNoTypeTimer) clearTimeout(handicapNoTypeTimer);
+    if (handicapSlowTimer) clearInterval(handicapSlowTimer);
+    handicapNoTypeTimer = null;
+    handicapSlowTimer = null;
+}
 
 function nextQuestion() {
     if (!currentWords || currentWords.length === 0) currentWords = ["えらー"];
@@ -1659,12 +1705,22 @@ function renderRoma() {
 }
 
 function processCorrectType() {
+    if (handicapType === "slow_typing") {
+        // タイピング速度半減（2回に1回だけ反応）
+        if (Math.random() > 0.5) return;
+    }
+    
     romaIdx++;
-    score += (10 + combo) * comboMultiplier; 
+    let scoreIncrease = (10 + combo) * comboMultiplier;
+    
+    // ハンデ適用
+    if (handicapType === "score_half") scoreIncrease = Math.floor(scoreIncrease / 2);
+    
+    score += scoreIncrease; 
     combo += 1 * comboMultiplier; 
     
     if (isGodfatherMissionActive) {
-        coins += (combo > 0 ? combo * 20 : 20);
+        coins += combo * 5; // 弱体化：コンボ×5
         el("coin-amount").innerText = coins.toLocaleString();
     }
     
@@ -1682,11 +1738,8 @@ function processCorrectType() {
     
     if (isStoryMode) {
         if (myPartyId) {
-            // チーム全体の合計スコアを計算
             let totalScore = 0;
-            for (let id in partyMembers) {
-                totalScore += partyMembers[id].score || 0;
-            }
+            for (let id in partyMembers) totalScore += partyMembers[id].score || 0;
             const memberCount = Object.keys(partyMembers).length;
             const avgScore = memberCount > 0 ? Math.floor(totalScore / memberCount) : 0;
             updateProgressBar(avgScore);
@@ -1698,7 +1751,6 @@ function processCorrectType() {
             }
         } else {
             updateProgressBar(score);
-            
             if (score >= storyTargetScore && gameActive) {
                 clearInterval(gameInterval);
                 gameActive = false;
@@ -1717,20 +1769,18 @@ function updateProgressBar(currentScore) {
 }
 
 function storyClear() {
-    const stageData = currentStage.chapter === 1 ?
-        STORY_STAGES.chapter1[currentStage.stage - 1] :
-        STORY_STAGES.chapter2[currentStage.stage - 1];
+    const stageData = currentStage.chapter === 1 ? STORY_STAGES.chapter1[currentStage.stage - 1] :
+                     currentStage.chapter === 2 ? STORY_STAGES.chapter2[currentStage.stage - 1] :
+                     STORY_STAGES.chapter3[currentStage.stage - 1];
     
     let earnedCoins = stageData.reward;
     
     if (currentStage.chapter === 1) {
-        if (storyProgress.chapter1 < currentStage.stage) {
-            storyProgress.chapter1 = currentStage.stage;
-        }
+        if (storyProgress.chapter1 < currentStage.stage) storyProgress.chapter1 = currentStage.stage;
+    } else if (currentStage.chapter === 2) {
+        if (storyProgress.chapter2 < currentStage.stage) storyProgress.chapter2 = currentStage.stage;
     } else {
-        if (storyProgress.chapter2 < currentStage.stage) {
-            storyProgress.chapter2 = currentStage.stage;
-        }
+        if (storyProgress.chapter3 < currentStage.stage) storyProgress.chapter3 = currentStage.stage;
     }
     
     if (myPartyId) {
@@ -1739,7 +1789,6 @@ function storyClear() {
             if (!members) return;
             
             const memberCount = Object.keys(members).length;
-            
             const updates = {};
             Object.keys(members).forEach(memberId => {
                 updates[`users/${memberId}/story_progress/chapter${currentStage.chapter}`] = currentStage.stage;
@@ -1749,43 +1798,14 @@ function storyClear() {
             earnedCoins = Math.floor(earnedCoins / memberCount);
             coins += earnedCoins;
             
-            if (stageData.boss) {
-                const skillId = stageData.skill;
-                
-                if (!ownedSkills.includes(skillId)) {
-                    ownedSkills.push(skillId);
-                    equippedSkill = skillId;
-                    alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
-                }
-                
-                Object.keys(members).forEach(memberId => {
-                    if (memberId !== myId) {
-                        const memberRef = ref(db, `users/${memberId}`);
-                        get(memberRef).then(memberSnap => {
-                            const memberData = memberSnap.val() || {};
-                            const memberSkills = memberData.skills || [];
-                            if (!memberSkills.includes(skillId)) {
-                                memberSkills.push(skillId);
-                                update(ref(db, `users/${memberId}`), { 
-                                    skills: memberSkills,
-                                    equipped: skillId
-                                });
-                            }
-                        });
-                    }
-                });
-            }
+            if (stageData.boss) giveBossSkillToAll(stageData.skill, members);
             
             saveAndDisplayData();
             endGame();
         });
     } else {
         coins += earnedCoins;
-        
-        if (stageData.boss) {
-            giveBossSkill(stageData.skill);
-        }
-        
+        if (stageData.boss) giveBossSkill(stageData.skill);
         saveAndDisplayData();
         endGame();
     }
@@ -1800,14 +1820,38 @@ function giveBossSkill(skillId) {
     }
 }
 
-// タイピング可否判定（スタンと妨害を考慮）
+function giveBossSkillToAll(skillId, members) {
+    if (!ownedSkills.includes(skillId)) {
+        ownedSkills.push(skillId);
+        equippedSkill = skillId;
+        alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
+    }
+    
+    Object.keys(members).forEach(memberId => {
+        if (memberId !== myId) {
+            const memberRef = ref(db, `users/${memberId}`);
+            get(memberRef).then(memberSnap => {
+                const memberData = memberSnap.val() || {};
+                const memberSkills = memberData.skills || [];
+                if (!memberSkills.includes(skillId)) {
+                    memberSkills.push(skillId);
+                    update(ref(db, `users/${memberId}`), { 
+                        skills: memberSkills,
+                        equipped: skillId
+                    });
+                }
+            });
+        }
+    });
+}
+
 function canType() {
-    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0 && !mazeActive && !hackingActive;
+    if (handicapType === "no_type_10" && timer > duration - 10) return false;
+    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0 && !mazeActive && !hackingActive && !bleedingActive;
 }
 
 window.addEventListener("keydown", e => {
     if (!gameActive) return;
-    
     if (hackerTabsActive > 0) return;
 
     if (e.code === "Space") { 
@@ -1846,14 +1890,14 @@ function startGame(sec) {
     clearInterval(gameInterval);
     gameActive = true; 
     score = 0; 
-    combo = 0; 
+    combo = handicapType === "combo_start_0" ? 0 : 0; 
     timer = sec; 
     duration = sec; 
     currentWordIdx = 0;
     
     resetSkillState();
+    clearHandicapEffects();
 
-    // スタック変数をリセット
     bananaStacks = 0;
     trapperStacks = 0;
     isStunned = false;
@@ -1887,13 +1931,21 @@ function startGame(sec) {
         el("timer-display").innerText = `00:${timer.toString().padStart(2,'0')}`;
         if (myPartyId) syncRivals();
         updateEffectTimers();
+        
+        // 修行モードの攻撃処理
+        if (trainingMode && trainingType === 1 && timer % 10 === 0 && Math.random() > 0.5) {
+            trainingAttack();
+        }
+        if (trainingMode && trainingType === 2) {
+            if (timer % 20 === 0 && Math.random() > 0.5) createHackerTabs();
+            if (timer % 30 === 0 && Math.random() > 0.7) trainingStatusAttack();
+        }
+        
         if (timer <= 0) { 
             clearInterval(gameInterval); 
             endGame(); 
         }
     }, 1000);
-    
-    // BGMなし
 }
 
 function syncRivals() {
@@ -1903,31 +1955,54 @@ function syncRivals() {
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
         const val = s.val();
         if(val) {
-            el("rival-list").innerHTML = Object.entries(val).map(([id, m]) => {
-                const memberSkin = m.skin || { face: "face-1" };
-                const memberFace = FACE_DATA[memberSkin.face] || "😊";
-                const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
-                return `
-                    <div class="friend-item">
-                        <div class="friend-left">
-                            <div class="friend-face">
-                                <span>${memberFace}</span>
-                                ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
-                            </div>
-                            <span class="friend-name">${m.name}</span>
-                        </div>
-                        <span>${isHidden ? '???' : m.score.toLocaleString()}</span>
+            let scores = Object.entries(val).map(([id, m]) => ({ id, ...m }));
+            
+            // チーム戦の場合はチーム合計を表示
+            if (teamMode === "team") {
+                let redScore = 0, blueScore = 0;
+                scores.forEach(m => {
+                    if (m.team === "red") redScore += m.score || 0;
+                    else blueScore += m.score || 0;
+                });
+                el("rival-list").innerHTML = `
+                    <div class="friend-item" style="border-color: #ff4444;">
+                        <span>🔴 赤チーム</span>
+                        <span>${isHidden ? '???' : redScore.toLocaleString()}</span>
+                    </div>
+                    <div class="friend-item" style="border-color: #4444ff;">
+                        <span>🔵 青チーム</span>
+                        <span>${isHidden ? '???' : blueScore.toLocaleString()}</span>
                     </div>
                 `;
-            }).join("");
+            } else {
+                el("rival-list").innerHTML = scores.map(({id, ...m}) => {
+                    const memberSkin = m.skin || { face: "face-1" };
+                    const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                    const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
+                    return `
+                        <div class="friend-item">
+                            <div class="friend-left">
+                                <div class="friend-face">
+                                    <span>${memberFace}</span>
+                                    ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
+                                </div>
+                                <span class="friend-name">${m.name}</span>
+                            </div>
+                            <span>${isHidden ? '???' : (m.score || 0).toLocaleString()}</span>
+                        </div>
+                    `;
+                }).join("");
+            }
         }
     });
 }
 
 function endGame() {
     gameActive = false; 
+    trainingMode = false;
     clearInterval(gameInterval);
     resetSkillState();
+    clearHandicapEffects();
 
     if (attackListenerReference) {
         off(attackListenerReference);
@@ -1941,12 +2016,8 @@ function endGame() {
     let isWinner = false;
 
     if (!isStoryMode) {
-        if (equippedSkill === "fundraiser") {
-            earnedCoins *= 2;
-        }
-        if (equippedSkill === "godfundraiser") {
-            earnedCoins *= 4;
-        }
+        if (equippedSkill === "fundraiser") earnedCoins *= 2;
+        if (equippedSkill === "godfundraiser") earnedCoins *= 4;
     }
 
     if (myPartyId) {
@@ -1965,28 +2036,49 @@ function endGame() {
                     saveAndDisplayData();
                 }
 
-                el("ranking-box").innerHTML = res.map((item, i) => {
-                    const m = item[1];
-                    const memberSkin = m.skin || { face: "face-1" };
-                    const memberFace = FACE_DATA[memberSkin.face] || "😊";
-                    const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
-                    return `<div class="ranking-row">
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <div class="friend-face">
-                                <span style="font-size: 1.2rem;">${memberFace}</span>
-                                ${memberAccessory ? `<span style="font-size: 1rem;">${memberAccessory}</span>` : ''}
-                            </div>
-                            <span>${i+1}位: ${m.name}</span>
+                if (teamMode === "team") {
+                    let redScore = 0, blueScore = 0;
+                    Object.entries(val).forEach(([id, m]) => {
+                        if (m.team === "red") redScore += m.score || 0;
+                        else blueScore += m.score || 0;
+                    });
+                    el("ranking-box").innerHTML = `
+                        <div class="ranking-row" style="border-color: #ff4444;">
+                            <span>🔴 赤チーム</span>
+                            <span>${redScore.toLocaleString()} pts</span>
                         </div>
-                        <span>${m.score.toLocaleString()} pts</span>
-                    </div>`;
-                }).join("");
+                        <div class="ranking-row" style="border-color: #4444ff;">
+                            <span>🔵 青チーム</span>
+                            <span>${blueScore.toLocaleString()} pts</span>
+                        </div>
+                    `;
+                } else {
+                    el("ranking-box").innerHTML = res.map((item, i) => {
+                        const m = item[1];
+                        const memberSkin = m.skin || { face: "face-1" };
+                        const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                        const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
+                        return `<div class="ranking-row">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <div class="friend-face">
+                                    <span style="font-size: 1.2rem;">${memberFace}</span>
+                                    ${memberAccessory ? `<span style="font-size: 1rem;">${memberAccessory}</span>` : ''}
+                                </div>
+                                <span>${i+1}位: ${m.name}</span>
+                            </div>
+                            <span>${m.score.toLocaleString()} pts</span>
+                        </div>`;
+                    }).join("");
+                }
                 
                 let coinText = "";
                 if (isStoryMode) {
                     const totalScore = Object.values(val).reduce((sum, m) => sum + (m.score || 0), 0);
                     const avgScore = Math.floor(totalScore / Object.keys(val).length);
                     coinText = `チーム平均スコア: ${avgScore.toLocaleString()} pts`;
+                } else if (trainingMode) {
+                    coinText = trainingScore >= (trainingType === 1 ? 45000 : 50000) ? 
+                        "修行クリア！新スキル獲得！" : "修行失敗...また挑戦しよう";
                 } else {
                     coinText = isWinner ? `勝利ボーナス！ +${earnedCoins.toLocaleString()} 🪙` : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
                 }
@@ -2002,33 +2094,61 @@ function endGame() {
             }
         });
     } else { 
-        if (earnedCoins > 0 && !isStoryMode) {
+        if (earnedCoins > 0 && !isStoryMode && !trainingMode) {
             coins += earnedCoins;
             saveAndDisplayData();
         }
-        el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>`; 
-        let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
         
-        el("ranking-box").innerHTML += `
-            <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
-                <span>結果</span><span>${coinText}</span>
-            </div>`;
+        if (trainingMode) {
+            const targetScore = trainingType === 1 ? 45000 : 50000;
+            if (score >= targetScore) {
+                const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
+                if (!ownedSkills.includes(skillId)) {
+                    ownedSkills.push(skillId);
+                    equippedSkill = skillId;
+                    saveAndDisplayData();
+                    el("ranking-box").innerHTML = `
+                        <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+                        <div class="ranking-row" style="color: #00FF00;">
+                            <span>🎉 修行クリア！</span>
+                            <span>${skillId === "swordsman" ? "剣士" : "ハッカー修行人"}を獲得！</span>
+                        </div>
+                    `;
+                }
+            } else {
+                el("ranking-box").innerHTML = `
+                    <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+                    <div class="ranking-row" style="color: #FF0000;">
+                        <span>❌ 修行失敗</span>
+                        <span>目標: ${targetScore.toLocaleString()} pts</span>
+                    </div>
+                `;
+            }
+        } else {
+            el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>`; 
+            let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
+            el("ranking-box").innerHTML += `
+                <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                    <span>結果</span><span>${coinText}</span>
+                </div>`;
+        }
     }
     
-    // BGMなし
+    // 修行モードのステータス更新
+    if (trainingMode) {
+        updateTrainingStatus();
+    }
 }
 
 // --- スキル・バトルエフェクト処理 ---
 function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
-    // 各キー表示要素
     const keySpace = el("skill-key-space");
     const key1 = el("skill-key-1");
     const key2 = el("skill-key-2");
     const key3 = el("skill-key-3");
     
-    // デフォルト非表示
     keySpace.classList.add("hidden");
     key1.classList.add("hidden");
     key2.classList.add("hidden");
@@ -2039,12 +2159,10 @@ function setupSkillUI() {
         actionBox.classList.remove("hidden");
         skillNameText.innerText = skill.name;
         
-        // パッシブ系の表示
         if (skill.id === "fundraiser" || skill.id === "godfundraiser") {
-            // キー情報なし
-        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4") {
+            // パッシブ
+        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4" || skill.id === "invincible_survivor" || skill.id === "swordsman" || skill.id === "hacker_trainee") {
             el("in-game-skill-btn").classList.add("hidden");
-            // 各キーの説明を表示
             if (skill.id === "hacker") {
                 key1.classList.remove("hidden"); key1.innerText = "1: タブ追加 (30s)";
                 key2.classList.remove("hidden"); key2.innerText = "2: ウイルス (70s)";
@@ -2056,14 +2174,23 @@ function setupSkillUI() {
                 key1.classList.remove("hidden"); key1.innerText = "1: 迷路 (45s)";
                 key2.classList.remove("hidden"); key2.innerText = "2: 高度なハック (1回)";
                 key3.classList.remove("hidden"); key3.innerText = "3: 状態変異 (35s)";
+            } else if (skill.id === "invincible_survivor") {
+                key1.classList.remove("hidden"); key1.innerText = "1: 無敵 (50s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: カウントスコア (40s)";
+            } else if (skill.id === "swordsman") {
+                key1.classList.remove("hidden"); key1.innerText = "1: 切り傷 (15s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: 大きな傷 (35s)";
+            } else if (skill.id === "hacker_trainee") {
+                key1.classList.remove("hidden"); key1.innerText = "1: タブ追加α (30s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: 異常状態α (40s)";
+                key3.classList.remove("hidden"); key3.innerText = "3: 画面妨害α (70s)";
+                keySpace.classList.remove("hidden"); keySpace.innerText = "Space: ランダム (600s)";
             }
         } else if (skill.id === "comboGod") {
             el("in-game-skill-btn").classList.remove("hidden");
             keySpace.classList.remove("hidden"); keySpace.innerText = "Space: コンボアップの神 (1回)";
         } else {
-            // 通常アクティブスキル（ガチャキャラ含む）
             el("in-game-skill-btn").classList.remove("hidden");
-            // ガチャキャラは個別のキー情報がある場合
             if (skill.gacha) {
                 if (skill.id === "narrator") {
                     keySpace.classList.remove("hidden"); keySpace.innerText = "Space: メガホン (10s)";
@@ -2075,8 +2202,7 @@ function setupSkillUI() {
                 } else if (skill.id === "rifleman") {
                     keySpace.classList.remove("hidden"); keySpace.innerText = "Space: ヘッドショット (45s)";
                 } else {
-                    // その他はスペースのみ
-                    keySpace.classList.remove("hidden"); keySpace.innerText = `Space: ${skill.desc}`;
+                    keySpace.classList.remove("hidden"); keySpace.innerText = `Space: ${skill.desc.substring(0, 30)}...`;
                 }
             } else {
                 keySpace.classList.remove("hidden"); keySpace.innerText = `Space: ${skill.desc}`;
@@ -2106,8 +2232,21 @@ function updateCooldownText() {
         let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]高度なハックOK";
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]状態変異OK";
         txt = `${k1} | ${k2} | ${k3}`;
+    } else if (skill.id === "invincible_survivor") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]無敵OK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]カウントスコアOK";
+        txt = `${k1} | ${k2}`;
+    } else if (skill.id === "swordsman") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]切り傷OK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]大きな傷OK";
+        txt = `${k1} | ${k2}`;
+    } else if (skill.id === "hacker_trainee") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]タブ追加αOK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]異常状態αOK";
+        let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]画面妨害αOK";
+        let ks = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]ランダムOK";
+        txt = `${k1} | ${k2} | ${k3} | ${ks}`;
     } else if (skill.gacha) {
-        // ガチャキャラは基本的にスペースキーのみ（個別分岐は activateSkill で）
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     } else {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
@@ -2132,12 +2271,15 @@ function resetSkillState() {
     timeSlipUsed = false;
     isGodfatherMissionActive = false;
     hackerTabsActive = 0;
+    invincibleActive = false;
+    if (invincibleTimer) clearTimeout(invincibleTimer);
+    invincibleTimer = null;
     
     mazeActive = false;
     hackingActive = false;
     poisonActive = false;
+    bleedingActive = false;
     
-    // 効果タイマーリセット
     effectTimers = {
         stun: null,
         jamming: null,
@@ -2146,7 +2288,8 @@ function resetSkillState() {
         maze: null,
         hacking: null,
         blur: null,
-        paint: null
+        paint: null,
+        bleeding: null
     };
     
     const tabsContainer = document.getElementById("hacker-tabs-container");
@@ -2163,8 +2306,11 @@ function resetSkillState() {
     el("hacking-overlay").classList.add("hidden");
     el("poison-overlay").classList.add("hidden");
     el("paint-overlay").classList.add("hidden");
+    el("cut-effect").classList.add("hidden");
+    el("blood-effect").classList.add("hidden");
     document.body.classList.remove("poisoned");
     document.body.classList.remove("swaying");
+    document.body.classList.remove("bleeding");
     el("skill-cooldown-bar").style.height = "0%";
     el("in-game-skill-btn").classList.remove("cooldown", "hidden");
     el("skill-status-text").innerText = "準備完了！(指定キーで発動)";
@@ -2177,7 +2323,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod" && equippedSkill !== "invincible_survivor" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -2188,12 +2334,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_survivor" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee") {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_survivor" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee") {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -2218,7 +2364,7 @@ function showBattleAlert(text, color) {
 }
 
 function sendAttackToOthers(type, duration, stealAmount) {
-    if (!myPartyId) return;
+    if (!myPartyId || invincibleActive) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
         const members = s.val();
         if (members) {
@@ -2226,7 +2372,7 @@ function sendAttackToOthers(type, duration, stealAmount) {
                 if (targetId !== myId) {
                     const attackId = generateId();
                     update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
-                        type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now()
+                        type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now(), from: myId
                     });
                 }
             });
@@ -2235,7 +2381,7 @@ function sendAttackToOthers(type, duration, stealAmount) {
 }
 
 function sendRandomTargetAttack(type, duration, stealAmount) {
-    if (!myPartyId) return;
+    if (!myPartyId || invincibleActive) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
         const members = s.val();
         if (members) {
@@ -2253,25 +2399,27 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
     });
 }
 
-// 特定のターゲットに攻撃を送信
 function sendAttackToTarget(targetId, type, duration, stealAmount) {
-    if (!myPartyId) return;
+    if (!myPartyId || invincibleActive) return;
     const attackId = generateId();
     update(ref(db, `parties/${myPartyId}/members/${targetId}/attacks/${attackId}`), {
-        type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now()
+        type: type, duration: duration, stealAmount: stealAmount, timestamp: Date.now(), from: myId
     });
 }
 
 window.activateSkill = (keySlot = "space") => {
     if (!gameActive) return;
     if (!equippedSkill || equippedSkill === "none" || equippedSkill === "fundraiser" || equippedSkill === "godfundraiser") return;
+    if (invincibleActive) {
+        showBattleAlert("🛡️ 無敵状態のためスキル無効！", "#FFD700");
+        return;
+    }
     
     const skill = SKILL_DB[equippedSkill];
 
     if (keySlot === "space") {
         if (cooldowns.space > 0) return;
         
-        // 既存スキル
         if (skill.id === "punch") {
             sendAttackToOthers("jam", 3000, 0);
             showBattleAlert("👊 パンチ発動！", "var(--accent-red)");
@@ -2282,7 +2430,7 @@ window.activateSkill = (keySlot = "space") => {
         } 
         else if (skill.id === "comboUp") {
             comboMultiplier = 2;
-            setTimeout(() => { comboMultiplier = 1; }, 5000);
+            setTimeout(() => comboMultiplier = 1, 5000);
             showBattleAlert("🔥 コンボ倍増発動！", "var(--accent-purple)");
         } 
         else if (skill.id === "revolver") {
@@ -2297,50 +2445,54 @@ window.activateSkill = (keySlot = "space") => {
         } 
         else if (skill.id === "timeslip") {
             if (timeSlipUsed) return;
-            sendAttackToOthers("timeslip", 3000, 0);
-            startAutoTypeEngine(6000, 60); 
-            comboMultiplier = 1;
-            setTimeout(() => { comboMultiplier = 1; }, 5000);
+            const stealAmount = Math.floor(Math.random() * 2000) + 1000; // 1000〜3000
+            sendAttackToOthers("timeslip", 3000, stealAmount);
+            startAutoTypeEngine(3000, 60); // 3秒間に短縮
             timeSlipUsed = true;
             el("in-game-skill-btn").classList.add("cooldown");
             el("skill-status-text").innerText = "使用済み (対戦中1回のみ)";
-            showBattleAlert("⏳ タイムスリップ！", "#FFD700");
+            showBattleAlert(`⏳ タイムスリップ！${stealAmount}スコア奪取`, "#FFD700");
             return;
         }
         else if (skill.id === "godfather") {
             isGodfatherMissionActive = true;
-            setTimeout(() => { isGodfatherMissionActive = false; }, 10000);
+            setTimeout(() => isGodfatherMissionActive = false, 10000);
             showBattleAlert("🕴 任務開始！(10秒間)", "#ffd700");
         }
         else if (skill.id === "hanabi") {
             sendAttackToOthers("dodge", 1000, 0);
             showBattleAlert("🎆 パチパチ発動！", "#FFD700");
         }
-        // ガチャキャラのスキル
-        else if (skill.id === "paintballer") {
-            sendAttackToOthers("paint", 5000, 0);
-            showBattleAlert("🎨 ペイント発動！", "#FF69B4");
+        else if (skill.id === "hacker_trainee") {
+            // ランダムスキル発動
+            activateRandomSkill();
+            startSpecificCooldown("space", 600);
         }
-        else if (skill.id === "banana") {
-            bananaStacks++;
-            showBattleAlert(`🍌 バナナを設置！（残り ${bananaStacks}個）`, "#FFD700");
-        }
-        else if (skill.id === "slate") {
-            showBattleAlert("🛡️ スレート（パッシブ）", "#AAAAAA");
-            return; // クールダウン不要
-        }
-        else if (skill.id === "trapper") {
-            trapperStacks++;
-            showBattleAlert(`🔫 トラップを設置！（残り ${trapperStacks}個）`, "#FF4500");
-        }
-        else if (skill.id === "rifleman") {
-            sendRandomTargetAttack("snipe", 5000, 0);
-            showBattleAlert("🎯 ヘッドショット！", "#FF0000");
-        }
-        else if (skill.id === "narrator") {
-            // メガホンをスペースキーに割り当て（簡易）
-            sendAttackToOthers("megaphone", 10000, 0);
-            showBattleAlert("📢 メガホン！", "#FF69B4");
+        else if (skill.gacha) {
+            if (skill.id === "paintballer") {
+                sendAttackToOthers("paint", 5000, 0);
+                showBattleAlert("🎨 ペイント発動！", "#FF69B4");
+            }
+            else if (skill.id === "banana") {
+                bananaStacks++;
+                showBattleAlert(`🍌 バナナを設置！（残り ${bananaStacks}個）`, "#FFD700");
+            }
+            else if (skill.id === "slate") {
+                showBattleAlert("🛡️ スレート（パッシブ）", "#AAAAAA");
+                return;
+            }
+            else if (skill.id === "trapper") {
+                trapperStacks++;
+                showBattleAlert(`🔫 トラップを設置！（残り ${trapperStacks}個）`, "#FF4500");
+            }
+            else if (skill.id === "rifleman") {
+                sendRandomTargetAttack("snipe", 5000, 0);
+                showBattleAlert("🎯 ヘッドショット！", "#FF0000");
+            }
+            else if (skill.id === "narrator") {
+                sendAttackToOthers("megaphone", 10000, 0);
+                showBattleAlert("📢 メガホン！", "#FF69B4");
+            }
         }
 
         if (skill.cooldown > 0) startSpecificCooldown("space", skill.cooldown);
@@ -2363,6 +2515,21 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOthers("maze", 0, 0);
             showBattleAlert("🔷 迷路を送信！", "#00ff00");
             startSpecificCooldown("key1", 45);
+        }
+        else if (skill.id === "invincible_survivor") {
+            activateInvincible();
+            startSpecificCooldown("key1", 50);
+        }
+        else if (skill.id === "swordsman") {
+            sendAttackToOthers("cut", 2000, 300);
+            showCutEffect();
+            showBattleAlert("⚔️ 切り傷発動！", "#FF0000");
+            startSpecificCooldown("key1", 15);
+        }
+        else if (skill.id === "hacker_trainee") {
+            sendAttackToOthers("hacker_tabs", 10000, 0);
+            showBattleAlert("💻 タブ追加α発動！", "#00ff00");
+            startSpecificCooldown("key1", 30);
         }
         else if (skill.id === "narrator") {
             sendAttackToOthers("action_game", 0, 0);
@@ -2391,18 +2558,30 @@ window.activateSkill = (keySlot = "space") => {
                 skill.used = true;
             }
         }
+        else if (skill.id === "invincible_survivor") {
+            showScoreRoulette();
+            startSpecificCooldown("key2", 40);
+        }
+        else if (skill.id === "swordsman") {
+            sendAttackToOthers("big_cut", 4000, 0);
+            showBattleAlert("⚔️ 大きな傷発動！", "#8B0000");
+            startSpecificCooldown("key2", 35);
+        }
+        else if (skill.id === "hacker_trainee") {
+            sendAttackToOthers("status_attack", 3000, 0);
+            showBattleAlert("🧪 異常状態α発動！", "#ff00ff");
+            startSpecificCooldown("key2", 40);
+        }
         else if (skill.id === "narrator") {
             sendAttackToOthers("puzzle_game", 0, 0);
             showBattleAlert("🧩 パズルゲーム！", "#00ff00");
             startSpecificCooldown("key2", 100);
         }
-        // トラッパーの免疫力（スタン中のみ発動可能）
         else if (skill.id === "trapper") {
             if (!isStunned) {
                 showBattleAlert("スタンしていないと使えません！", "#FF0000");
                 return;
             }
-            // スタン解除
             clearStun();
             showBattleAlert("💊 免疫力発動！スタンを解除！", "#00FF00");
             startSpecificCooldown("key2", 200);
@@ -2423,27 +2602,91 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🧪 状態変異！", "#00ff00");
             startSpecificCooldown("key3", 35);
         }
+        else if (skill.id === "hacker_trainee") {
+            sendAttackToOthers("screen_disturb", 7000, 0);
+            showBattleAlert("🌀 画面妨害α発動！", "#ff69b4");
+            startSpecificCooldown("key3", 70);
+        }
     }
 
     el("stat-score").innerText = score.toLocaleString();
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
 };
 
-// スタン状態をセット
+function activateInvincible() {
+    invincibleActive = true;
+    showBattleAlert("🛡️ 無敵モード発動！15秒間全て無効！", "#FFD700");
+    
+    if (invincibleTimer) clearTimeout(invincibleTimer);
+    invincibleTimer = setTimeout(() => {
+        invincibleActive = false;
+        showBattleAlert("無敵モード終了", "#FFD700");
+    }, 15000);
+}
+
+function showScoreRoulette() {
+    const roulette = el("score-roulette");
+    roulette.classList.remove("hidden");
+    window.scoreRouletteActive = true;
+}
+
+window.spinScoreRoulette = () => {
+    if (!window.scoreRouletteActive) return;
+    
+    const wheel = el("score-roulette-wheel");
+    wheel.classList.add("spinning");
+    
+    setTimeout(() => {
+        wheel.classList.remove("spinning");
+        const result = Math.random() < 0.5 ? "stun" : "steal";
+        
+        if (result === "stun") {
+            wheel.innerText = "💫";
+            sendAttackToOthers("stun", 5000, 0);
+            showBattleAlert("🎲 5秒スタン！", "#ff0000");
+        } else {
+            wheel.innerText = "💰";
+            sendAttackToOthers("steal", 0, 500);
+            score += 500;
+            showBattleAlert("🎲 500スコア奪取！", "#FFD700");
+        }
+        
+        setTimeout(() => {
+            el("score-roulette").classList.add("hidden");
+            wheel.innerText = "?";
+            window.scoreRouletteActive = false;
+        }, 2000);
+    }, 2000);
+};
+
+function activateRandomSkill() {
+    const skills = Object.keys(SKILL_DB).filter(id => !SKILL_DB[id].gacha && id !== "hacker_trainee");
+    const randomSkill = skills[Math.floor(Math.random() * skills.length)];
+    showBattleAlert(`🎲 ランダム発動: ${SKILL_DB[randomSkill].name}`, "#FF69B4");
+    
+    // 簡易的な発動
+    if (randomSkill === "punch") sendAttackToOthers("jam", 3000, 0);
+    else if (randomSkill === "autotype") startAutoTypeEngine(3000, 70);
+    else if (randomSkill === "thief") sendAttackToOthers("steal", 0, 1200);
+    // 他は必要に応じて追加
+}
+
 function setStun(durationMs) {
+    if (invincibleActive) {
+        showBattleAlert("🛡️ 無敵状態のため無効化！", "#FFD700");
+        return false;
+    }
     if (equippedSkill === "slate") {
         showBattleAlert("🛡️ スレートがスタンを無効化！", "#AAAAAA");
         return false;
     }
-    if (isStunned) return true; // 既にスタン中
+    if (isStunned) return true;
     isStunned = true;
     effectTimers.stun = durationMs;
     startEffectTimer('stun', durationMs);
-    el("jamming-overlay").classList.remove("hidden"); // 妨害オーバーレイを流用
+    el("jamming-overlay").classList.remove("hidden");
     if (stunTimer) clearTimeout(stunTimer);
-    stunTimer = setTimeout(() => {
-        clearStun();
-    }, durationMs);
+    stunTimer = setTimeout(clearStun, durationMs);
     return true;
 }
 
@@ -2451,26 +2694,22 @@ function clearStun() {
     isStunned = false;
     effectTimers.stun = 0;
     el("jamming-overlay").classList.add("hidden");
-    if (stunTimer) {
-        clearTimeout(stunTimer);
-        stunTimer = null;
-    }
+    if (stunTimer) clearTimeout(stunTimer);
+    stunTimer = null;
 }
 
 function startAutoTypeEngine(durationMs, intervalMs) {
     clearInterval(autoTypeTimer);
     autoTypeTimer = setInterval(() => {
-        if (!gameActive || isJamming || isStunned || hackerTabsActive > 0) return;
+        if (!gameActive || isJamming || isStunned || hackerTabsActive > 0 || invincibleActive) return;
         processCorrectType();
     }, intervalMs);
     
-    setTimeout(() => {
-        clearInterval(autoTypeTimer);
-    }, durationMs);
+    setTimeout(() => clearInterval(autoTypeTimer), durationMs);
 }
 
 function createHackerTabs() {
-    if (hackerTabsActive > 0) return;
+    if (hackerTabsActive > 0 || invincibleActive) return;
     hackerTabsActive = 10;
     
     const container = document.createElement('div');
@@ -2519,6 +2758,7 @@ function createHackerTabs() {
 }
 
 function applyBlurEffect() {
+    if (invincibleActive) return;
     const playScreen = el("screen-play");
     if (!playScreen) return;
     playScreen.style.transition = "none";
@@ -2542,8 +2782,8 @@ function applyBlurEffect() {
     }, 1000);
 }
 
-// ペイントエフェクト（改良：画面全体に広がり、周りの透明度をなくす）
 function applyPaintEffect(durationMs) {
+    if (invincibleActive) return;
     const paintOverlay = el("paint-overlay");
     if (!paintOverlay) return;
     const paintEffect = paintOverlay.querySelector('.paint-effect');
@@ -2552,11 +2792,8 @@ function applyPaintEffect(durationMs) {
     effectTimers.paint = durationMs;
     startEffectTimer('paint', durationMs);
 
-    // CSSアニメーションを無効化
     paintEffect.style.animation = 'none';
     paintEffect.style.opacity = '1';
-    
-    // 画面全体を覆うようにスタイルを変更
     paintEffect.style.background = 'radial-gradient(circle at 50% 50%, rgba(255, 105, 180, 1) 0%, rgba(255, 105, 180, 1) 100%)';
     paintEffect.style.width = '100%';
     paintEffect.style.height = '100%';
@@ -2566,11 +2803,10 @@ function applyPaintEffect(durationMs) {
     
     paintOverlay.classList.remove("hidden");
 
-    const totalDuration = durationMs; // 5000ms
-    const holdDuration = 2500; // 2.5秒間完全に不透明
-    const fadeDuration = totalDuration - holdDuration; // 残り2.5秒でフェード
+    const totalDuration = durationMs;
+    const holdDuration = 2500;
+    const fadeDuration = totalDuration - holdDuration;
 
-    // ホールド時間後にフェード開始
     setTimeout(() => {
         let startTime = null;
         const fadeStep = (timestamp) => {
@@ -2581,10 +2817,9 @@ function applyPaintEffect(durationMs) {
             if (progress < 1) {
                 requestAnimationFrame(fadeStep);
             } else {
-                // フェード終了後、オーバーレイを非表示
                 paintOverlay.classList.add("hidden");
-                paintEffect.style.opacity = ''; // リセット
-                paintEffect.style.background = ''; // リセット
+                paintEffect.style.opacity = '';
+                paintEffect.style.background = '';
                 effectTimers.paint = 0;
             }
         };
@@ -2592,14 +2827,52 @@ function applyPaintEffect(durationMs) {
     }, holdDuration);
 }
 
-// ゆらゆらエフェクト
 function applySwayEffect(durationMs) {
+    if (invincibleActive) return;
     document.body.classList.add("swaying");
     effectTimers.sway = durationMs;
     startEffectTimer('sway', durationMs);
     setTimeout(() => {
         document.body.classList.remove("swaying");
         effectTimers.sway = 0;
+    }, durationMs);
+}
+
+function applyScreenRotateEffect(durationMs) {
+    if (invincibleActive) return;
+    const playScreen = el("screen-play");
+    let rotation = 0;
+    const interval = setInterval(() => {
+        rotation += 30;
+        playScreen.style.transform = `rotate(${rotation}deg)`;
+        if (rotation >= 360) {
+            clearInterval(interval);
+            setTimeout(() => playScreen.style.transform = "", 1000);
+        }
+    }, 100);
+    setTimeout(() => clearInterval(interval), durationMs);
+}
+
+function showCutEffect() {
+    const cutEffect = el("cut-effect");
+    cutEffect.classList.remove("hidden");
+    sounds.cut.play();
+    setTimeout(() => cutEffect.classList.add("hidden"), 1000);
+}
+
+function showBloodEffect(durationMs) {
+    const bloodEffect = el("blood-effect");
+    bloodEffect.classList.remove("hidden");
+    document.body.classList.add("bleeding");
+    bleedingActive = true;
+    effectTimers.bleeding = durationMs;
+    startEffectTimer('bleeding', durationMs);
+    sounds.blood.play();
+    
+    setTimeout(() => {
+        bloodEffect.classList.add("hidden");
+        document.body.classList.remove("bleeding");
+        bleedingActive = false;
     }, durationMs);
 }
 
@@ -2674,9 +2947,7 @@ function renderMaze() {
     }
     
     const status = el("maze-status");
-    if (status) {
-        status.innerHTML = `ゴールまで: ${distance}マス`;
-    }
+    if (status) status.innerHTML = `ゴールまで: ${distance}マス`;
 }
 
 window.moveMaze = (direction) => {
@@ -2716,6 +2987,7 @@ window.moveMaze = (direction) => {
 };
 
 function startHacking(duration) {
+    if (invincibleActive) return;
     hackingActive = true;
     const overlay = el("hacking-overlay");
     const progress = document.querySelector(".hacking-progress");
@@ -2752,6 +3024,7 @@ function startHacking(duration) {
 }
 
 function startPoison(duration) {
+    if (invincibleActive) return;
     poisonActive = true;
     el("poison-overlay").classList.remove("hidden");
     document.body.classList.add("poisoned");
@@ -2794,24 +3067,24 @@ function startPoison(duration) {
 
 function handleIncomingAttack(attack) {
     if (!gameActive) return;
+    if (invincibleActive) {
+        showBattleAlert("🛡️ 無敵状態のため無効化！", "#FFD700");
+        return;
+    }
 
-    // スレート（スタン無効パッシブ）のチェック
     if (equippedSkill === "slate") {
-        // スタン系攻撃を無効化
-        if (attack.type === "jam" || attack.type === "stun" || attack.type === "hacking" || attack.type === "maze" || attack.type === "snipe" || attack.type === "dodge") {
+        if (attack.type === "jam" || attack.type === "stun" || attack.type === "hacking" || attack.type === "maze" || attack.type === "snipe" || attack.type === "dodge" || attack.type === "cut" || attack.type === "big_cut") {
             showBattleAlert("🛡️ スレートのパッシブで無効化！", "#AAAAAA");
             return;
         }
     }
 
-    // バナナ・トラップによる奪取防止
     if (attack.type === "steal" && attack.stealAmount > 0) {
         if (bananaStacks > 0) {
             bananaStacks--;
             showBattleAlert("🍌 バナナでやられた！相手がスタン！", "#FFD700");
-            // 攻撃元にスタンを返す
             sendAttackToTarget(attack.from, "stun", 3000, 0);
-            return; // スコア奪取を防ぐ
+            return;
         }
         if (trapperStacks > 0) {
             trapperStacks--;
@@ -2828,7 +3101,7 @@ function handleIncomingAttack(attack) {
     }
 
     if (attack.type === "timeslip") {
-        score = Math.floor(score / 2);
+        score = Math.max(0, score - attack.stealAmount);
         el("stat-score").innerText = score.toLocaleString();
         if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { score: score });
         applyJamming(3000);
@@ -2867,9 +3140,7 @@ function handleIncomingAttack(attack) {
         el("dodge-overlay").classList.remove("hidden");
         
         let dodged = false;
-        window.dodgeCallback = (success) => {
-            dodged = success;
-        };
+        window.dodgeCallback = (success) => dodged = success;
         
         setTimeout(() => {
             el("dodge-overlay").classList.add("hidden");
@@ -2889,14 +3160,13 @@ function handleIncomingAttack(attack) {
         mazeGrid = attack.maze || generateMaze();
         mazePlayerPos = { x: 0, y: 0 };
         mazeGoalPos = { x: 9, y: 9 };
-        effectTimers.maze = 10000; // 10秒
+        effectTimers.maze = 10000;
         startEffectTimer('maze', 10000);
         
         renderMaze();
         el("maze-overlay").classList.remove("hidden");
         sounds.miss.play();
         
-        // 10秒後に迷路を閉じる
         setTimeout(() => {
             if (mazeActive) {
                 mazeActive = false;
@@ -2918,9 +3188,7 @@ function handleIncomingAttack(attack) {
     
     if (attack.type === "poison") {
         applyJamming(attack.duration);
-        setTimeout(() => {
-            startPoison(10000);
-        }, attack.duration);
+        setTimeout(() => startPoison(10000), attack.duration);
         sounds.miss.play();
         return;
     }
@@ -2932,35 +3200,62 @@ function handleIncomingAttack(attack) {
     }
 
     if (attack.type === "snipe" || attack.type === "stun") {
-        // まずスタン
         setStun(attack.duration);
-        // スタン終了後にゆらゆらを開始
-        setTimeout(() => {
-            applySwayEffect(attack.duration);
-        }, attack.duration);
+        setTimeout(() => applySwayEffect(attack.duration), attack.duration);
         showBattleAlert("🎯 ヘッドショット！くらくら…", "#FF0000");
         sounds.miss.play();
         return;
     }
 
+    if (attack.type === "cut") {
+        showCutEffect();
+        setStun(2000);
+        showBattleAlert("⚔️ 切り傷！2秒スタン！", "#FF0000");
+        sounds.miss.play();
+        return;
+    }
+
+    if (attack.type === "big_cut") {
+        showCutEffect();
+        setStun(4000);
+        setTimeout(() => showBloodEffect(10000), 4000);
+        showBattleAlert("⚔️ 大きな傷！血状態！", "#8B0000");
+        sounds.miss.play();
+        return;
+    }
+
+    if (attack.type === "status_attack") {
+        setStun(3000);
+        setTimeout(() => {
+            if (Math.random() < 0.5) startPoison(10000);
+            else showBloodEffect(10000);
+        }, 3000);
+        sounds.miss.play();
+        return;
+    }
+
+    if (attack.type === "screen_disturb") {
+        applySwayEffect(3000);
+        setTimeout(() => applyScreenRotateEffect(4000), 3000);
+        sounds.miss.play();
+        return;
+    }
+
     if (attack.type === "action_game") {
-        // アクションゲーム開始
         startActionGame();
         return;
     }
 
     if (attack.type === "puzzle_game") {
-        // パズルゲーム開始
         startPuzzleGame();
         return;
     }
 
-    if (attack.duration > 0) {
-        applyJamming(attack.duration);
-    }
+    if (attack.duration > 0) applyJamming(attack.duration);
 }
 
 function applyJamming(durationMs) {
+    if (invincibleActive) return;
     isJamming = true;
     effectTimers.jamming = durationMs;
     startEffectTimer('jamming', durationMs);
@@ -2976,18 +3271,18 @@ function applyJamming(durationMs) {
 }
 
 // =========================================
-// アクションゲーム関連（修正：ジャンプとトゲ避け）
+// アクションゲーム関連
 // =========================================
 let actionGameActive = false;
-let actionGamePlayer = { x: 50, y: 60, vy: 0 }; // 地面の高さを60に設定
-let actionGameSpikePos = { x: 300, y: 60 };     // トゲ
-let actionGameGoalPos = { x: 350, y: 60 };      // ゴール
-let actionGameEnemyPos = { x: 200, y: 60 };     // 敵キャラ（クリボー風）
+let actionGamePlayer = { x: 50, y: 60, vy: 0 };
+let actionGameSpikePos = { x: 300, y: 60 };
+let actionGameGoalPos = { x: 350, y: 60 };
+let actionGameEnemyPos = { x: 200, y: 60 };
 let actionGameEnemyAlive = true;
-let actionGameGravity = 0.8;                     // 重力（正の値で下向き）
+let actionGameGravity = 0.8;
 let actionGameOnGround = true;
 let actionGameInterval = null;
-let actionGameJumpPower = -12;                    // ジャンプ力（負の値で上に）
+let actionGameJumpPower = -12;
 
 window.startActionGame = () => {
     actionGameActive = true;
@@ -2996,11 +3291,9 @@ window.startActionGame = () => {
     if (actionGameInterval) clearInterval(actionGameInterval);
     actionGameInterval = setInterval(updateActionGame, 50);
     
-    // 効果時間表示
-    effectTimers.actionGame = 30000; // 30秒
+    effectTimers.actionGame = 30000;
     startEffectTimer('actionGame', 30000);
     
-    // 30秒後に自動終了
     setTimeout(() => {
         if (actionGameActive) {
             closeActionGame();
@@ -3014,11 +3307,8 @@ function resetActionGame() {
     actionGameOnGround = true;
     actionGameEnemyAlive = true;
     
-    // 敵要素を再表示
     const enemy = document.querySelector('.action-game-enemy');
-    if (enemy) {
-        enemy.style.display = 'block';
-    }
+    if (enemy) enemy.style.display = 'block';
     updateActionGameDisplay();
 }
 
@@ -3040,7 +3330,7 @@ window.moveActionGame = (dir) => {
         actionGamePlayer.x = Math.min(350, actionGamePlayer.x + 20);
     } else if (dir === 'jump') {
         if (actionGameOnGround) {
-            actionGamePlayer.vy = actionGameJumpPower; // ジャンプ（負の値で上に）
+            actionGamePlayer.vy = actionGameJumpPower;
             actionGameOnGround = false;
         }
     }
@@ -3049,11 +3339,9 @@ window.moveActionGame = (dir) => {
 function updateActionGame() {
     if (!actionGameActive) return;
     
-    // 重力適用（速度を増加させて下に落ちる）
     actionGamePlayer.vy += actionGameGravity;
     actionGamePlayer.y += actionGamePlayer.vy;
     
-    // 地面チェック（地面より下に行かないように）
     if (actionGamePlayer.y >= 60) {
         actionGamePlayer.y = 60;
         actionGamePlayer.vy = 0;
@@ -3068,18 +3356,18 @@ function updateActionGameDisplay() {
     const player = document.querySelector('.action-game-player');
     const spike = document.querySelector('.action-game-spike');
     const goal = document.querySelector('.action-game-goal');
-    // 敵の表示
     let enemy = document.querySelector('.action-game-enemy');
+    
     if (!enemy && actionGameActive) {
-        // 敵要素がなければ作成
         enemy = document.createElement('div');
         enemy.className = 'action-game-enemy';
         enemy.style.position = 'absolute';
         enemy.style.bottom = '30px';
         enemy.style.fontSize = '30px';
-        enemy.innerText = '🐢'; // クリボーの代わり
+        enemy.innerText = '🐢';
         document.querySelector('.action-game-canvas').appendChild(enemy);
     }
+    
     if (player) {
         player.style.left = actionGamePlayer.x + 'px';
         player.style.bottom = (actionGamePlayer.y - 30) + 'px';
@@ -3096,25 +3384,20 @@ function updateActionGameDisplay() {
 }
 
 function checkActionGameCollision() {
-    // 棘との衝突（ジャンプ中のみ当たるように修正）
     if (Math.abs(actionGamePlayer.x - actionGameSpikePos.x) < 30 && !actionGameOnGround) {
         showBattleAlert("トゲに当たった！最初からやり直し", "#ff0000");
         resetActionGame();
     }
-    // 敵との衝突（地面にいない時のみ倒せる）
     if (actionGameEnemyAlive && Math.abs(actionGamePlayer.x - actionGameEnemyPos.x) < 30) {
         if (!actionGameOnGround) {
-            // 上から踏んだ
             actionGameEnemyAlive = false;
             showBattleAlert("敵を倒した！", "var(--accent-green)");
             sounds.correct.play();
         } else {
-            // 横からぶつかった
             showBattleAlert("敵にぶつかった！最初からやり直し", "#ff0000");
             resetActionGame();
         }
     }
-    // ゴール
     if (Math.abs(actionGamePlayer.x - actionGameGoalPos.x) < 30) {
         showBattleAlert("ゴール！クリア！", "var(--accent-green)");
         sounds.correct.play();
@@ -3123,28 +3406,23 @@ function checkActionGameCollision() {
 }
 
 // =========================================
-// パズルゲーム（ドットコネクト）改良版（クリア時に自動終了）
+// パズルゲーム
 // =========================================
 let puzzleDots = [];
 let puzzleSelected = [];
 let puzzleConnections = [];
 
 window.startPuzzleGame = () => {
-    // 16個のドットを生成（1〜16の番号）
     puzzleDots = [];
-    for (let i = 1; i <= 16; i++) {
-        puzzleDots.push({ id: i, connected: false });
-    }
+    for (let i = 1; i <= 16; i++) puzzleDots.push({ id: i, connected: false });
     puzzleSelected = [];
     puzzleConnections = [];
     renderPuzzleGrid();
     el("puzzle-game-overlay").classList.remove("hidden");
     
-    // 効果時間表示
-    effectTimers.puzzleGame = 30000; // 30秒
+    effectTimers.puzzleGame = 30000;
     startEffectTimer('puzzleGame', 30000);
     
-    // 30秒後に自動終了
     setTimeout(() => {
         if (!el("puzzle-game-overlay").classList.contains("hidden")) {
             closePuzzleGame();
@@ -3170,14 +3448,12 @@ function renderPuzzleGrid() {
     if (!grid) return;
     grid.innerHTML = "";
     
-    // 各ドットをランダムな位置に配置（CSS Grid 内で少しずらす）
     puzzleDots.forEach((dot, index) => {
         const dotEl = document.createElement("div");
         dotEl.className = `puzzle-dot ${dot.connected ? 'connected' : ''}`;
         dotEl.dataset.index = index;
         dotEl.onclick = () => selectPuzzleDot(index);
         dotEl.innerText = dot.connected ? '✓' : dot.id;
-        // ランダムなオフセット
         const xOffset = Math.random() * 20 - 10;
         const yOffset = Math.random() * 20 - 10;
         dotEl.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
@@ -3189,13 +3465,11 @@ function selectPuzzleDot(index) {
     if (puzzleDots[index].connected) return;
     
     if (puzzleSelected.includes(index)) {
-        // 既に選択中なら解除
         puzzleSelected = puzzleSelected.filter(i => i !== index);
     } else if (puzzleSelected.length < 2) {
         puzzleSelected.push(index);
     }
     
-    // 2つ選択されたら接続
     if (puzzleSelected.length === 2) {
         const [a, b] = puzzleSelected;
         if (!puzzleDots[a].connected && !puzzleDots[b].connected) {
@@ -3206,28 +3480,23 @@ function selectPuzzleDot(index) {
         puzzleSelected = [];
         renderPuzzleGrid();
         
-        // すべて接続されたかチェック
         if (puzzleDots.every(d => d.connected)) {
             showBattleAlert("全ての点をつなげた！クリア！", "var(--accent-green)");
             sounds.correct.play();
-            // パズルゲームを閉じる
             closePuzzleGame();
         }
     } else {
-        // 選択中のハイライトを更新
         renderPuzzleGrid();
         document.querySelectorAll('.puzzle-dot').forEach((el, i) => {
-            if (puzzleSelected.includes(i)) {
-                el.classList.add('selected');
-            }
+            if (puzzleSelected.includes(i)) el.classList.add('selected');
         });
     }
 }
 
-// --- ストーリーモード制御 ---
+// --- ストーリーモード制御（第3章追加）---
 window.openStoryMode = () => {
-    if (isMatchmaking) {
-        alert("マッチング待機中はストーリーモードを開けません");
+    if (isMatchmaking || trainingMode) {
+        alert("マッチング待機中・修行中はストーリーモードを開けません");
         return;
     }
     openScreen("screen-story");
@@ -3236,48 +3505,73 @@ window.openStoryMode = () => {
 
 function renderStoryMap() {
     const map1 = el("story-map-1");
-    if (!map1) return;
-    map1.innerHTML = "";
-    STORY_STAGES.chapter1.forEach((stage, index) => {
-        const stageNum = index + 1;
-        const isCompleted = storyProgress.chapter1 >= stageNum;
-        const isLocked = storyProgress.chapter1 < stageNum - 1;
-        const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
-        
-        const node = document.createElement("div");
-        node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
-        node.onclick = () => !isLocked && selectStage(1, stageNum);
-        
-        node.innerHTML = `
-            <div class="stage-number">1-${stageNum}</div>
-            <div class="stage-target">${stage.target.toLocaleString()}</div>
-            ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
-            ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
-        `;
-        map1.appendChild(node);
-    });
+    if (map1) {
+        map1.innerHTML = "";
+        STORY_STAGES.chapter1.forEach((stage, index) => {
+            const stageNum = index + 1;
+            const isCompleted = storyProgress.chapter1 >= stageNum;
+            const isLocked = storyProgress.chapter1 < stageNum - 1;
+            const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
+            
+            const node = document.createElement("div");
+            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.onclick = () => !isLocked && selectStage(1, stageNum);
+            
+            node.innerHTML = `
+                <div class="stage-number">1-${stageNum}</div>
+                <div class="stage-target">${stage.target.toLocaleString()}</div>
+                ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+                ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+            `;
+            map1.appendChild(node);
+        });
+    }
 
     const map2 = el("story-map-2");
-    if (!map2) return;
-    map2.innerHTML = "";
-    STORY_STAGES.chapter2.forEach((stage, index) => {
-        const stageNum = index + 1;
-        const isCompleted = storyProgress.chapter2 >= stageNum;
-        const isLocked = (storyProgress.chapter1 < 7) || (storyProgress.chapter2 < stageNum - 1);
-        const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && storyProgress.chapter1 >= 7;
-        
-        const node = document.createElement("div");
-        node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
-        node.onclick = () => !isLocked && selectStage(2, stageNum);
-        
-        node.innerHTML = `
-            <div class="stage-number">2-${stageNum}</div>
-            <div class="stage-target">${stage.target.toLocaleString()}</div>
-            ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
-            ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
-        `;
-        map2.appendChild(node);
-    });
+    if (map2) {
+        map2.innerHTML = "";
+        STORY_STAGES.chapter2.forEach((stage, index) => {
+            const stageNum = index + 1;
+            const isCompleted = storyProgress.chapter2 >= stageNum;
+            const isLocked = (storyProgress.chapter1 < 7) || (storyProgress.chapter2 < stageNum - 1);
+            const isCurrent = storyProgress.chapter2 === stageNum - 1 && !isCompleted && storyProgress.chapter1 >= 7;
+            
+            const node = document.createElement("div");
+            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.onclick = () => !isLocked && selectStage(2, stageNum);
+            
+            node.innerHTML = `
+                <div class="stage-number">2-${stageNum}</div>
+                <div class="stage-target">${stage.target.toLocaleString()}</div>
+                ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+                ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+            `;
+            map2.appendChild(node);
+        });
+    }
+
+    const map3 = el("story-map-3");
+    if (map3) {
+        map3.innerHTML = "";
+        STORY_STAGES.chapter3.forEach((stage, index) => {
+            const stageNum = index + 1;
+            const isCompleted = storyProgress.chapter3 >= stageNum;
+            const isLocked = (storyProgress.chapter2 < 7) || (storyProgress.chapter3 < stageNum - 1);
+            const isCurrent = storyProgress.chapter3 === stageNum - 1 && !isCompleted && storyProgress.chapter2 >= 7;
+            
+            const node = document.createElement("div");
+            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.onclick = () => !isLocked && selectStage(3, stageNum);
+            
+            node.innerHTML = `
+                <div class="stage-number">3-${stageNum}</div>
+                <div class="stage-target">${stage.target.toLocaleString()}</div>
+                ${isCompleted ? '<span class="stage-complete-mark">✓</span>' : ''}
+                ${isLocked ? '<span class="stage-locked-mark">🔒</span>' : ''}
+            `;
+            map3.appendChild(node);
+        });
+    }
     
     document.querySelectorAll('.chapter-tab').forEach(tab => {
         tab.onclick = () => {
@@ -3293,9 +3587,9 @@ function renderStoryMap() {
 
 function selectStage(chapter, stage) {
     currentStage = { chapter, stage };
-    const stageData = chapter === 1 ? 
-        STORY_STAGES.chapter1[stage - 1] : 
-        STORY_STAGES.chapter2[stage - 1];
+    const stageData = chapter === 1 ? STORY_STAGES.chapter1[stage - 1] :
+                     chapter === 2 ? STORY_STAGES.chapter2[stage - 1] :
+                     STORY_STAGES.chapter3[stage - 1];
     
     const titleEl = el("stage-title");
     const timeEl = el("stage-time");
@@ -3311,7 +3605,11 @@ function selectStage(chapter, stage) {
     
     if (stageData.boss && bossInfoEl && bossSkillNameEl) {
         bossInfoEl.classList.remove("hidden");
-        bossSkillNameEl.innerText = stageData.skill === "hanabi" ? "花火" : "ハッカーマイルストーン4";
+        let skillName = "";
+        if (stageData.skill === "hanabi") skillName = "花火";
+        else if (stageData.skill === "hacker_milestone4") skillName = "ハッカーマイルストーン4";
+        else if (stageData.skill === "invincible_survivor") skillName = "無敵サバイバー";
+        bossSkillNameEl.innerText = skillName;
         
         const skillId = stageData.skill;
         if (ownedSkills.includes(skillId)) {
@@ -3364,18 +3662,14 @@ async function checkPartyProgress() {
     
     for (const mid of memberIds) {
         const userSnap = await get(ref(db, `users/${mid}/story_progress`));
-        const progress = userSnap.val() || { chapter1: 0, chapter2: 0 };
+        const progress = userSnap.val() || { chapter1: 0, chapter2: 0, chapter3: 0 };
         
         if (currentStage.chapter === 1) {
-            if (progress.chapter1 < currentStage.stage - 1) {
-                allCleared = false;
-                break;
-            }
+            if (progress.chapter1 < currentStage.stage - 1) allCleared = false;
+        } else if (currentStage.chapter === 2) {
+            if (progress.chapter2 < currentStage.stage - 1) allCleared = false;
         } else {
-            if (progress.chapter2 < currentStage.stage - 1) {
-                allCleared = false;
-                break;
-            }
+            if (progress.chapter3 < currentStage.stage - 1) allCleared = false;
         }
     }
     
@@ -3393,14 +3687,14 @@ async function checkPartyProgress() {
 }
 
 window.startStorySolo = () => {
-    if (myPartyId) {
-        alert("パーティー参加中は一人プレイできません");
+    if (myPartyId || trainingMode) {
+        alert("パーティー参加中・修行中は一人プレイできません");
         return;
     }
     
-    const stageData = currentStage.chapter === 1 ?
-        STORY_STAGES.chapter1[currentStage.stage - 1] :
-        STORY_STAGES.chapter2[currentStage.stage - 1];
+    const stageData = currentStage.chapter === 1 ? STORY_STAGES.chapter1[currentStage.stage - 1] :
+                     currentStage.chapter === 2 ? STORY_STAGES.chapter2[currentStage.stage - 1] :
+                     STORY_STAGES.chapter3[currentStage.stage - 1];
     
     const diffs = ["easy", "normal", "hard"];
     const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
@@ -3427,9 +3721,9 @@ window.startStoryParty = () => {
         return;
     }
     
-    const stageData = currentStage.chapter === 1 ?
-        STORY_STAGES.chapter1[currentStage.stage - 1] :
-        STORY_STAGES.chapter2[currentStage.stage - 1];
+    const stageData = currentStage.chapter === 1 ? STORY_STAGES.chapter1[currentStage.stage - 1] :
+                     currentStage.chapter === 2 ? STORY_STAGES.chapter2[currentStage.stage - 1] :
+                     STORY_STAGES.chapter3[currentStage.stage - 1];
     
     update(ref(db, `parties/${myPartyId}`), {
         state: "ready_check",
@@ -3448,26 +3742,101 @@ window.backToStory = () => {
 };
 
 window.executeDodge = () => {
-    if (window.dodgeCallback) {
-        window.dodgeCallback(true);
-    }
+    if (window.dodgeCallback) window.dodgeCallback(true);
 };
+
+// --- 修行モード ---
+window.openTraining = () => {
+    if (myPartyId || isMatchmaking) {
+        alert("パーティー中・マッチング待機中は修行できません");
+        return;
+    }
+    openScreen("screen-training");
+    updateTrainingStatus();
+};
+
+function updateTrainingStatus() {
+    const status1 = el("training-1-status");
+    const status2 = el("training-2-status");
+    
+    if (status1) {
+        status1.innerText = ownedSkills.includes("swordsman") ? "✓ クリア済み" : "未クリア";
+        status1.style.color = ownedSkills.includes("swordsman") ? "var(--accent-green)" : "var(--accent-red)";
+    }
+    if (status2) {
+        status2.innerText = ownedSkills.includes("hacker_trainee") ? "✓ クリア済み" : "未クリア";
+        status2.style.color = ownedSkills.includes("hacker_trainee") ? "var(--accent-green)" : "var(--accent-red)";
+    }
+}
+
+window.startTraining = (type) => {
+    if (myPartyId || isMatchmaking) return;
+    if (type === 1 && ownedSkills.includes("swordsman")) {
+        if (!confirm("既にクリア済みです。もう一度挑戦しますか？")) return;
+    }
+    if (type === 2 && ownedSkills.includes("hacker_trainee")) {
+        if (!confirm("既にクリア済みです。もう一度挑戦しますか？")) return;
+    }
+    
+    trainingMode = true;
+    trainingType = type;
+    trainingScore = type === 1 ? 45000 : 50000;
+    
+    const diffs = ["easy", "normal", "hard"];
+    const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
+    currentWords = WORD_DB[randomDiff];
+    
+    isStoryMode = true;
+    storyTargetScore = trainingScore;
+    
+    const progressBar = el("story-progress-bar");
+    if (progressBar) {
+        progressBar.classList.remove("hidden");
+        const targetEl = el("progress-target");
+        if (targetEl) targetEl.innerText = storyTargetScore.toLocaleString();
+        updateProgressBar(0);
+    }
+    
+    openScreen("screen-play");
+    startGame(60);
+};
+
+function trainingAttack() {
+    showCutEffect();
+    score = Math.max(0, score - 200);
+    setStun(1000);
+    el("stat-score").innerText = score.toLocaleString();
+    showBattleAlert("⚔️ 修行の攻撃！200スコア減少！", "#FF0000");
+}
+
+function trainingStatusAttack() {
+    if (Math.random() < 0.5) {
+        setStun(3000);
+        setTimeout(() => {
+            if (Math.random() < 0.5) startPoison(10000);
+            else showBloodEffect(10000);
+        }, 3000);
+    } else {
+        createHackerTabs();
+    }
+    showBattleAlert("⚠️ 修行の特殊攻撃！", "#FF00FF");
+}
 
 // --- モード制御 ---
 window.openSingleSelect = () => {
-    if (myPartyId || isMatchmaking) return; 
+    if (myPartyId || isMatchmaking || trainingMode) return; 
     openScreen("screen-single-select");
 };
 
 window.startSingle = (diff) => { 
-    if (myPartyId || isMatchmaking) return; 
+    if (myPartyId || isMatchmaking || trainingMode) return; 
     currentWords = WORD_DB[diff]; 
     openScreen("screen-play"); 
     startGame(60); 
 };
 
 window.openFriendBattle = () => {
-    if (isMatchmaking) return;
+    if (isMatchmaking || trainingMode) return;
     if (!myPartyId) return alert("パーティーに参加していません！");
     if (!isLeader) return alert("リーダー限定です！");
     openScreen("screen-battle-setup");
@@ -3477,10 +3846,15 @@ window.launchBattle = () => {
     if (!myPartyId || !isLeader) return;
     const selectedTime = parseInt(el("setup-time").value, 10);
     const selectedDiff = el("setup-diff").value;
+    const selectedMode = el("setup-mode").value;
+    const selectedHandicap = el("setup-handicap").value;
+    
     update(ref(db, `parties/${myPartyId}`), {
         state: "ready_check",
         time: selectedTime,
-        diff: selectedDiff
+        diff: selectedDiff,
+        teamMode: selectedMode,
+        handicap: selectedHandicap
     });
 };
 
@@ -3492,6 +3866,8 @@ window.openOnlineMatch = () => {
         updateButtonStates();
         return;
     }
+    if (trainingMode) return alert("修行中は利用できません");
+    
     const n = prompt("何人で遊ぶ？ (2-4)");
     if (![2,3,4].includes(Number(n))) return;
     isMatchmaking = true;
@@ -3511,11 +3887,20 @@ window.openOnlineMatch = () => {
                         name: player.name, 
                         score: 0, 
                         ready: false,
-                        skin: player.skin || { skin: "skin-1", face: "face-1" }
+                        skin: player.skin || { skin: "skin-1", face: "face-1" },
+                        team: Math.random() < 0.5 ? "red" : "blue"
                     }; 
                     remove(ref(db, `matchmaking/${n}/${id}`)); 
                 });
-                set(ref(db, `parties/${pid}`), { leader: myId, state: "ready_check", time: 30, diff: "normal", members });
+                set(ref(db, `parties/${pid}`), { 
+                    leader: myId, 
+                    state: "ready_check", 
+                    time: 30, 
+                    diff: "normal", 
+                    members,
+                    teamMode: "solo",
+                    handicap: "none"
+                });
                 ids.forEach(id => update(ref(db, `users/${id}`), { partyId: pid }));
             }
             isMatchmaking = false; 
@@ -3532,29 +3917,15 @@ if (nameInput) nameInput.value = myName;
 
 const userRef = ref(db, `users/${myId}`);
 
-// Firebaseからデータを読み込む
 get(userRef).then(snap => {
     if(snap.exists()) {
         let data = snap.val();
-        if(data.coins !== undefined) {
-            coins = data.coins;
-        }
-        if(data.skills !== undefined) {
-            ownedSkills = data.skills;
-        }
-        if(data.equipped !== undefined) {
-            equippedSkill = data.equipped;
-        }
-        if(data.story_progress !== undefined) {
-            storyProgress = data.story_progress;
-        }
-        if(data.skin !== undefined) {
-            skinData = data.skin;
-        }
-        if(data.accessory !== undefined) {
-            equippedAccessory = data.accessory;
-        }
-        // コード使用状況を読み込み
+        if(data.coins !== undefined) coins = data.coins;
+        if(data.skills !== undefined) ownedSkills = data.skills;
+        if(data.equipped !== undefined) equippedSkill = data.equipped;
+        if(data.story_progress !== undefined) storyProgress = data.story_progress;
+        if(data.skin !== undefined) skinData = data.skin;
+        if(data.accessory !== undefined) equippedAccessory = data.accessory;
         if(data.tysm_used !== undefined) tysmUsed = data.tysm_used;
         if(data.byramo_used !== undefined) byramoUsed = data.byramo_used;
         if(data.yuseSyazai2_used !== undefined) yuseSyazai2Used = data.yuseSyazai2_used;
@@ -3562,7 +3933,6 @@ get(userRef).then(snap => {
         if(data.daily_code_date) dailyCodeDate = data.daily_code_date;
         if(data.used_codes) usedCodes = data.used_codes;
         
-        // ローカルストレージも更新
         localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
         localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
         localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
@@ -3596,16 +3966,12 @@ updateButtonStates();
 const timeSlider = el("setup-time");
 const timeLabel = el("time-val"); 
 if (timeSlider && timeLabel) {
-    timeSlider.addEventListener("input", (e) => {
-        timeLabel.innerText = e.target.value;
-    });
+    timeSlider.addEventListener("input", (e) => timeLabel.innerText = e.target.value);
 }
 
-// BGMはなし（bgmControl削除）
-
-// デイリーコードの初期化とタイマー開始
 checkDailyCode();
 startCodeTimer();
 updateProfileFace();
+updateTrainingStatus();
 
 window.goHome();
