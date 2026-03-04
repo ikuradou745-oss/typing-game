@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V12.0 (Fixed)
+// FIREBASE & TYPING ENGINE V12.2 (Bug fixes)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1068,12 +1068,27 @@ function updateTeamSetupUI() {
     });
 }
 
-// メンバーのチームを切り替える（赤↔青）
-function toggleMemberTeam(memberId) {
-    if (!isLeader) return;
+// メンバーのチームを切り替える（赤↔青） - 修正
+async function toggleMemberTeam(memberId) {
+    if (!isLeader) {
+        alert("リーダーのみがチームを変更できます");
+        return;
+    }
     const currentTeam = partyMembers[memberId]?.team || "red";
     const newTeam = currentTeam === "red" ? "blue" : "red";
-    update(ref(db, `parties/${myPartyId}/members/${memberId}/team`), newTeam);
+    
+    // Firebase更新
+    await update(ref(db, `parties/${myPartyId}/members/${memberId}/team`), newTeam).catch(err => {
+        console.error("チーム更新エラー:", err);
+        alert("チームの変更に失敗しました");
+    });
+    
+    // ローカルキャッシュを即時更新（楽観的更新）
+    if (partyMembers[memberId]) {
+        partyMembers[memberId].team = newTeam;
+    }
+    // UIを再描画
+    updateTeamSetupUI();
 }
 
 // 互換性のため残す（従来の切り替え関数）
@@ -1084,6 +1099,11 @@ window.setAllTeam = (team) => {
     Object.keys(partyMembers).forEach(id => {
         update(ref(db, `parties/${myPartyId}/members/${id}/team`), team);
     });
+    // 楽観的更新
+    Object.keys(partyMembers).forEach(id => {
+        partyMembers[id].team = team;
+    });
+    updateTeamSetupUI();
 };
 
 // --- ハンデ設定（メンバー個別・選択状態がわかりやすく）---
@@ -1137,10 +1157,22 @@ window.toggleMemberHandicap = (memberId) => {
 
 window.setMemberHandicap = (memberId, handicap, event) => {
     if (event) event.stopPropagation();
-    if (!isLeader) return;
+    if (!isLeader) {
+        alert("リーダーのみがハンデを設定できます");
+        return;
+    }
     
-    update(ref(db, `parties/${myPartyId}/members/${memberId}/handicap`), handicap);
+    // Firebase更新
+    update(ref(db, `parties/${myPartyId}/members/${memberId}/handicap`), handicap).catch(err => {
+        console.error("ハンデ更新エラー:", err);
+        alert("ハンデの設定に失敗しました");
+    });
+    
+    // ローカルキャッシュを更新
     memberHandicaps[memberId] = handicap;
+    if (partyMembers[memberId]) {
+        partyMembers[memberId].handicap = handicap;
+    }
     
     // オプションを非表示に戻す
     const options = document.getElementById(`handicap-options-${memberId}`);
@@ -3714,8 +3746,18 @@ window.openStoryMode = () => {
         alert("マッチング待機中・修行中はストーリーモードを開けません");
         return;
     }
-    openScreen("screen-story");
-    renderStoryMap();
+    // 最新のストーリー進捗をFirebaseから取得してからマップを描画
+    get(ref(db, `users/${myId}/story_progress`)).then(snap => {
+        if (snap.exists()) {
+            storyProgress = snap.val();
+        }
+        openScreen("screen-story");
+        renderStoryMap();
+    }).catch(err => {
+        console.error("ストーリー進捗取得エラー:", err);
+        openScreen("screen-story");
+        renderStoryMap();
+    });
 };
 
 function renderStoryMap() {
@@ -3736,9 +3778,12 @@ function renderStoryMap() {
             node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
             node.onclick = () => !isLocked && selectStage(1, stageNum);
             
+            // マークはCSSの擬似要素で表示するが、念のため明示的なspanも追加（CSSで制御）
             node.innerHTML = `
                 <div class="stage-number">1-${stageNum}</div>
                 <div class="stage-target">${stage.target.toLocaleString()}</div>
+                ${isCompleted ? '<span class="stage-complete-mark" style="display:none;">✓</span>' : ''}
+                ${isLocked ? '<span class="stage-locked-mark" style="display:none;">🔒</span>' : ''}
             `;
             map1.appendChild(node);
         });
@@ -3762,6 +3807,8 @@ function renderStoryMap() {
             node.innerHTML = `
                 <div class="stage-number">2-${stageNum}</div>
                 <div class="stage-target">${stage.target.toLocaleString()}</div>
+                ${isCompleted ? '<span class="stage-complete-mark" style="display:none;">✓</span>' : ''}
+                ${isLocked ? '<span class="stage-locked-mark" style="display:none;">🔒</span>' : ''}
             `;
             map2.appendChild(node);
         });
@@ -3785,6 +3832,8 @@ function renderStoryMap() {
             node.innerHTML = `
                 <div class="stage-number">3-${stageNum}</div>
                 <div class="stage-target">${stage.target.toLocaleString()}</div>
+                ${isCompleted ? '<span class="stage-complete-mark" style="display:none;">✓</span>' : ''}
+                ${isLocked ? '<span class="stage-locked-mark" style="display:none;">🔒</span>' : ''}
             `;
             map3.appendChild(node);
         });
