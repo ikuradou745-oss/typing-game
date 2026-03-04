@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V12.2 (Bug fixes)
+// FIREBASE & TYPING ENGINE V12.3 (Bug fixes - ハンデ・チーム戦・BANルーレット改善)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -185,6 +185,7 @@ let trainingScore = 0;
 let banRouletteActive = false;
 let banRouletteParticipants = {};
 let banRouletteTimer = null;
+let globalBanRouletteListener = null; // 全ユーザー向けリスナー
 
 // ストーリーモードのステージデータ（第3章追加・ロック条件修正）
 const STORY_STAGES = {
@@ -1037,7 +1038,7 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- チーム設定（改良版：メンバーをタップして赤・青を選択）---
+// --- チーム設定（改良版：メンバーをクリックして赤・青を選択、一括ボタン削除）---
 window.toggleTeamSetup = () => {
     const teamSetup = el("team-setup");
     if (teamSetup) {
@@ -1057,7 +1058,11 @@ function updateTeamSetupUI() {
         const currentTeam = m.team || "red";
         const memberDiv = document.createElement("div");
         memberDiv.className = `team-member-item ${currentTeam}`;
-        memberDiv.onclick = () => toggleMemberTeam(id); // メンバー行をタップでチーム切り替え
+        memberDiv.setAttribute('data-member-id', id);
+        memberDiv.onclick = (e) => {
+            e.stopPropagation();
+            toggleMemberTeam(id);
+        };
         memberDiv.innerHTML = `
             <span class="team-member-name">${m.name}</span>
             <span class="member-team-badge ${currentTeam}">
@@ -1068,7 +1073,7 @@ function updateTeamSetupUI() {
     });
 }
 
-// メンバーのチームを切り替える（赤↔青） - 修正
+// メンバーのチームを切り替える（赤↔青） - 一括ボタン削除版
 async function toggleMemberTeam(memberId) {
     if (!isLeader) {
         alert("リーダーのみがチームを変更できます");
@@ -1077,36 +1082,31 @@ async function toggleMemberTeam(memberId) {
     const currentTeam = partyMembers[memberId]?.team || "red";
     const newTeam = currentTeam === "red" ? "blue" : "red";
     
-    // Firebase更新
-    await update(ref(db, `parties/${myPartyId}/members/${memberId}/team`), newTeam).catch(err => {
+    try {
+        // Firebase更新
+        await update(ref(db, `parties/${myPartyId}/members/${memberId}/team`), newTeam);
+        
+        // ローカルキャッシュを即時更新
+        if (partyMembers[memberId]) {
+            partyMembers[memberId].team = newTeam;
+        }
+        // UIを再描画
+        updateTeamSetupUI();
+        
+        // 成功音
+        sounds.notify.play();
+    } catch (err) {
         console.error("チーム更新エラー:", err);
         alert("チームの変更に失敗しました");
-    });
-    
-    // ローカルキャッシュを即時更新（楽観的更新）
-    if (partyMembers[memberId]) {
-        partyMembers[memberId].team = newTeam;
     }
-    // UIを再描画
-    updateTeamSetupUI();
 }
 
 // 互換性のため残す（従来の切り替え関数）
 window.switchTeam = toggleMemberTeam;
 
-window.setAllTeam = (team) => {
-    if (!isLeader || !partyMembers) return;
-    Object.keys(partyMembers).forEach(id => {
-        update(ref(db, `parties/${myPartyId}/members/${id}/team`), team);
-    });
-    // 楽観的更新
-    Object.keys(partyMembers).forEach(id => {
-        partyMembers[id].team = team;
-    });
-    updateTeamSetupUI();
-};
+// 一括割り当て関数を削除（window.setAllTeam を削除）
 
-// --- ハンデ設定（メンバー個別・選択状態がわかりやすく）---
+// --- ハンデ設定（メンバー個別・選択状態がわかりやすく・クリック確実）---
 function updateHandicapSetupUI() {
     const handicapList = el("handicap-members-list");
     if (!handicapList || !partyMembers) return;
@@ -1118,20 +1118,50 @@ function updateHandicapSetupUI() {
         
         const memberDiv = document.createElement("div");
         memberDiv.className = "handicap-member-item";
-        memberDiv.innerHTML = `
-            <div class="handicap-member-header" onclick="window.toggleMemberHandicap('${id}')">
-                <span class="handicap-member-face">${memberFace}</span>
-                <span class="handicap-member-name">${m.name}</span>
-                <span class="handicap-current ${currentHandicap !== 'none' ? 'active' : ''}">${getHandicapName(currentHandicap)}</span>
-            </div>
-            <div class="handicap-options hidden" id="handicap-options-${id}">
-                <button class="handicap-option ${currentHandicap === 'none' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'none', event)">🚫 ハンデなし</button>
-                <button class="handicap-option ${currentHandicap === 'score_half' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'score_half', event)">📉 スコア半減</button>
-                <button class="handicap-option ${currentHandicap === 'no_type_10' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'no_type_10', event)">⏱️ 最初の10秒不可</button>
-                <button class="handicap-option ${currentHandicap === 'combo_start_0' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'combo_start_0', event)">🔄 コンボ0スタート</button>
-                <button class="handicap-option ${currentHandicap === 'slow_typing' ? 'selected' : ''}" onclick="window.setMemberHandicap('${id}', 'slow_typing', event)">🐢 タイピング速度半減</button>
-            </div>
+        memberDiv.setAttribute('data-member-id', id);
+        
+        // ヘッダー部分
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "handicap-member-header";
+        headerDiv.onclick = (e) => {
+            e.stopPropagation();
+            toggleMemberHandicap(id);
+        };
+        headerDiv.innerHTML = `
+            <span class="handicap-member-face">${memberFace}</span>
+            <span class="handicap-member-name">${m.name}</span>
+            <span class="handicap-current ${currentHandicap !== 'none' ? 'active' : ''}">${getHandicapName(currentHandicap)}</span>
         `;
+        memberDiv.appendChild(headerDiv);
+        
+        // オプション部分
+        const optionsDiv = document.createElement("div");
+        optionsDiv.className = `handicap-options ${currentHandicap === 'none' ? 'hidden' : ''}`;
+        optionsDiv.id = `handicap-options-${id}`;
+        
+        const handicapTypes = [
+            { value: 'none', label: '🚫 ハンデなし', emoji: '🚫' },
+            { value: 'score_half', label: '📉 スコア半減', emoji: '📉' },
+            { value: 'no_type_10', label: '⏱️ 最初の10秒不可', emoji: '⏱️' },
+            { value: 'combo_start_0', label: '🔄 コンボ0スタート', emoji: '🔄' },
+            { value: 'slow_typing', label: '🐢 タイピング速度半減', emoji: '🐢' }
+        ];
+        
+        handicapTypes.forEach(type => {
+            const optionBtn = document.createElement("button");
+            optionBtn.className = `handicap-option ${currentHandicap === type.value ? 'selected' : ''}`;
+            optionBtn.setAttribute('data-handicap', type.value);
+            optionBtn.setAttribute('data-member-id', id);
+            optionBtn.innerHTML = type.label;
+            optionBtn.onclick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setMemberHandicap(id, type.value);
+            };
+            optionsDiv.appendChild(optionBtn);
+        });
+        
+        memberDiv.appendChild(optionsDiv);
         handicapList.appendChild(memberDiv);
     });
 }
@@ -1148,41 +1178,50 @@ function getHandicapName(handicap) {
 }
 
 // ハンデオプションの表示/非表示を切り替え
-window.toggleMemberHandicap = (memberId) => {
+function toggleMemberHandicap(memberId) {
     const options = document.getElementById(`handicap-options-${memberId}`);
     if (options) {
         options.classList.toggle('hidden');
     }
-};
+}
 
-window.setMemberHandicap = (memberId, handicap, event) => {
-    if (event) event.stopPropagation();
+// ハンデを設定
+async function setMemberHandicap(memberId, handicap) {
     if (!isLeader) {
         alert("リーダーのみがハンデを設定できます");
         return;
     }
     
-    // Firebase更新
-    update(ref(db, `parties/${myPartyId}/members/${memberId}/handicap`), handicap).catch(err => {
+    try {
+        // Firebase更新
+        await update(ref(db, `parties/${myPartyId}/members/${memberId}/handicap`), handicap);
+        
+        // ローカルキャッシュを更新
+        memberHandicaps[memberId] = handicap;
+        if (partyMembers[memberId]) {
+            partyMembers[memberId].handicap = handicap;
+        }
+        
+        // オプションを非表示に戻す
+        const options = document.getElementById(`handicap-options-${memberId}`);
+        if (options) {
+            options.classList.add('hidden');
+        }
+        
+        // UI更新
+        updateHandicapSetupUI();
+        
+        // 成功音
+        sounds.notify.play();
+    } catch (err) {
         console.error("ハンデ更新エラー:", err);
         alert("ハンデの設定に失敗しました");
-    });
-    
-    // ローカルキャッシュを更新
-    memberHandicaps[memberId] = handicap;
-    if (partyMembers[memberId]) {
-        partyMembers[memberId].handicap = handicap;
     }
-    
-    // オプションを非表示に戻す
-    const options = document.getElementById(`handicap-options-${memberId}`);
-    if (options) {
-        options.classList.add('hidden');
-    }
-    
-    // UI更新
-    updateHandicapSetupUI();
-};
+}
+
+// グローバル公開
+window.toggleMemberHandicap = toggleMemberHandicap;
+window.setMemberHandicap = setMemberHandicap;
 
 // 自分のハンデを取得
 function getMyHandicap() {
@@ -1688,42 +1727,53 @@ window.closeDebug = () => {
 };
 
 // =========================================
-// BANルーレット（全員同期・絶対セーフ）
+// BANルーレット（全ユーザー同期・常時実行可能）
 // =========================================
-window.showBanRoulette = () => {
-    if (!gameActive && !myPartyId) {
-        alert("ゲームプレイ中またはパーティー参加中のみ使用できます");
-        return;
-    }
+
+// グローバルBANルーレットリスナー設定
+function setupGlobalBanRouletteListener() {
+    if (globalBanRouletteListener) return;
     
-    if (myPartyId) {
-        // パーティー全員にBANルーレットを表示
-        const rouletteId = generateId();
-        set(ref(db, `ban_roulette/${rouletteId}`), {
-            active: true,
-            timestamp: Date.now(),
-            startedBy: myId,
-            participants: { [myId]: true }
-        });
-        
-        // パーティーメンバーに通知
-        get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
-            const members = snap.val();
-            if (members) {
-                Object.keys(members).forEach(memberId => {
-                    if (memberId !== myId) {
-                        update(ref(db, `users/${memberId}/ban_roulette`), { id: rouletteId });
-                    }
-                });
-            }
-        });
-    } else {
-        // ソロプレイ時は自分だけに表示
-        showBanRouletteUI(null);
-    }
+    // 全ユーザー向けのBANルーレット通知を監視
+    globalBanRouletteListener = ref(db, 'global_ban_roulette');
+    onValue(globalBanRouletteListener, (snap) => {
+        const data = snap.val();
+        if (data && data.active && data.id !== myId) {
+            // 自分以外が開始したBANルーレットを表示
+            showBanRouletteUI(data.id);
+        }
+    });
+}
+
+// BANルーレット開始（常時実行可能）
+window.showBanRoulette = () => {
+    // 常に実行可能（制限解除）
+    const rouletteId = generateId();
+    
+    // 自分のBANルーレット情報を保存
+    const banData = {
+        id: rouletteId,
+        startedBy: myId,
+        active: true,
+        timestamp: Date.now()
+    };
+    
+    // 自分用に表示
+    showBanRouletteUI(rouletteId);
+    
+    // グローバルに通知（全ユーザー向け）
+    set(ref(db, `global_ban_roulette/${rouletteId}`), banData);
+    
+    // 5秒後に自動削除
+    setTimeout(() => {
+        remove(ref(db, `global_ban_roulette/${rouletteId}`));
+    }, 8000);
+    
+    // 効果音
+    sounds.notify.play();
 };
 
-// 他のプレイヤーからのBANルーレット受信
+// 他のプレイヤーからのBANルーレット受信（個人用）
 onValue(ref(db, `users/${myId}/ban_roulette`), snap => {
     const data = snap.val();
     if (data && data.id) {
@@ -1744,30 +1794,23 @@ function showBanRouletteUI(rouletteId) {
     if (!rouletteEl) return;
     
     // 参加者を監視
-    if (rouletteId) {
-        const participantsRef = ref(db, `ban_roulette/${rouletteId}/participants`);
-        onValue(participantsRef, snap => {
-            const participants = snap.val() || {};
-            banRouletteParticipants = participants;
-            if (participantsEl) {
-                const count = Object.keys(participants).length;
-                participantsEl.innerHTML = `参加者: <span id="participant-count">${count}</span>人`;
-            }
-        });
-        
-        // 自分も参加者として登録
-        update(ref(db, `ban_roulette/${rouletteId}/participants/${myId}`), true);
-        
-        // ルーレット開始者が回す
-        if (rouletteId.startsWith(myId)) {
-            setTimeout(() => spinBanRoulette(rouletteId), 1000);
+    const participantsRef = ref(db, `global_ban_roulette/${rouletteId}/participants`);
+    onValue(participantsRef, snap => {
+        const participants = snap.val() || {};
+        banRouletteParticipants = participants;
+        if (participantsEl) {
+            const count = Object.keys(participants).length;
+            participantsEl.innerHTML = `参加者: <span id="participant-count">${count}</span>人`;
         }
-    } else {
-        if (participantsEl) participantsEl.innerHTML = '参加者: <span id="participant-count">1</span>人';
-        setTimeout(() => spinBanRoulette(null), 1000);
-    }
+    }, { onlyOnce: true });
+    
+    // 自分も参加者として登録
+    update(ref(db, `global_ban_roulette/${rouletteId}/participants/${myId}`), true);
     
     rouletteEl.classList.remove("hidden");
+    
+    // 開始者かどうかに関わらず、全員がルーレットを回せるように
+    setTimeout(() => spinBanRoulette(rouletteId), 1500);
 }
 
 window.spinBanRoulette = (rouletteId) => {
@@ -1789,21 +1832,17 @@ window.spinBanRoulette = (rouletteId) => {
         statusEl.style.fontSize = "2.5rem";
         
         // 参加者全員に結果を表示
-        if (rouletteId) {
-            update(ref(db, `ban_roulette/${rouletteId}/result`), {
-                message: safeMessage,
-                timestamp: Date.now()
-            });
-            
-            // 5秒後に削除
-            if (banRouletteTimer) clearTimeout(banRouletteTimer);
-            banRouletteTimer = setTimeout(() => {
-                remove(ref(db, `ban_roulette/${rouletteId}`));
-                closeBanRoulette();
-            }, 5000);
-        } else {
-            setTimeout(closeBanRoulette, 5000);
-        }
+        update(ref(db, `global_ban_roulette/${rouletteId}/result`), {
+            message: safeMessage,
+            timestamp: Date.now()
+        });
+        
+        // 5秒後に閉じる
+        if (banRouletteTimer) clearTimeout(banRouletteTimer);
+        banRouletteTimer = setTimeout(() => {
+            closeBanRoulette();
+            remove(ref(db, `global_ban_roulette/${rouletteId}`));
+        }, 5000);
     }, 3000);
 };
 
@@ -3739,7 +3778,7 @@ function selectPuzzleDot(index) {
 }
 
 // =========================================
-// ストーリーモード制御（第3章ロック機能強化）
+// ストーリーモード制御（第3章ロック機能強化・修正版）
 // =========================================
 window.openStoryMode = () => {
     if (isMatchmaking || trainingMode) {
@@ -3778,12 +3817,9 @@ function renderStoryMap() {
             node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
             node.onclick = () => !isLocked && selectStage(1, stageNum);
             
-            // マークはCSSの擬似要素で表示するが、念のため明示的なspanも追加（CSSで制御）
             node.innerHTML = `
                 <div class="stage-number">1-${stageNum}</div>
                 <div class="stage-target">${stage.target.toLocaleString()}</div>
-                ${isCompleted ? '<span class="stage-complete-mark" style="display:none;">✓</span>' : ''}
-                ${isLocked ? '<span class="stage-locked-mark" style="display:none;">🔒</span>' : ''}
             `;
             map1.appendChild(node);
         });
@@ -3807,8 +3843,6 @@ function renderStoryMap() {
             node.innerHTML = `
                 <div class="stage-number">2-${stageNum}</div>
                 <div class="stage-target">${stage.target.toLocaleString()}</div>
-                ${isCompleted ? '<span class="stage-complete-mark" style="display:none;">✓</span>' : ''}
-                ${isLocked ? '<span class="stage-locked-mark" style="display:none;">🔒</span>' : ''}
             `;
             map2.appendChild(node);
         });
@@ -3819,8 +3853,9 @@ function renderStoryMap() {
         map3.innerHTML = "";
         STORY_STAGES.chapter3.forEach((stage, index) => {
             const stageNum = index + 1;
-            // 第3章のロック条件: 第2章をクリアしていないと章全体がロック、かつ前のステージをクリアしていないとステージがロック
+            // 第3章のロック条件: 第2章をクリアしていないと章全体がロック、かつ前のステージをクリアしていないとステージがロック（第1章と同じ方式）
             const chapterLocked = storyProgress.chapter2 < 7;
+            // 前のステージをクリアしていないとロック
             const isLocked = chapterLocked || storyProgress.chapter3 < stageNum - 1;
             const isCompleted = !chapterLocked && storyProgress.chapter3 >= stageNum;
             const isCurrent = !chapterLocked && storyProgress.chapter3 === stageNum - 1 && !isCompleted;
@@ -3832,8 +3867,6 @@ function renderStoryMap() {
             node.innerHTML = `
                 <div class="stage-number">3-${stageNum}</div>
                 <div class="stage-target">${stage.target.toLocaleString()}</div>
-                ${isCompleted ? '<span class="stage-complete-mark" style="display:none;">✓</span>' : ''}
-                ${isLocked ? '<span class="stage-locked-mark" style="display:none;">🔒</span>' : ''}
             `;
             map3.appendChild(node);
         });
@@ -3896,6 +3929,7 @@ function selectStage(chapter, stage) {
             alert("第2章をクリアしてください");
             return;
         }
+        // 第3章も第1章と同じロジック：前のステージをクリアしていないとロック
         if (stage > storyProgress.chapter3 + 1) {
             alert("前のステージをクリアしてください");
             return;
@@ -4286,6 +4320,9 @@ const timeLabel = el("time-val");
 if (timeSlider && timeLabel) {
     timeSlider.addEventListener("input", (e) => timeLabel.innerText = e.target.value);
 }
+
+// BANルーレットのグローバルリスナー設定
+setupGlobalBanRouletteListener();
 
 checkDailyCode();
 startCodeTimer();
