@@ -78,6 +78,12 @@
                 </div>
                 <button class="debug-close" onclick="window.closeDebug()">閉じる</button>
             </div>
+            <div style="margin-top: 15px; border-top: 2px dashed var(--accent-purple); padding-top: 15px;">
+                <p class="debug-title">🎲 BANルーレット</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button class="btn-invite" onclick="window.showBanRoulette()">BANルーレット実行</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -106,6 +112,10 @@
                     <button id="btn-gacha" class="action-btn" onclick="window.openGacha()" style="border-color: #FF69B4;">
                         <span>スキルガチャ</span>
                         <small>SKILL GACHA</small>
+                    </button>
+                    <button id="btn-training" class="action-btn" onclick="window.openTraining()" style="border-color: #00FF00;">
+                        <span>修行</span>
+                        <small>TRAINING</small>
                     </button>
                     <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
                         <span>ストーリーモード</span>
@@ -160,6 +170,7 @@
                 <div class="story-chapter-selector">
                     <button class="chapter-tab active" data-chapter="1">第1章</button>
                     <button class="chapter-tab" data-chapter="2">第2章</button>
+                    <button class="chapter-tab" data-chapter="3">第3章</button>
                 </div>
                 
                 <div id="story-chapter-1" class="story-chapter active">
@@ -168,6 +179,10 @@
                 
                 <div id="story-chapter-2" class="story-chapter hidden">
                     <div class="story-map" id="story-map-2"></div>
+                </div>
+                
+                <div id="story-chapter-3" class="story-chapter hidden">
+                    <div class="story-map" id="story-map-3"></div>
                 </div>
                 
                 <button class="action-btn gray-btn full-width" style="max-width: 400px; margin-top: 20px;" onclick="window.goHome()">戻る</button>
@@ -206,7 +221,7 @@
                 </div>
             </div>
 
-            <!-- スキルガチャ画面（新規追加） -->
+            <!-- スキルガチャ画面 -->
             <div id="screen-gacha" class="screen hidden">
                 <h2 class="title-glow" style="color: #FF69B4;">SKILL GACHA</h2>
                 <div class="gacha-coin-display">所持コイン: <span id="gacha-coin-amount">0</span> 🪙</div>
@@ -262,6 +277,28 @@
                 </div>
             </div>
 
+            <!-- 修行モード画面 -->
+            <div id="screen-training" class="screen hidden">
+                <h2 class="title-glow" style="color: #00FF00;">TRAINING</h2>
+                <div class="training-container">
+                    <div class="training-card" onclick="window.startTraining(1)">
+                        <h3>修行1 - 剣士への道</h3>
+                        <p>目標: 45000スコア (60秒)</p>
+                        <p>特殊: 10~15秒ごとに攻撃が来る</p>
+                        <p class="training-reward">報酬: 剣士スキル</p>
+                        <div class="training-status" id="training-1-status">未クリア</div>
+                    </div>
+                    <div class="training-card" onclick="window.startTraining(2)">
+                        <h3>修行2 - ハッカー修行</h3>
+                        <p>目標: 50000スコア (60秒)</p>
+                        <p>特殊: タブ追加・異常状態攻撃</p>
+                        <p class="training-reward">報酬: ハッカー修行人スキル</p>
+                        <div class="training-status" id="training-2-status">未クリア</div>
+                    </div>
+                </div>
+                <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
+            </div>
+
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
@@ -284,7 +321,7 @@
                 <div class="setup-panel">
                     <div class="setup-item">
                         <span>制限時間:</span>
-                        <input type="range" id="setup-time" min="10" max="60" step="10" value="30" oninput="document.getElementById('time-val').innerText=this.value">
+                        <input type="range" id="setup-time" min="10" max="120" step="10" value="30" oninput="document.getElementById('time-val').innerText=this.value">
                         <span id="time-val" class="stat-val">30</span>秒
                     </div>
                     <div class="setup-item">
@@ -293,6 +330,30 @@
                             <option value="easy">かんたん</option>
                             <option value="normal" selected>ちゅうきゅう</option>
                             <option value="hard">むずかしい</option>
+                        </select>
+                    </div>
+                    <div class="setup-item">
+                        <span>モード:</span>
+                        <select id="setup-mode" class="cyber-select" onchange="window.toggleTeamSetup()">
+                            <option value="solo" selected>個人戦</option>
+                            <option value="team">チーム戦</option>
+                        </select>
+                    </div>
+                    <div id="team-setup" class="team-setup hidden">
+                        <div class="team-buttons">
+                            <button class="team-btn red-team" onclick="window.setTeam('red')">🔴 赤チーム</button>
+                            <button class="team-btn blue-team" onclick="window.setTeam('blue')">🔵 青チーム</button>
+                        </div>
+                        <div id="team-members" class="team-members"></div>
+                    </div>
+                    <div class="setup-item">
+                        <span>ハンデ:</span>
+                        <select id="setup-handicap" class="cyber-select">
+                            <option value="none">なし</option>
+                            <option value="score_half">スコア半減</option>
+                            <option value="no_type_10">最初の10秒タイピング不可</option>
+                            <option value="combo_start_0">コンボ0スタート</option>
+                            <option value="slow_typing">タイピング速度半減</option>
                         </select>
                     </div>
                     <div class="setup-btns">
@@ -329,6 +390,36 @@
 
                 <div id="battle-alert" class="hidden"></div>
 
+                <!-- 切り傷エフェクト -->
+                <div id="cut-effect" class="hidden">
+                    <div class="cut cut-1"></div>
+                    <div class="cut cut-2"></div>
+                </div>
+
+                <!-- 血状態エフェクト -->
+                <div id="blood-effect" class="hidden">
+                    <div class="blood-overlay"></div>
+                </div>
+
+                <!-- BANルーレット -->
+                <div id="ban-roulette" class="hidden">
+                    <div class="roulette-container">
+                        <h2>🎲 BANルーレット 🎲</h2>
+                        <div class="roulette-wheel" id="roulette-wheel">?</div>
+                        <button class="roulette-spin-btn" onclick="window.spinBanRoulette()">回す！</button>
+                        <div id="roulette-result" class="roulette-result"></div>
+                    </div>
+                </div>
+
+                <!-- カウントスコアルーレット -->
+                <div id="score-roulette" class="hidden">
+                    <div class="roulette-container small">
+                        <h3>🎰 カウントスコア 🎰</h3>
+                        <div class="roulette-wheel small" id="score-roulette-wheel">?</div>
+                        <button class="roulette-spin-btn small" onclick="window.spinScoreRoulette()">回す！</button>
+                    </div>
+                </div>
+
                 <div id="game-core">
                     <div id="timer-display">00:30</div>
                     
@@ -339,7 +430,7 @@
                             <div id="skill-cooldown-bar"></div>
                         </button>
                         
-                        <!-- 個別キー表示エリア（新設） -->
+                        <!-- 個別キー表示エリア -->
                         <div id="skill-keys-container">
                             <div id="skill-key-space" class="skill-key-item hidden">Space: スキル名</div>
                             <div id="skill-key-1" class="skill-key-item hidden">1: スキル名</div>
@@ -347,7 +438,7 @@
                             <div id="skill-key-3" class="skill-key-item hidden">3: スキル名</div>
                         </div>
                         
-                        <!-- 旧キー情報表示領域（削除しても良いが、互換性のため残しつつ非表示に） -->
+                        <!-- 旧キー情報表示領域 -->
                         <div id="skill-status-text" class="hidden"></div>
                     </div>
 
@@ -422,7 +513,7 @@
         <div class="paint-effect"></div>
     </div>
 
-    <!-- 迷路表示用オーバーレイ（既存） -->
+    <!-- 迷路表示用オーバーレイ -->
     <div id="maze-overlay" class="hidden">
         <div class="maze-container">
             <h3>迷路を攻略せよ！</h3>
@@ -450,7 +541,7 @@
         <div class="poison-effect"></div>
     </div>
 
-    <!-- ================= アクションゲームオーバーレイ ================= -->
+    <!-- アクションゲームオーバーレイ -->
     <div id="action-game-overlay" class="hidden">
         <div class="action-game-container">
             <h3>🎮 アクションゲーム</h3>
@@ -469,12 +560,12 @@
         </div>
     </div>
 
-    <!-- ================= パズルゲーム（ドットコネクト）オーバーレイ ================= -->
+    <!-- パズルゲーム（ドットコネクト）オーバーレイ -->
     <div id="puzzle-game-overlay" class="hidden">
         <div class="puzzle-game-container">
             <h3>🧩 ドットコネクト</h3>
             <div class="puzzle-grid" id="puzzle-grid">
-                <!-- 16個のドットがJSで生成されます（偶数にするため） -->
+                <!-- 16個のドットがJSで生成されます -->
             </div>
             <div class="puzzle-controls">
                 <button class="action-btn" onclick="window.resetPuzzle()">リセット</button>
