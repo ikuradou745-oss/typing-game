@@ -339,23 +339,31 @@
                             <option value="team">チーム戦</option>
                         </select>
                     </div>
+                    
+                    <!-- チーム設定エリア（改良版） -->
                     <div id="team-setup" class="team-setup hidden">
-                        <div class="team-buttons">
-                            <button class="team-btn red-team" onclick="window.setTeam('red')">🔴 赤チーム</button>
-                            <button class="team-btn blue-team" onclick="window.setTeam('blue')">🔵 青チーム</button>
+                        <h4 class="team-setup-title">チーム割り当て</h4>
+                        <div class="team-members-container">
+                            <div id="team-members-list" class="team-members-list">
+                                <!-- メンバー一覧がJSで動的に生成されます -->
+                            </div>
                         </div>
-                        <div id="team-members" class="team-members"></div>
+                        <div class="team-bulk-actions">
+                            <button class="team-bulk-btn red-team" onclick="window.setAllTeam('red')">全員赤チーム</button>
+                            <button class="team-bulk-btn blue-team" onclick="window.setAllTeam('blue')">全員青チーム</button>
+                        </div>
                     </div>
-                    <div class="setup-item">
-                        <span>ハンデ:</span>
-                        <select id="setup-handicap" class="cyber-select">
-                            <option value="none">なし</option>
-                            <option value="score_half">スコア半減</option>
-                            <option value="no_type_10">最初の10秒タイピング不可</option>
-                            <option value="combo_start_0">コンボ0スタート</option>
-                            <option value="slow_typing">タイピング速度半減</option>
-                        </select>
+
+                    <!-- ハンデ設定エリア（改良版：メンバー個別） -->
+                    <div class="handicap-section">
+                        <h4 class="handicap-title">ハンデ設定 (メンバー個別)</h4>
+                        <div class="handicap-members-container">
+                            <div id="handicap-members-list" class="handicap-members-list">
+                                <!-- メンバーごとのハンデ選択がJSで動的に生成されます -->
+                            </div>
+                        </div>
                     </div>
+
                     <div class="setup-btns">
                         <button class="action-btn" onclick="window.launchBattle()">プレイ開始</button>
                         <button class="action-btn gray-btn" onclick="window.goHome()">メインメニューに戻る</button>
