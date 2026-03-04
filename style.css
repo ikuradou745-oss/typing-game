@@ -98,6 +98,34 @@ body, html {
     box-shadow: 0 0 30px var(--accent-gold);
 }
 
+/* BANルーレット独立ボタン（常時表示） */
+.ban-roulette-button {
+    position: fixed;
+    top: 20px;
+    left: 80px; /* コードボタンの右隣 */
+    width: 50px;
+    height: 50px;
+    background: var(--panel-bg);
+    border: 2px solid var(--accent-red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    cursor: pointer;
+    z-index: 1000;
+    transition: 0.2s;
+    box-shadow: 0 0 20px rgba(255, 49, 49, 0.3);
+    animation: roulettePulse 2s infinite;
+}
+
+.ban-roulette-button:hover {
+    transform: scale(1.1);
+    background: var(--accent-red);
+    border-color: white;
+    box-shadow: 0 0 30px var(--accent-red);
+}
+
 /* コード入力UI */
 #code-ui {
     position: fixed;
@@ -971,7 +999,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     cursor: pointer;
     transition: 0.2s;
     position: relative;
-    overflow: visible; /* マークがはみ出ないように */
+    overflow: visible;
 }
 
 .stage-node:hover:not(.locked) {
@@ -1634,7 +1662,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   チーム戦関連（改良版：クリックでチーム切り替え）
+   チーム戦関連（改良版：クリックでチーム切り替え、一括ボタン削除）
    ========================================= */
 .team-setup {
     width: 100%;
@@ -1678,7 +1706,7 @@ body.bleeding #game-core {
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    pointer-events: auto; /* 確実にクリックを受け付ける */
+    pointer-events: auto;
 }
 
 .team-member-item:hover {
@@ -1710,7 +1738,7 @@ body.bleeding #game-core {
     color: white;
     text-shadow: 0 0 5px rgba(0,0,0,0.5);
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    pointer-events: none; /* クリックは親要素に任せる */
+    pointer-events: none;
 }
 
 .member-team-badge.red { 
@@ -1722,40 +1750,10 @@ body.bleeding #game-core {
     border: 1px solid #8888ff;
 }
 
-.team-bulk-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 10px;
-}
-
-.team-bulk-btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 25px;
-    font-size: 0.95rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.2s;
-    color: white;
-    flex: 1;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-
-.team-bulk-btn.red-team { 
-    background: linear-gradient(135deg, #ff4444, #cc0000);
-}
-.team-bulk-btn.blue-team { 
-    background: linear-gradient(135deg, #4444ff, #0000cc);
-}
-
-.team-bulk-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px currentColor;
-}
+/* 一括割り当てボタン削除 */
 
 /* =========================================
-   ハンデ設定（メンバー個別・選択状態がわかりやすい）
+   ハンデ設定（メンバー個別・選択状態がわかりやすい・クリック確実）
    ========================================= */
 .handicap-section {
     width: 100%;
@@ -1838,6 +1836,13 @@ body.bleeding #game-core {
     font-size: 0.9rem;
     font-weight: bold;
     border: 1px solid var(--accent-green);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.handicap-current:hover {
+    background: rgba(57, 255, 20, 0.4);
+    transform: scale(1.05);
 }
 
 .handicap-options {
@@ -1869,7 +1874,9 @@ body.bleeding #game-core {
     cursor: pointer;
     transition: all 0.2s;
     text-align: center;
-    pointer-events: auto; /* 確実にクリックできるように */
+    pointer-events: auto;
+    position: relative;
+    z-index: 100;
 }
 
 .handicap-option:hover {
@@ -1877,6 +1884,7 @@ body.bleeding #game-core {
     color: #000;
     transform: scale(1.05);
     box-shadow: 0 0 20px var(--accent-green);
+    z-index: 101;
 }
 
 .handicap-option.selected {
