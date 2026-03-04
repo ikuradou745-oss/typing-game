@@ -971,6 +971,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     cursor: pointer;
     transition: 0.2s;
     position: relative;
+    overflow: visible; /* マークがはみ出ないように */
 }
 
 .stage-node:hover:not(.locked) {
@@ -982,39 +983,51 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .stage-node.completed {
     border-color: var(--accent-green);
     box-shadow: 0 0 20px var(--accent-green);
-    position: relative;
 }
 
 .stage-node.completed::after {
     content: "✓";
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: -5px;
+    right: -5px;
     color: var(--accent-green);
-    font-size: 1.2rem;
-    background: rgba(0,0,0,0.5);
-    width: 24px;
-    height: 24px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.7);
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 10;
+    border: 2px solid var(--accent-green);
+    box-shadow: 0 0 10px var(--accent-green);
 }
 
 .stage-node.locked {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
     filter: grayscale(0.8);
     border-color: #666;
-    position: relative;
 }
 
 .stage-node.locked::after {
     content: "🔒";
     position: absolute;
-    top: 5px;
-    right: 5px;
-    font-size: 1.2rem;
+    top: -5px;
+    right: -5px;
+    font-size: 1.5rem;
+    background: rgba(0, 0, 0, 0.7);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border: 2px solid #ff4444;
+    box-shadow: 0 0 10px #ff4444;
 }
 
 .stage-node.boss-stage {
@@ -1665,6 +1678,7 @@ body.bleeding #game-core {
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    pointer-events: auto; /* 確実にクリックを受け付ける */
 }
 
 .team-member-item:hover {
@@ -1696,6 +1710,7 @@ body.bleeding #game-core {
     color: white;
     text-shadow: 0 0 5px rgba(0,0,0,0.5);
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    pointer-events: none; /* クリックは親要素に任せる */
 }
 
 .member-team-badge.red { 
@@ -1705,11 +1720,6 @@ body.bleeding #game-core {
 .member-team-badge.blue { 
     background: linear-gradient(135deg, #4444ff, #0000cc);
     border: 1px solid #8888ff;
-}
-
-.member-team-badge:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 15px currentColor;
 }
 
 .team-bulk-actions {
@@ -1859,6 +1869,7 @@ body.bleeding #game-core {
     cursor: pointer;
     transition: all 0.2s;
     text-align: center;
+    pointer-events: auto; /* 確実にクリックできるように */
 }
 
 .handicap-option:hover {
