@@ -1,6 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V16.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V17.0 (完全修正版)
+// 修正内容:
+// 1. ストーリーモード第3章のロック機能を強化
+// 2. タイピング入力の多様なパターン対応（ん→n/nn、しょ→sho/syo、っ→xx/kk/tt等）
+// 3. ガチャスキルの装備機能を改善
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -195,7 +199,7 @@ let trainingAttackTimer = null;
 let trainingType = 0; // 1 or 2
 let trainingScore = 0;
 
-// ストーリーモードのステージデータ（第3章追加・ロック条件修正）
+// ストーリーモードのステージデータ（第3章追加・ロック条件強化）
 const STORY_STAGES = {
     chapter1: [
         { stage: 1, target: 8000, reward: 100 },
@@ -713,6 +717,9 @@ function saveAndDisplayData() {
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
     if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString();
     
+    // ストーリー進捗表示を更新
+    updateStoryProgressDisplay();
+    
     updateProfileFace();
     
     const userRef = ref(db, `users/${myId}`);
@@ -729,6 +736,16 @@ function saveAndDisplayData() {
             lastUpdate: Date.now()
         });
     }).catch(err => console.error("Firebase save error:", err));
+}
+
+function updateStoryProgressDisplay() {
+    const progressChapter1 = el("progress-chapter1");
+    const progressChapter2 = el("progress-chapter2");
+    const progressChapter3 = el("progress-chapter3");
+    
+    if (progressChapter1) progressChapter1.innerText = `${storyProgress.chapter1}/7`;
+    if (progressChapter2) progressChapter2.innerText = `${storyProgress.chapter2}/7`;
+    if (progressChapter3) progressChapter3.innerText = `${storyProgress.chapter3}/10`;
 }
 
 function updateProfileFace() {
@@ -793,6 +810,7 @@ window.updateMyName = () => {
 };
 
 // --- ローマ字変換（完全版：すべてのパターンに対応）---
+// 参考: 日本語ローマ字変換の一般的なパターン
 const KANA_MAP = {
     // 基本50音
     'あ':'a', 'い':'i', 'う':'u', 'え':'e', 'お':'o',
@@ -804,7 +822,7 @@ const KANA_MAP = {
     'ま':'ma', 'み':'mi', 'む':'mu', 'め':'me', 'も':'mo',
     'や':'ya', 'ゆ':'yu', 'よ':'yo',
     'ら':'ra', 'り':'ri', 'る':'ru', 'れ':'re', 'ろ':'ro',
-    'わ':'wa', 'を':'wo', 'ん':['nn','n'],
+    'わ':'wa', 'を':'wo', 'ん':['nn','n','xn'],
     
     // 濁音・半濁音
     'が':'ga', 'ぎ':'gi', 'ぐ':'gu', 'げ':'ge', 'ご':'go',
@@ -813,32 +831,44 @@ const KANA_MAP = {
     'ば':'ba', 'び':'bi', 'ぶ':'bu', 'べ':'be', 'ぼ':'bo',
     'ぱ':'pa', 'ぴ':'pi', 'ぷ':'pu', 'ぺ':'pe', 'ぽ':'po',
     
-    // 拗音（完全版）
+    // 拗音（完全版）- すべての一般的なパターンを含む
     'きゃ':['kya','kilya'], 'きゅ':['kyu','kilyu'], 'きょ':['kyo','kilyo'],
-    'しゃ':['sya','sha','silya'], 'しゅ':['syu','shu','silyu'], 'しょ':['syo','sho','silyo'],
-    'ちゃ':['tya','cha','tilya'], 'ちゅ':['tyu','chu','tilyu'], 'ちょ':['tyo','cho','tilyo'],
+    'しゃ':['sya','sha','silya','shya'], 'しゅ':['syu','shu','silyu','shyu'], 'しょ':['syo','sho','silyo','shyo'],
+    'ちゃ':['tya','cha','tilya','chya','cya'], 'ちゅ':['tyu','chu','tilyu','chyu','cyu'], 'ちょ':['tyo','cho','tilyo','chyo','cyo'],
     'にゃ':['nya','nilya'], 'にゅ':['nyu','nilyu'], 'にょ':['nyo','nilyo'],
     'ひゃ':['hya','hilya'], 'ひゅ':['hyu','hilyu'], 'ひょ':['hyo','hilyo'],
     'みゃ':['mya','milya'], 'みゅ':['myu','milyu'], 'みょ':['myo','milyo'],
     'りゃ':['rya','rilya'], 'りゅ':['ryu','rilyu'], 'りょ':['ryo','rilyo'],
     'ぎゃ':['gya','gilya'], 'ぎゅ':['gyu','gilyu'], 'ぎょ':['gyo','gilyo'],
-    'じゃ':['zya','ja','jya','jilya'], 'じゅ':['zyu','ju','jyu','jilyu'], 'じょ':['zyo','jo','jyo','jilyo'],
+    'じゃ':['zya','ja','jya','jilya','zya'], 'じゅ':['zyu','ju','jyu','jilyu','zyu'], 'じょ':['zyo','jo','jyo','jilyo','zyo'],
     'びゃ':['bya','bilya'], 'びゅ':['byu','bilyu'], 'びょ':['byo','bilyo'],
     'ぴゃ':['pya','pilya'], 'ぴゅ':['pyu','pilyu'], 'ぴょ':['pyo','pilyo'],
     
-    // その他
-    'ふぁ':['fa'], 'ふぃ':['fi'], 'ふぇ':['fe'], 'ふぉ':['fo'],
-    'てぃ':['ti'], 'とぅ':['tu'], 'でぃ':['di'], 'どぅ':['du'],
-    'うぃ':['wi'], 'うぇ':['we'], 'うぉ':['wo'],
+    // その他の特殊な組み合わせ
+    'ふぁ':['fa','fwa'], 'ふぃ':['fi','fwi'], 'ふぇ':['fe','fwe'], 'ふぉ':['fo','fwo'],
+    'てぃ':['ti','thi'], 'とぅ':['tu','twu'], 'でぃ':['di','dhi'], 'どぅ':['du','dwu'],
+    'うぃ':['wi','whi'], 'うぇ':['we','whe'], 'うぉ':['wo','who'],
     'ヴぁ':['va'], 'ヴぃ':['vi'], 'ヴぇ':['ve'], 'ヴぉ':['vo'],
     'つぁ':['tsa'], 'つぃ':['tsi'], 'つぇ':['tse'], 'つぉ':['tso'],
-    'いぇ':['ye'],
-    'くぁ':['kwa','qa'], 'くぃ':['kwi','qi'], 'くぇ':['kwe','qe'], 'くぉ':['kwo','qo'],
-    'ぐぁ':['gwa'], 'ぐぃ':['gwi'], 'ぐぇ':['gwe'], 'ぐぉ':['gwo'],
+    'いぇ':['ye','ie'],
+    'くぁ':['kwa','qa','kua'], 'くぃ':['kwi','qi','kui'], 'くぇ':['kwe','qe','kue'], 'くぉ':['kwo','qo','kuo'],
+    'ぐぁ':['gwa','gua'], 'ぐぃ':['gwi','gui'], 'ぐぇ':['gwe','gue'], 'ぐぉ':['gwo','guo'],
     
-    // 促音（っ）
-    'っ': ['xtu', 'ltu'],
-    'ー': ['-']
+    // 促音（っ）の処理 - 様々なパターン
+    'っ': ['xtu', 'ltu', 'xtsu', 'ltsu'],
+    'ー': ['-', '']
+};
+
+// 促音（っ）の特別処理用マップ
+const SOKUON_MAP = {
+    'か': 'k', 'き': 'k', 'く': 'k', 'け': 'k', 'こ': 'k',
+    'さ': 's', 'し': 's', 'す': 's', 'せ': 's', 'そ': 's',
+    'た': 't', 'ち': 't', 'つ': 't', 'て': 't', 'と': 't',
+    'ぱ': 'p', 'ぴ': 'p', 'ぷ': 'p', 'ぺ': 'p', 'ぽ': 'p',
+    'ば': 'b', 'び': 'b', 'ぶ': 'b', 'べ': 'b', 'ぼ': 'b',
+    'だ': 'd', 'ぢ': 'd', 'づ': 'd', 'で': 'd', 'ど': 'd',
+    'が': 'g', 'ぎ': 'g', 'ぐ': 'g', 'げ': 'g', 'ご': 'g',
+    'ざ': 'z', 'じ': 'j', 'ず': 'z', 'ぜ': 'z', 'ぞ': 'z'
 };
 
 function getRomaPatterns(kana) {
@@ -846,7 +876,7 @@ function getRomaPatterns(kana) {
     let i = 0;
     
     while (i < kana.length) {
-        // 3文字の拗音をチェック
+        // 3文字の拗音をチェック（「っしゃ」などの特殊ケース）
         let char3 = kana.substring(i, i + 3);
         // 2文字の拗音をチェック
         let char2 = kana.substring(i, i + 2);
@@ -854,41 +884,72 @@ function getRomaPatterns(kana) {
         let char1 = kana.substring(i, i + 1);
         
         let candidates = [];
+        let advance = 0;
         
-        // 3文字の拗音（「っしゃ」などの特殊ケース）
+        // 3文字の特殊ケース（「っしゃ」「っちゃ」など）
         if (char3 === 'っしゃ' || char3 === 'っしゅ' || char3 === 'っしょ' ||
-            char3 === 'っちゃ' || char3 === 'っちゅ' || char3 === 'っちょ') {
-            candidates = ['s', 't']; // 促音の処理
-            i += 2; // 2文字進めて、次の拗音へ
+            char3 === 'っちゃ' || char3 === 'っちゅ' || char3 === 'っちょ' ||
+            char3 === 'っきゃ' || char3 === 'っきゅ' || char3 === 'っきょ') {
+            
+            const nextChar = char3[1] + char3[2]; // 「しゃ」「ちゃ」など
+            if (KANA_MAP[nextChar]) {
+                const basePatterns = Array.isArray(KANA_MAP[nextChar]) ? KANA_MAP[nextChar] : [KANA_MAP[nextChar]];
+                // 促音のパターン + 次の音の最初の文字を重ねる（kkya, tcha など）
+                const sokuonCandidates = [];
+                basePatterns.forEach(pattern => {
+                    // 例: 「っしゃ」→ 'ssya', 'ssha', 'ssilya' など
+                    sokuonCandidates.push(pattern[0] + pattern);
+                    // 例: 「っちゃ」→ 'ttya', 'tcha', 'tchya' など
+                    if (pattern.startsWith('c')) {
+                        sokuonCandidates.push('t' + pattern);
+                    }
+                });
+                candidates = sokuonCandidates;
+                advance = 3;
+            }
         }
         // 2文字の拗音
         else if (KANA_MAP[char2]) {
             candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]];
-            i += 2;
+            advance = 2;
         }
         // 1文字の通常音
         else if (KANA_MAP[char1]) {
             candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]];
-            i += 1;
+            advance = 1;
         }
-        // 促音（っ）の処理
+        // 促音（っ）の処理 - 次の文字を重ねるパターン
         else if (char1 === 'っ' && i + 1 < kana.length) {
-            let next = kana.substring(i + 1, i + 2);
             let nextChar = kana[i + 1];
-            let nextRoma = Array.isArray(KANA_MAP[next]) ? KANA_MAP[next][0] : KANA_MAP[next];
+            let nextPatterns = getRomaPatterns(nextChar); // 再帰的に次の文字のパターンを取得
             
-            // 次の文字の最初の文字を重ねる（例：kka, tta など）
-            if (nextRoma) {
-                candidates = [nextRoma[0]];
-            } else {
-                candidates = ['xtu', 'ltu'];
-            }
-            i += 1;
+            // 次の文字の最初の文字を重ねる（例：kka, tta, ssa など）
+            candidates = [];
+            nextPatterns.forEach(pattern => {
+                if (pattern.length > 0) {
+                    // 促音のパターン: 次の文字の最初の子音を重ねる
+                    const firstChar = pattern[0];
+                    candidates.push(firstChar + pattern);
+                    
+                    // 特殊ケース: 'ch' で始まる場合
+                    if (pattern.startsWith('ch')) {
+                        candidates.push('t' + pattern); // tcha
+                    }
+                    // 特殊ケース: 'sh' で始まる場合
+                    if (pattern.startsWith('sh')) {
+                        candidates.push('s' + pattern); // ssha
+                    }
+                }
+            });
+            
+            // 標準的な促音パターンも追加
+            candidates.push(...['xtu', 'ltu', 'xtsu', 'ltsu']);
+            advance = 1;
         }
         // 不明な文字
         else {
             candidates = [char1];
-            i += 1;
+            advance = 1;
         }
         
         // パターンを組み合わせる
@@ -899,9 +960,16 @@ function getRomaPatterns(kana) {
             });
         });
         patterns = nextPatterns;
+        i += advance;
+        
+        // パターンが多くなりすぎないように制限（パフォーマンス対策）
+        if (patterns.length > 100) {
+            patterns = patterns.slice(0, 100);
+        }
     }
     
-    return patterns;
+    // 重複を除去
+    return [...new Set(patterns)];
 }
 
 // --- フレンド機能 ---
@@ -1702,19 +1770,21 @@ function renderGachaCharacters(rarity) {
         item.innerHTML = `
             <div class="gacha-char-rarity">${char.rarity}</div>
             <div class="gacha-char-name">${char.name}</div>
-            <div class="gacha-char-ability">${char.desc.substring(0, 20)}…</div>
+            <div class="gacha-char-ability">${char.desc}</div>
         `;
-        if (isOwned) {
-            item.onclick = (e) => {
-                e.stopPropagation();
-                e.preventDefault();
+        
+        // クリックイベントを直接設定（確実に動作するよう改良）
+        item.onclick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (isOwned) {
                 console.log(`Equipping gacha character: ${char.id}`);
                 equipGachaCharacter(char.id);
-            };
-        } else {
-            item.style.opacity = "0.4";
-            item.style.cursor = "default";
-        }
+            } else {
+                alert(`${char.name}をまだ所持していません。ガチャを引いて入手しましょう！`);
+            }
+        };
+        
         container.appendChild(item);
     });
 
@@ -1723,8 +1793,10 @@ function renderGachaCharacters(rarity) {
         const equipped = SKILL_DB[equippedSkill];
         if (equipped && equipped.gacha) {
             equippedNameEl.innerText = equipped.name;
+        } else if (equipped) {
+            equippedNameEl.innerText = equipped.name + " (通常スキル)";
         } else {
-            equippedNameEl.innerText = "なし（通常スキル装備中）";
+            equippedNameEl.innerText = "なし";
         }
     }
 }
@@ -2030,6 +2102,9 @@ function nextQuestion() {
     currentRoma = patterns[Math.floor(Math.random() * patterns.length)]; 
     romaIdx = 0; 
     renderRoma();
+    
+    // デバッグ用（必要に応じてコメント解除）
+    // console.log(`単語: ${q}, パターン: ${patterns.length}個, 選択: ${currentRoma}`);
 }
 
 function renderRoma() {
@@ -2241,7 +2316,7 @@ window.addEventListener("keydown", e => {
     }
     
     if (fakeTypingActive) {
-        // 偽物タイピングではどのパターンでも受け付けるように
+        // 偽物タイピングでは入力された文字が次の文字と一致するかチェック
         if (e.key === fakeTypingRoma[fakeTypingIdx]) {
             fakeTypingIdx++;
             renderFakeRoma(); // 打った文字を光らせる
@@ -2260,7 +2335,8 @@ window.addEventListener("keydown", e => {
     
     if (!canType()) return;
 
-    if (e.key === currentRoma[romaIdx]) {
+    // 現在の入力文字と比較（大文字小文字を区別しない）
+    if (e.key.toLowerCase() === currentRoma[romaIdx].toLowerCase()) {
         processCorrectType();
     } else if (!["Shift","Alt","Control","Space","1","2","3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
         combo = 0; 
@@ -4154,10 +4230,12 @@ window.openStoryMode = () => {
         }
         openScreen("screen-story");
         renderStoryMap();
+        updateStoryProgressDisplay();
     }).catch(err => {
         console.error("ストーリー進捗取得エラー:", err);
         openScreen("screen-story");
         renderStoryMap();
+        updateStoryProgressDisplay();
     });
 };
 
@@ -4268,7 +4346,7 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
-    // 厳密なロックチェック（第1章と同じロジック）
+    // 厳密なロックチェック（強化版）
     if (chapter === 1) {
         if (stage > storyProgress.chapter1 + 1) {
             alert("前のステージをクリアしてください");
@@ -4284,10 +4362,12 @@ function selectStage(chapter, stage) {
             return;
         }
     } else if (chapter === 3) {
+        // 第2章をクリアしていないと第3章全体がロック
         if (storyProgress.chapter2 < 7) {
             alert("第2章をクリアしてください");
             return;
         }
+        // 前のステージをクリアしていないとロック
         if (stage > storyProgress.chapter3 + 1) {
             alert("前のステージをクリアしてください");
             return;
@@ -4447,6 +4527,7 @@ window.startStoryParty = () => {
 window.backToStory = () => {
     openScreen("screen-story");
     renderStoryMap();
+    updateStoryProgressDisplay();
 };
 
 window.executeDodge = () => {
@@ -4650,6 +4731,7 @@ get(userRef).then(snap => {
     }
     saveAndDisplayData();
     updateTrainingStatus();
+    updateStoryProgressDisplay();
 }).catch(err => console.error("Firebase load error:", err));
 
 update(userRef, { 
