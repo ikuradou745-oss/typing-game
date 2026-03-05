@@ -884,12 +884,12 @@ const SPECIAL_COMBO_MAP = {
     // 'つぁ': ['tsa'], 'つぃ': ['tsi'], 'つぇ': ['tse'], 'つぉ': ['tso'],
     // 'いぇ': ['ye', 'ie'],
     // 'くぁ': ['kwa', 'qa', 'kua'], 'くぃ': ['kwi', 'qi', 'kui'], 'くぇ': ['kwe', 'qe', 'kue'], 'くぉ': ['kwo', 'qo', 'kuo'],
-    // 'ぐぁ': ['gwa', 'gua'], 'ぐぃ': ['gwi', 'gui'], 'ぐぇ': ['gwe', 'gue'], 'ぐぉ': ['gwo', 'guo']
+    // 'ぐぁ': ['gwa', 'gua'], 'ぐぃ': ['gwi', 'gui'], 'ぐぇ': ['gwe', 'gue'], 'ー': '-', 'ぐぉ': ['gwo', 'guo']
 };
 
 // 長音マップ
 const CHOON_MAP = {
-    'ー': ['-', '-']  // 伸ばし棒は「-」で対応
+    'ー': '-'  // 伸ばし棒は「-」で対応
 };
 
 // 全マップを統合
@@ -928,10 +928,10 @@ function handleN(kana, nextChar) {
     if (['あ', 'い', 'う', 'え', 'お', 
          'な', 'に', 'ぬ', 'ね', 'の',
          'や', 'ゆ', 'よ'].includes(nextChar)) {
-        return ["nn'", "nn"];
+        return "nn";
     }
     
-    return ['nn', 'nn']; // それ以外は「nn」「n」
+    return "nn"; // それ以外は「nn」「n」
 }
 
 // 促音「っ」の処理（次の子音を重ねる）
