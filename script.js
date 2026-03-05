@@ -84,9 +84,9 @@ let equippedAccessory = localStorage.getItem("ramo_accessory") || null;
 const ACCESSORY_DB = {
     headphone1: { id: "headphone1", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
     banana: { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
-    weirdglasses1: { id: "weirdglasses1", name: "変なメガネ", cost: 15000, emoji: "👓👀" },
+    weirdglasses1: { id: "weirdglasses1", name: "変なメガネ", cost: 15000, emoji: "👀" },
     sunglasses: { id: "sunglasses", name: "サングラス", cost: 30000, emoji: "🕶️" },
-    headphone2: { id: "headphone2", name: "高級ヘッドフォン", cost: 50000, emoji: "🎧✨" },
+    headphone2: { id: "headphone2", name: "高級ヘッドフォン", cost: 50000, emoji: "🎧💖" },
     guitar: { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
     trophySilver: { id: "trophySilver", name: "銀トロフィー", cost: 100000, emoji: "🏆" },
     weirdglasses2: { id: "weirdglasses2", name: "変なメガネ2", cost: 150000, emoji: "👓💫" },
@@ -838,6 +838,7 @@ const KANA_MAP = {
     
     // 促音（っ）
     'っ': ['xtu', 'ltu']
+    'ー': ['-']
 };
 
 function getRomaPatterns(kana) {
