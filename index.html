@@ -60,11 +60,6 @@
         </div>
     </div>
 
-    <!-- BANルーレット独立ボタン（常時表示） -->
-    <div id="ban-roulette-button" class="ban-roulette-button" onclick="window.showBanRoulette()">
-        🎲
-    </div>
-
     <!-- デバッグモード入力オーバーレイ -->
     <div id="debug-overlay" class="hidden">
         <div class="debug-container">
@@ -406,18 +401,19 @@
                     <div class="blood-overlay"></div>
                 </div>
 
-                <!-- BANルーレット（全員表示用） -->
-                <div id="ban-roulette" class="hidden">
-                    <div class="roulette-container">
-                        <h2>🎲 BANルーレット 🎲</h2>
-                        <div class="roulette-spinner" id="ban-roulette-spinner">
-                            <div class="roulette-wheel" id="roulette-wheel">?</div>
-                        </div>
-                        <div class="roulette-participants" id="roulette-participants">
-                            <div>参加者: <span id="participant-count">0</span>人</div>
-                        </div>
-                        <div id="roulette-status" class="roulette-status"></div>
-                    </div>
+                <!-- 無敵状態エフェクト（虹色） -->
+                <div id="invincible-effect" class="hidden">
+                    <div class="rainbow-overlay"></div>
+                </div>
+
+                <!-- 最弱状態エフェクト（くらくら） -->
+                <div id="weak-effect" class="hidden">
+                    <div class="dizzy-overlay"></div>
+                </div>
+
+                <!-- 偽物タイピング笑うアニメーション -->
+                <div id="laugh-effect" class="hidden">
+                    <div class="laugh-animation">😂😂😂</div>
                 </div>
 
                 <!-- カウントスコアルーレット -->
@@ -427,6 +423,11 @@
                         <div class="roulette-wheel small" id="score-roulette-wheel">?</div>
                         <button class="roulette-spin-btn small" onclick="window.spinScoreRoulette()">回す！</button>
                     </div>
+                </div>
+
+                <!-- 偽物タイピング判定ボタン -->
+                <div id="fake-typing-button" class="hidden">
+                    <button class="action-btn" onclick="window.detectFakeTyping()">これは偽物だ！</button>
                 </div>
 
                 <div id="game-core">
@@ -545,7 +546,7 @@
         </div>
     </div>
 
-    <!-- 毒状態エフェクト -->
+    <!-- 毒状態オーバーレイ -->
     <div id="poison-overlay" class="hidden">
         <div class="poison-effect"></div>
     </div>
