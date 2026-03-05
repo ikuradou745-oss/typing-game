@@ -283,7 +283,7 @@ body, html {
 .char-done { color: var(--accent-blue); }
 .char-todo { color: #444; }
 
-/* 偽物タイピング表示エリア - 本物と同じスタイル */
+/* 偽物タイピング表示エリア - 本物と同じスタイル（オレンジ色削除） */
 #fake-typing-display {
     display: flex;
     flex-direction: column;
@@ -297,9 +297,9 @@ body, html {
     font-size: 4.5rem;
     font-weight: 900;
     margin: 20px 0;
-    text-shadow: 0 0 30px var(--accent-gold);
+    text-shadow: 0 0 30px var(--accent-blue);
     text-align: center;
-    color: #ffaa00;
+    color: var(--text-white);
 }
 
 #fake-typing-display .word-roma {
@@ -308,17 +308,15 @@ body, html {
     background: rgba(0,0,0,0.7);
     padding: 15px 40px;
     border-radius: 20px;
-    border: 2px solid var(--accent-gold);
-    box-shadow: 0 0 20px var(--accent-gold);
+    border: 1px solid var(--glass);
 }
 
 #fake-typing-display .char-done {
-    color: var(--accent-gold);
-    text-shadow: 0 0 10px var(--accent-gold);
+    color: var(--accent-blue);
 }
 
 #fake-typing-display .char-todo {
-    color: #666;
+    color: #444;
 }
 
 /* =========================================
@@ -945,7 +943,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   ストーリーモード用スタイル（第3章ロック機能強化）
+   ストーリーモード用スタイル（第3章ロック機能強化 - 第一章と同じスタイル）
    ========================================= */
 .story-chapter-selector {
     display: flex;
@@ -1326,22 +1324,32 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     margin-top: 15px;
 }
 
-/* ハッキングオーバーレイ */
+/* ハッキングオーバーレイ（5秒後にタイピング可能になるよう改善） */
 #hacking-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0,0,0,0.95);
+    background: rgba(0, 0, 0, 0.98);
     z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: glitch-bg 0.1s infinite;
+}
+
+@keyframes glitch-bg {
+    0% { background: rgba(0, 0, 0, 0.98); }
+    25% { background: rgba(0, 20, 0, 0.98); }
+    50% { background: rgba(0, 0, 0, 0.98); }
+    75% { background: rgba(0, 30, 0, 0.98); }
+    100% { background: rgba(0, 0, 0, 0.98); }
 }
 
 .hacking-screen {
     text-align: center;
+    position: relative;
 }
 
 .hacking-text {
@@ -1358,6 +1366,21 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     font-size: 6rem;
     font-family: 'JetBrains Mono';
     text-shadow: 0 0 40px #0f0;
+    animation: glitch 0.1s infinite;
+}
+
+.hacking-message {
+    color: #0f0;
+    font-size: 2rem;
+    font-family: 'JetBrains Mono';
+    text-shadow: 0 0 20px #0f0;
+    margin-top: 20px;
+    animation: fadeInOut 1s infinite;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 /* 毒状態オーバーレイ */
