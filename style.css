@@ -19,6 +19,9 @@
     --rainbow-7: #8f00ff;
     --handicap-skill-seal: #ff69b4;
     --handicap-half-time: #ff8c00;
+    --story-locked: #ff4444;
+    --story-unlocked: #00ff00;
+    --story-current: #00f2ff;
 }
 
 * { box-sizing: border-box; }
@@ -276,14 +279,46 @@ body, html {
     font-size: 1rem;
 }
 
-/* プレイ画面 */
-#timer-display { font-size: 4rem; color: var(--accent-red); font-family: 'JetBrains Mono'; text-shadow: 0 0 20px var(--accent-red); }
-.word-ja { font-size: 4.5rem; font-weight: 900; margin: 20px 0; text-shadow: 0 0 30px var(--accent-blue); text-align: center; }
-.word-roma { font-family: 'JetBrains Mono'; font-size: 2.8rem; background: rgba(0,0,0,0.7); padding: 15px 40px; border-radius: 20px; border: 1px solid var(--glass); }
-.char-done { color: var(--accent-blue); }
-.char-todo { color: #444; }
+/* プレイ画面 - タイピング文字表示の改善 */
+#timer-display { 
+    font-size: 4rem; 
+    color: var(--accent-red); 
+    font-family: 'JetBrains Mono'; 
+    text-shadow: 0 0 20px var(--accent-red); 
+}
+.word-ja { 
+    font-size: 4.5rem; 
+    font-weight: 900; 
+    margin: 20px 0; 
+    text-shadow: 0 0 30px var(--accent-blue); 
+    text-align: center; 
+    transition: all 0.3s ease;
+}
+.word-roma { 
+    font-family: 'JetBrains Mono'; 
+    font-size: 2.8rem; 
+    background: rgba(0,0,0,0.7); 
+    padding: 15px 40px; 
+    border-radius: 20px; 
+    border: 1px solid var(--glass); 
+    transition: all 0.3s ease;
+}
+.char-done { 
+    color: var(--accent-blue); 
+    text-shadow: 0 0 10px var(--accent-blue);
+}
+.char-todo { 
+    color: #666; 
+    opacity: 0.7;
+}
 
-/* 偽物タイピング表示エリア - 本物と同じスタイル（オレンジ色削除） */
+/* 正解ハイライト効果 */
+.word-roma.correct-highlight {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 30px var(--accent-green);
+}
+
+/* 偽物タイピング表示エリア - 本物と同じスタイル */
 #fake-typing-display {
     display: flex;
     flex-direction: column;
@@ -316,7 +351,7 @@ body, html {
 }
 
 #fake-typing-display .char-todo {
-    color: #444;
+    color: #666;
 }
 
 /* =========================================
@@ -354,7 +389,6 @@ body, html {
     gap: 10px;
 }
 
-/* プロフィールの顔を小さく調整 */
 .profile-face-container {
     width: 70px;
     height: 70px;
@@ -406,17 +440,17 @@ body, html {
 }
 
 /* 肌の色バリエーション */
-.skin-color-1 { background: #f5d0a9; } /* 標準 */
-.skin-color-2 { background: #f8d5b0; } /* 明るめ */
-.skin-color-3 { background: #f0c08c; } /* やや暗め */
-.skin-color-4 { background: #e8b17e; } /* 小麦色 */
-.skin-color-5 { background: #d89c6c; } /* 日焼け */
-.skin-color-6 { background: #c88a5a; } /* 褐色 */
-.skin-color-7 { background: #b87a4a; } /* 濃いめ */
-.skin-color-8 { background: #a86a3a; } /* ダーク */
-.skin-color-9 { background: #8a5a3a; } /* かなり濃い */
-.skin-color-10 { background: #6a4a2a; } /* 非常に濃い */
-.skin-color-gold { background: linear-gradient(135deg, #ffd700, #b8860b); } /* 金色 */
+.skin-color-1 { background: #f5d0a9; }
+.skin-color-2 { background: #f8d5b0; }
+.skin-color-3 { background: #f0c08c; }
+.skin-color-4 { background: #e8b17e; }
+.skin-color-5 { background: #d89c6c; }
+.skin-color-6 { background: #c88a5a; }
+.skin-color-7 { background: #b87a4a; }
+.skin-color-8 { background: #a86a3a; }
+.skin-color-9 { background: #8a5a3a; }
+.skin-color-10 { background: #6a4a2a; }
+.skin-color-gold { background: linear-gradient(135deg, #ffd700, #b8860b); }
 
 /* 50:50に分割するセクション */
 .list-section {
@@ -543,7 +577,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
-/* スキルショップ - パーティー中でも使用可能 */
+/* スキルショップ */
 .shop-coin-display { 
     font-size: 1.8rem; 
     color: #FFD700; 
@@ -608,7 +642,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 #in-game-skill-btn:hover { transform: scale(1.05); border-color: var(--accent-gold); }
 #skill-cooldown-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(255, 49, 49, 0.5); transition: height 1s linear; }
 
-/* マルチキー情報表示（ナレーターなど） */
+/* マルチキー情報表示 */
 #skill-keys-container {
     display: flex;
     flex-direction: column;
@@ -633,7 +667,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   スキンショップ（高さ調整済み）
+   スキンショップ
    ========================================= */
 #screen-skin-shop {
     justify-content: flex-start;
@@ -813,13 +847,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     border: 1px solid var(--accent-gold);
 }
 
-/* 肌の色アイテム用スタイル */
-.skin-color-item {
-    width: 100%;
-    height: 100%;
-    border-radius: 8px;
-}
-
 .skin-shop-buttons {
     display: flex;
     gap: 15px;
@@ -834,7 +861,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   デバッグモード（w + l + 8）
+   デバッグモード
    ========================================= */
 #debug-overlay {
     position: fixed;
@@ -943,7 +970,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   ストーリーモード用スタイル（第3章ロック機能強化 - 第一章と同じスタイル）
+   ストーリーモード用スタイル（強化版）
    ========================================= */
 .story-chapter-selector {
     display: flex;
@@ -987,7 +1014,31 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     position: absolute;
     top: -5px;
     right: -5px;
-    font-size: 1rem;
+    font-size: 1.2rem;
+    filter: drop-shadow(0 0 5px var(--story-locked));
+}
+
+.story-progress-summary {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 15px 30px;
+    background: var(--panel-bg);
+    border-radius: 50px;
+    border: 2px solid var(--accent-gold);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.progress-item {
+    font-size: 1.2rem;
+    color: var(--text-white);
+}
+
+.progress-item span {
+    font-weight: bold;
+    color: var(--accent-gold);
+    margin-left: 5px;
 }
 
 .story-chapter {
@@ -1017,6 +1068,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     transition: 0.2s;
     position: relative;
     overflow: visible;
+    min-height: 100px;
 }
 
 .stage-node:hover:not(.locked) {
@@ -1025,78 +1077,138 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     box-shadow: 0 0 20px var(--accent-blue);
 }
 
+/* クリア済みステージ */
 .stage-node.completed {
     border-color: var(--accent-green);
     box-shadow: 0 0 20px var(--accent-green);
+    position: relative;
 }
 
 .stage-node.completed::after {
     content: "✓";
     position: absolute;
-    top: -5px;
-    right: -5px;
+    top: -8px;
+    right: -8px;
     color: var(--accent-green);
-    font-size: 1.5rem;
+    font-size: 1.8rem;
     font-weight: bold;
-    background: rgba(0, 0, 0, 0.7);
-    width: 30px;
-    height: 30px;
+    background: rgba(0, 0, 0, 0.8);
+    width: 35px;
+    height: 35px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
+    z-index: 20;
     border: 2px solid var(--accent-green);
-    box-shadow: 0 0 10px var(--accent-green);
+    box-shadow: 0 0 15px var(--accent-green);
+    animation: pulse-check 1.5s infinite;
 }
 
+@keyframes pulse-check {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* ロックされたステージ（強化版） */
 .stage-node.locked {
     opacity: 0.6;
     cursor: not-allowed;
     filter: grayscale(0.8);
     border-color: #666;
+    position: relative;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+}
+
+.stage-node.locked::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 13px;
+    z-index: 5;
 }
 
 .stage-node.locked::after {
     content: "🔒";
     position: absolute;
-    top: -5px;
-    right: -5px;
-    font-size: 1.5rem;
-    background: rgba(0, 0, 0, 0.7);
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.5rem;
     z-index: 10;
-    border: 2px solid #ff4444;
-    box-shadow: 0 0 10px #ff4444;
+    filter: drop-shadow(0 0 10px var(--story-locked));
+    animation: lock-pulse 2s infinite;
 }
 
+@keyframes lock-pulse {
+    0% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ボスステージ */
 .stage-node.boss-stage {
     border-color: #FFD700;
     box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+    background: linear-gradient(145deg, #2a1a1a, #1a0a0a);
 }
 
+.stage-node.boss-stage.completed {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 25px var(--accent-green);
+}
+
+.stage-node.boss-stage.locked {
+    border-color: #666;
+    box-shadow: none;
+}
+
+/* 現在選択中のステージ */
 .stage-node.current {
     border-color: var(--accent-blue);
     transform: scale(1.08);
     box-shadow: 0 0 25px var(--accent-blue);
-    z-index: 5;
+    z-index: 15;
+    animation: current-pulse 1.5s infinite;
+}
+
+@keyframes current-pulse {
+    0% { box-shadow: 0 0 20px var(--accent-blue); }
+    50% { box-shadow: 0 0 35px var(--accent-blue); }
+    100% { box-shadow: 0 0 20px var(--accent-blue); }
 }
 
 .stage-number {
     font-size: 1.3rem;
     font-weight: bold;
     color: #fff;
+    margin-bottom: 8px;
 }
 
 .stage-target {
     font-size: 0.9rem;
     color: #aaa;
     margin-top: 8px;
+    word-break: break-word;
+}
+
+.stage-node.boss-stage .stage-number {
+    color: #FFD700;
+    text-shadow: 0 0 10px #FFD700;
+}
+
+.stage-node.completed .stage-number {
+    color: var(--accent-green);
+    text-shadow: 0 0 10px var(--accent-green);
+}
+
+.stage-node.locked .stage-number {
+    color: #888;
 }
 
 /* ステージ詳細画面 */
@@ -1324,7 +1436,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     margin-top: 15px;
 }
 
-/* ハッキングオーバーレイ（5秒後にタイピング可能になるよう改善） */
+/* ハッキングオーバーレイ */
 #hacking-overlay {
     position: fixed;
     top: 0;
@@ -1707,7 +1819,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   チーム戦関連（改良版：クリック確実に動作）
+   チーム戦関連
    ========================================= */
 .team-setup {
     width: 100%;
@@ -1800,7 +1912,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   ハンデ設定（5種類対応・クリック確実に動作・選択状態明確）
+   ハンデ設定
    ========================================= */
 .handicap-section {
     width: 100%;
@@ -1965,7 +2077,6 @@ body.bleeding #game-core {
 .handicap-option[data-handicap="skill_seal"].selected { background: var(--handicap-skill-seal); color: #000; }
 .handicap-option[data-handicap="half_time"].selected { background: var(--handicap-half-time); color: #000; }
 
-/* ハンデ選択状態をより強調 */
 .handicap-option.selected::before {
     content: "✓ ";
     font-weight: bold;
@@ -2041,7 +2152,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   ガチャ画面（スクロール改善・スキルリスト追加・装備バグ修正）
+   ガチャ画面（装備表示強化）
    ========================================= */
 #screen-gacha {
     justify-content: flex-start;
@@ -2245,6 +2356,7 @@ body.bleeding #game-core {
     padding: 15px;
 }
 
+/* ガチャキャラアイテム（装備表示強化） */
 .gacha-char-item {
     background: linear-gradient(145deg, #1a1a2a, #0a0a1a);
     border: 2px solid #333;
@@ -2267,23 +2379,48 @@ body.bleeding #game-core {
 .gacha-char-item.sr { border-color: #8a2be2; }
 .gacha-char-item.ur { border-color: #ff4500; }
 
+/* 装備中のキャラ（強調表示） */
 .gacha-char-item.equipped {
     border-color: #FF69B4;
-    box-shadow: 0 0 15px #FF69B4;
+    border-width: 3px;
+    box-shadow: 0 0 20px #FF69B4;
     position: relative;
+    background: linear-gradient(145deg, #2a1a3a, #1a0a2a);
 }
 
 .gacha-char-item.equipped::after {
+    content: "✓ 装備中";
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    background: #FF69B4;
+    padding: 3px 8px;
+    border-radius: 20px;
+    z-index: 10;
+    border: 1px solid white;
+    box-shadow: 0 0 10px #FF69B4;
+}
+
+/* 所持済みキャラ */
+.gacha-char-item.owned:not(.equipped) {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 10px var(--accent-green);
+}
+
+.gacha-char-item.owned:not(.equipped)::after {
     content: "✓";
     position: absolute;
     top: 2px;
     right: 2px;
-    color: #FF69B4;
-    font-size: 0.9rem;
+    color: var(--accent-green);
+    font-size: 1rem;
     font-weight: bold;
     background: rgba(0,0,0,0.5);
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -2331,12 +2468,11 @@ body.bleeding #game-core {
     min-width: 160px;
 }
 
-/* ガチャ結果非表示時 */
 .gacha-result.hidden {
     display: none;
 }
 
-/* ペイント効果（ペイントボーラー用） */
+/* ペイント効果 */
 #paint-overlay {
     position: fixed;
     top: 0;
@@ -2360,7 +2496,7 @@ body.bleeding #game-core {
     100% { opacity: 0; }
 }
 
-/* ゆらゆら効果（ライフルマン用） */
+/* ゆらゆら効果 */
 @keyframes sway {
     0% { transform: translateX(0); }
     25% { transform: translateX(-10px); }
@@ -2484,7 +2620,7 @@ body.swaying .stat-box {
     color: #00ffff;
 }
 
-/* パズルゲーム（ドットコネクト）オーバーレイ */
+/* パズルゲームオーバーレイ */
 #puzzle-game-overlay {
     position: fixed;
     top: 0;
@@ -2516,7 +2652,6 @@ body.swaying .stat-box {
     text-shadow: 0 0 20px #00ff00;
 }
 
-/* 4x4グリッド（16個） */
 .puzzle-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
