@@ -861,7 +861,7 @@ const YOUON_MAP = {
     // ぎゃ行
     'ぎゃ': ['gya', 'gilya'], 'ぎゅ': ['gyu', 'gilyu'], 'ぎょ': ['gyo', 'gilyo'],
     // じゃ行
-    'じゃ': ['zya', 'ja', 'jya', 'jilya'], 'じゅ': ['zyu', 'ju', 'jyu', 'jilyu'], 'じょ': ['zyo', 'jo', 'jyo', 'jilyo'],
+    // 'じゃ': ['zya', 'ja', 'jya', 'jilya'], 'じゅ': ['zyu', 'ju', 'jyu', 'jilyu'], 'じょ': ['zyo', 'jo', 'jyo', 'jilyo'],
     // びゃ行
     'びゃ': ['bya', 'bilya'], 'びゅ': ['byu', 'bilyu'], 'びょ': ['byo', 'bilyo'],
     // ぴゃ行
