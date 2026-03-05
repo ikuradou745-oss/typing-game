@@ -830,7 +830,6 @@ const SEION_MAP = {
     'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
     'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
     'わ': 'wa', 'を': 'wo',
-    'ー': '-',
     'ん': 'nn'  // 「ん」は基本的に「nn」
 };
 
@@ -871,26 +870,26 @@ const YOUON_MAP = {
 
 // 小文字マップ（L/X シリーズ）
 const SMALL_CHAR_MAP = {
-    'ぁ': ['la', 'xa'], 'ぃ': ['li', 'xi'], 'ぅ': ['lu', 'xu'], 'ぇ': ['le', 'xe'], 'ぉ': ['lo', 'xo'],
-    'ゃ': ['lya', 'xya'], 'ゅ': ['lyu', 'xyu'], 'ょ': ['lyo', 'xyo'],
+    // 'ぁ': ['la', 'xa'], 'ぃ': ['li', 'xi'], 'ぅ': ['lu', 'xu'], 'ぇ': ['le', 'xe'], 'ぉ': ['lo', 'xo'],
+    // 'ゃ': ['lya', 'xya'], 'ゅ': ['lyu', 'xyu'], 'ょ': ['lyo', 'xyo'],
     'っ': ['ltsu', 'xtsu']
 };
 
 // 特殊な組み合わせマップ
 const SPECIAL_COMBO_MAP = {
-    'ふぁ': ['fa', 'fwa'], 'ふぃ': ['fi', 'fwi'], 'ふぇ': ['fe', 'fwe'], 'ふぉ': ['fo', 'fwo'],
-    'てぃ': ['ti', 'thi'], 'とぅ': ['tu', 'twu'], 'でぃ': ['di', 'dhi'], 'どぅ': ['du', 'dwu'],
-    'うぃ': ['wi', 'whi'], 'うぇ': ['we', 'whe'], 'うぉ': ['wo', 'who'],
-    'ヴぁ': ['va'], 'ヴぃ': ['vi'], 'ヴぇ': ['ve'], 'ヴぉ': ['vo'],
-    'つぁ': ['tsa'], 'つぃ': ['tsi'], 'つぇ': ['tse'], 'つぉ': ['tso'],
-    'いぇ': ['ye', 'ie'],
-    'くぁ': ['kwa', 'qa', 'kua'], 'くぃ': ['kwi', 'qi', 'kui'], 'くぇ': ['kwe', 'qe', 'kue'], 'くぉ': ['kwo', 'qo', 'kuo'],
-    'ぐぁ': ['gwa', 'gua'], 'ぐぃ': ['gwi', 'gui'], 'ぐぇ': ['gwe', 'gue'], 'ぐぉ': ['gwo', 'guo']
+    // 'ふぁ': ['fa', 'fwa'], 'ふぃ': ['fi', 'fwi'], 'ふぇ': ['fe', 'fwe'], 'ふぉ': ['fo', 'fwo'],
+    // 'てぃ': ['ti', 'thi'], 'とぅ': ['tu', 'twu'], 'でぃ': ['di', 'dhi'], 'どぅ': ['du', 'dwu'],
+    // 'うぃ': ['wi', 'whi'], 'うぇ': ['we', 'whe'], 'うぉ': ['wo', 'who'],
+    // 'ヴぁ': ['va'], 'ヴぃ': ['vi'], 'ヴぇ': ['ve'], 'ヴぉ': ['vo'],
+    // 'つぁ': ['tsa'], 'つぃ': ['tsi'], 'つぇ': ['tse'], 'つぉ': ['tso'],
+    // 'いぇ': ['ye', 'ie'],
+    // 'くぁ': ['kwa', 'qa', 'kua'], 'くぃ': ['kwi', 'qi', 'kui'], 'くぇ': ['kwe', 'qe', 'kue'], 'くぉ': ['kwo', 'qo', 'kuo'],
+    // 'ぐぁ': ['gwa', 'gua'], 'ぐぃ': ['gwi', 'gui'], 'ぐぇ': ['gwe', 'gue'], 'ぐぉ': ['gwo', 'guo']
 };
 
 // 長音マップ
 const CHOON_MAP = {
-    'ー': ['-', '']  // 伸ばし棒は「-」で対応
+    'ー': ['-', '-']  // 伸ばし棒は「-」で対応
 };
 
 // 全マップを統合
@@ -953,7 +952,7 @@ function handleSokuon(nextChar) {
             result.push(consonant + pattern);
             
             // 特殊ケース: 'ch' で始まる場合（tcha）
-            if (pattern.startsWith('ch')) {
+            if (pattern.startsWith('tya')) {
                 result.push('t' + pattern);
             }
             // 特殊ケース: 'sh' で始まる場合（ssha）
