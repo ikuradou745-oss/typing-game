@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V15.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V16.0 (完全修正版)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -792,36 +792,114 @@ window.updateMyName = () => {
     saveAndDisplayData();
 };
 
-// --- ローマ字変換 ---
+// --- ローマ字変換（完全版：すべてのパターンに対応）---
 const KANA_MAP = {
-    'あ':'a','い':'i','う':'u','え':'e','お':'o','か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
-    'さ':'sa','し':['si','shi'],'す':'su','せ':'se','そ':'so','た':'ta','ち':['ti','chi'],'つ':['tu','tsu'],'て':'te','と':'to',
-    'な':'na','に':'ni','ぬ':'nu','ね':'ne','の':'no','は':'ha','ひ':'hi','ふ':['fu','hu'],'へ':'he','ほ':'ho',
-    'ま':'ma','み':'mi','む':'mu','め':'me','も':'mo','や':'ya','ゆ':'yu','よ':'yo','ら':'ra','り':'ri','る':'ru','れ':'re','ろ':'ro',
-    'わ':'wa','を':'wo','ん':['nn','n'],'が':'ga','ぎ':'gi','ぐ':'gu','げ':'ge','ご':'go','ざ':'za','じ':['zi','ji'],'ず':'zu','ぜ':'ze','ぞ':'zo',
-    'だ':'da','ぢ':['di','ji'],'づ':'du','で':'de','ど':'do','ば':'ba','び':'bi','ぶ':'bu','べ':'be','ぼ':'bo','ぱ':'pa','ぴ':'pi','ぷ':'pu','ぺ':'pe','ぽ':'po',
-    'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],'しゃ':['sya','sha'],'しゅ':['syu','shu'],'しょ':['syo','sho'],
-    'ちゃ':['tya','cha'],'ちゅ':['tyu','chu'],'ちょ':['tyo','cho'],'ふぁ':['fa'],'ふぃ':['fi'],'ふぇ':['fe'],'ふぉ':['fo'],
-    'ー':['-']
+    // 基本50音
+    'あ':'a', 'い':'i', 'う':'u', 'え':'e', 'お':'o',
+    'か':'ka', 'き':'ki', 'く':'ku', 'け':'ke', 'こ':'ko',
+    'さ':'sa', 'し':['si','shi','ci'], 'す':'su', 'せ':'se', 'そ':'so',
+    'た':'ta', 'ち':['ti','chi'], 'つ':['tu','tsu'], 'て':'te', 'と':'to',
+    'な':'na', 'に':'ni', 'ぬ':'nu', 'ね':'ne', 'の':'no',
+    'は':'ha', 'ひ':'hi', 'ふ':['fu','hu'], 'へ':'he', 'ほ':'ho',
+    'ま':'ma', 'み':'mi', 'む':'mu', 'め':'me', 'も':'mo',
+    'や':'ya', 'ゆ':'yu', 'よ':'yo',
+    'ら':'ra', 'り':'ri', 'る':'ru', 'れ':'re', 'ろ':'ro',
+    'わ':'wa', 'を':'wo', 'ん':['nn','n'],
+    
+    // 濁音・半濁音
+    'が':'ga', 'ぎ':'gi', 'ぐ':'gu', 'げ':'ge', 'ご':'go',
+    'ざ':'za', 'じ':['zi','ji'], 'ず':'zu', 'ぜ':'ze', 'ぞ':'zo',
+    'だ':'da', 'ぢ':['di','ji'], 'づ':'du', 'で':'de', 'ど':'do',
+    'ば':'ba', 'び':'bi', 'ぶ':'bu', 'べ':'be', 'ぼ':'bo',
+    'ぱ':'pa', 'ぴ':'pi', 'ぷ':'pu', 'ぺ':'pe', 'ぽ':'po',
+    
+    // 拗音（完全版）
+    'きゃ':['kya','kilya'], 'きゅ':['kyu','kilyu'], 'きょ':['kyo','kilyo'],
+    'しゃ':['sya','sha','silya'], 'しゅ':['syu','shu','silyu'], 'しょ':['syo','sho','silyo'],
+    'ちゃ':['tya','cha','tilya'], 'ちゅ':['tyu','chu','tilyu'], 'ちょ':['tyo','cho','tilyo'],
+    'にゃ':['nya','nilya'], 'にゅ':['nyu','nilyu'], 'にょ':['nyo','nilyo'],
+    'ひゃ':['hya','hilya'], 'ひゅ':['hyu','hilyu'], 'ひょ':['hyo','hilyo'],
+    'みゃ':['mya','milya'], 'みゅ':['myu','milyu'], 'みょ':['myo','milyo'],
+    'りゃ':['rya','rilya'], 'りゅ':['ryu','rilyu'], 'りょ':['ryo','rilyo'],
+    'ぎゃ':['gya','gilya'], 'ぎゅ':['gyu','gilyu'], 'ぎょ':['gyo','gilyo'],
+    'じゃ':['zya','ja','jya','jilya'], 'じゅ':['zyu','ju','jyu','jilyu'], 'じょ':['zyo','jo','jyo','jilyo'],
+    'びゃ':['bya','bilya'], 'びゅ':['byu','bilyu'], 'びょ':['byo','bilyo'],
+    'ぴゃ':['pya','pilya'], 'ぴゅ':['pyu','pilyu'], 'ぴょ':['pyo','pilyo'],
+    
+    // その他
+    'ふぁ':['fa'], 'ふぃ':['fi'], 'ふぇ':['fe'], 'ふぉ':['fo'],
+    'てぃ':['ti'], 'とぅ':['tu'], 'でぃ':['di'], 'どぅ':['du'],
+    'うぃ':['wi'], 'うぇ':['we'], 'うぉ':['wo'],
+    'ヴぁ':['va'], 'ヴぃ':['vi'], 'ヴぇ':['ve'], 'ヴぉ':['vo'],
+    'つぁ':['tsa'], 'つぃ':['tsi'], 'つぇ':['tse'], 'つぉ':['tso'],
+    'いぇ':['ye'],
+    'くぁ':['kwa','qa'], 'くぃ':['kwi','qi'], 'くぇ':['kwe','qe'], 'くぉ':['kwo','qo'],
+    'ぐぁ':['gwa'], 'ぐぃ':['gwi'], 'ぐぇ':['gwe'], 'ぐぉ':['gwo'],
+    
+    // 促音（っ）
+    'っ': ['xtu', 'ltu']
 };
 
 function getRomaPatterns(kana) {
     let patterns = [""];
-    for (let i = 0; i < kana.length; i++) {
+    let i = 0;
+    
+    while (i < kana.length) {
+        // 3文字の拗音をチェック
+        let char3 = kana.substring(i, i + 3);
+        // 2文字の拗音をチェック
         let char2 = kana.substring(i, i + 2);
+        // 1文字の通常音をチェック
         let char1 = kana.substring(i, i + 1);
+        
         let candidates = [];
-        if (KANA_MAP[char2]) { candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]]; i++; }
-        else if (KANA_MAP[char1]) { candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]]; }
+        
+        // 3文字の拗音（「っしゃ」などの特殊ケース）
+        if (char3 === 'っしゃ' || char3 === 'っしゅ' || char3 === 'っしょ' ||
+            char3 === 'っちゃ' || char3 === 'っちゅ' || char3 === 'っちょ') {
+            candidates = ['s', 't']; // 促音の処理
+            i += 2; // 2文字進めて、次の拗音へ
+        }
+        // 2文字の拗音
+        else if (KANA_MAP[char2]) {
+            candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]];
+            i += 2;
+        }
+        // 1文字の通常音
+        else if (KANA_MAP[char1]) {
+            candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]];
+            i += 1;
+        }
+        // 促音（っ）の処理
         else if (char1 === 'っ' && i + 1 < kana.length) {
             let next = kana.substring(i + 1, i + 2);
+            let nextChar = kana[i + 1];
             let nextRoma = Array.isArray(KANA_MAP[next]) ? KANA_MAP[next][0] : KANA_MAP[next];
-            candidates = nextRoma ? [nextRoma[0]] : ['xtu'];
-        } else { candidates = [char1]; }
+            
+            // 次の文字の最初の文字を重ねる（例：kka, tta など）
+            if (nextRoma) {
+                candidates = [nextRoma[0]];
+            } else {
+                candidates = ['xtu', 'ltu'];
+            }
+            i += 1;
+        }
+        // 不明な文字
+        else {
+            candidates = [char1];
+            i += 1;
+        }
+        
+        // パターンを組み合わせる
         let nextPatterns = [];
-        patterns.forEach(p => candidates.forEach(c => nextPatterns.push(p + c)));
+        patterns.forEach(p => {
+            candidates.forEach(c => {
+                nextPatterns.push(p + c);
+            });
+        });
         patterns = nextPatterns;
     }
+    
     return patterns;
 }
 
@@ -1947,7 +2025,10 @@ function nextQuestion() {
     let q = currentWords[randomIdx];
     el("q-ja").innerText = q;
     let patterns = getRomaPatterns(q);
-    currentRoma = patterns[0]; romaIdx = 0; renderRoma();
+    // ランダムなパターンを選択
+    currentRoma = patterns[Math.floor(Math.random() * patterns.length)]; 
+    romaIdx = 0; 
+    renderRoma();
 }
 
 function renderRoma() {
@@ -2159,6 +2240,7 @@ window.addEventListener("keydown", e => {
     }
     
     if (fakeTypingActive) {
+        // 偽物タイピングではどのパターンでも受け付けるように
         if (e.key === fakeTypingRoma[fakeTypingIdx]) {
             fakeTypingIdx++;
             renderFakeRoma(); // 打った文字を光らせる
@@ -3467,7 +3549,7 @@ function startPoison(duration) {
     }, duration);
 }
 
-// 偽物タイピング開始（改良版）
+// 偽物タイピング開始（改良版）- 本物と同じ青色のハイライト
 function startFakeTyping() {
     if (invincibleActive) return;
     
@@ -3483,22 +3565,22 @@ function startFakeTyping() {
     
     fakeTypingText = randomWord;
     const patterns = getRomaPatterns(randomWord);
-    fakeTypingRoma = patterns[0];
+    // ランダムなパターンを選択
+    fakeTypingRoma = patterns[Math.floor(Math.random() * patterns.length)];
     fakeTypingIdx = 0;
     
     // 偽物タイピング専用表示エリアを表示
     const fakeDisplay = el("fake-typing-display");
-    const realDisplay = el("q-ja").parentNode;
     
     if (fakeDisplay) {
         fakeDisplay.classList.remove("hidden");
         const fakeJa = document.getElementById('fake-q-ja');
-        const fakeRoma = document.getElementById('fake-q-roma');
+        const fakeDone = document.getElementById('fake-q-done');
+        const fakeTodo = document.getElementById('fake-q-todo');
+        
         if (fakeJa) fakeJa.innerText = fakeTypingText;
-        if (fakeRoma) {
-            document.getElementById('fake-q-done').innerText = "";
-            document.getElementById('fake-q-todo').innerText = fakeTypingRoma;
-        }
+        if (fakeDone) fakeDone.innerText = "";
+        if (fakeTodo) fakeTodo.innerText = fakeTypingRoma;
         
         // 本物の表示を非表示
         const realJa = el("q-ja");
@@ -3555,6 +3637,7 @@ window.detectFakeTyping = () => {
     sounds.correct.play();
 };
 
+// StarterGui（ハッキング）改良版 - 5秒後にタイピング可能に
 function startStarterGui() {
     if (invincibleActive) return;
     
@@ -3562,9 +3645,11 @@ function startStarterGui() {
     const overlay = el("hacking-overlay");
     const text = overlay.querySelector(".hacking-text");
     const progress = overlay.querySelector(".hacking-progress");
+    const message = overlay.querySelector(".hacking-message");
     
     if (text) text.innerHTML = "ハッキング！しかもウイルスあり！";
     if (progress) progress.innerText = "5";
+    if (message) message.classList.add("hidden");
     
     overlay.classList.remove("hidden");
     
@@ -3575,20 +3660,30 @@ function startStarterGui() {
             if (progress) progress.innerText = count;
         } else {
             clearInterval(interval);
-            overlay.classList.add("hidden");
-            hackingActive = false;
             
-            skillSealed = true;
-            showBattleAlert("🔒 スキル封印！10秒間", "#ff0000");
+            // 5秒後にハッキング終了
+            if (message) {
+                message.classList.remove("hidden");
+                message.innerHTML = "ハッキング終了";
+            }
             
-            combo = Math.floor(combo / 2);
-            el("stat-combo").innerText = combo;
-            
-            if (skillSealTimer) clearTimeout(skillSealTimer);
-            skillSealTimer = setTimeout(() => {
-                skillSealed = false;
-                showBattleAlert("🔓 スキル封印解除", "#00ff00");
-            }, 10000);
+            setTimeout(() => {
+                overlay.classList.add("hidden");
+                hackingActive = false;
+                
+                // スキル封印とコンボ半減の効果を適用
+                skillSealed = true;
+                showBattleAlert("🔒 スキル封印！10秒間", "#ff0000");
+                
+                combo = Math.floor(combo / 2);
+                el("stat-combo").innerText = combo;
+                
+                if (skillSealTimer) clearTimeout(skillSealTimer);
+                skillSealTimer = setTimeout(() => {
+                    skillSealed = false;
+                    showBattleAlert("🔓 スキル封印解除", "#00ff00");
+                }, 10000);
+            }, 1000); // 完了メッセージを1秒表示してから非表示
         }
     }, 1000);
 }
@@ -4116,7 +4211,9 @@ function renderStoryMap() {
         map3.innerHTML = "";
         STORY_STAGES.chapter3.forEach((stage, index) => {
             const stageNum = index + 1;
+            // 第3章のロック条件：第2章をクリアしていないと章全体がロック
             const chapterLocked = storyProgress.chapter2 < 7;
+            // 前のステージをクリアしていないとロック（第1章と同じロジック）
             const isLocked = chapterLocked || storyProgress.chapter3 < stageNum - 1;
             const isCompleted = !chapterLocked && storyProgress.chapter3 >= stageNum;
             const isCurrent = !chapterLocked && storyProgress.chapter3 === stageNum - 1 && !isCompleted;
@@ -4170,7 +4267,7 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
-    // 厳密なロックチェック
+    // 厳密なロックチェック（第1章と同じロジック）
     if (chapter === 1) {
         if (stage > storyProgress.chapter1 + 1) {
             alert("前のステージをクリアしてください");
