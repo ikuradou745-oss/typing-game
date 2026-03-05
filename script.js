@@ -1,6 +1,6 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V14.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V15.0 (完全修正版)
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -167,7 +167,7 @@ let partyStoryProgress = {};
 
 // 偽物タイピング用変数
 let fakeTypingActive = false;
-let fakeTypingText = "あいうえおかきくけこ";
+let fakeTypingText = "";
 let fakeTypingRoma = "";
 let fakeTypingIdx = 0;
 let fakeTypingTimer = null;
@@ -183,9 +183,11 @@ let teamMode = "solo";
 let playerTeams = {}; // { playerId: "red" or "blue" }
 let memberHandicaps = {}; // メンバー個別のハンデ { memberId: handicapType }
 
-// --- ハンデ関連 ---
+// --- ハンデ関連（5種類）---
 let handicapNoTypeTimer = null;
 let handicapSlowTimer = null;
+let handicapHalfTimeTimer = null;
+let handicapSkillSealTimer = null;
 
 // --- 修行モード関連 ---
 let trainingMode = false;
@@ -773,13 +775,14 @@ function updateButtonStates() {
     const btnGacha = el("btn-gacha");
     const btnTraining = el("btn-training");
 
+    // パーティー中でもスキルショップとガチャは使用可能に
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking || trainingMode; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
     if (btnSkin) btnSkin.disabled = isBusy;
-    if (btnShop) btnShop.disabled = isBusy || myPartyId !== null;
+    if (btnShop) btnShop.disabled = isBusy; // パーティー中でも使用可能
     if (btnStory) btnStory.disabled = isBusy;
-    if (btnGacha) btnGacha.disabled = isBusy || myPartyId !== null;
+    if (btnGacha) btnGacha.disabled = isBusy; // パーティー中でも使用可能
     if (btnTraining) btnTraining.disabled = isBusy || myPartyId !== null;
 }
 
@@ -1140,7 +1143,7 @@ async function toggleMemberTeam(memberId) {
 // 互換性のため残す
 window.switchTeam = toggleMemberTeam;
 
-// --- ハンデ設定（メンバー個別・選択状態がわかりやすく・確実に動作）---
+// --- ハンデ設定（5種類対応・メンバー個別・選択状態がわかりやすく・確実に動作）---
 function updateHandicapSetupUI() {
     const handicapList = el("handicap-members-list");
     if (!handicapList || !partyMembers) return;
@@ -1169,17 +1172,17 @@ function updateHandicapSetupUI() {
         `;
         memberDiv.appendChild(headerDiv);
         
-        // オプション部分
+        // オプション部分 - 5種類のハンデ
         const optionsDiv = document.createElement("div");
         optionsDiv.className = `handicap-options ${currentHandicap === 'none' ? 'hidden' : ''}`;
         optionsDiv.id = `handicap-options-${id}`;
         
         const handicapTypes = [
-            { value: 'none', label: '🚫 ハンデなし' },
-            { value: 'score_half', label: '📉 スコア半減' },
+            { value: 'none', label: '🚫 なし' },
             { value: 'no_type_10', label: '⏱️ 最初の10秒不可' },
-            { value: 'combo_start_0', label: '🔄 コンボ0スタート' },
-            { value: 'slow_typing', label: '🐢 タイピング速度半減' }
+            { value: 'score_half', label: '📉 スコア半減' },
+            { value: 'skill_seal', label: '🔒 スキル封印' },
+            { value: 'half_time', label: '⏳ 最初半分の時間打てない' }
         ];
         
         handicapTypes.forEach(type => {
@@ -1205,10 +1208,10 @@ function updateHandicapSetupUI() {
 function getHandicapName(handicap) {
     const names = {
         'none': 'なし',
-        'score_half': 'スコア半減',
         'no_type_10': '最初の10秒不可',
-        'combo_start_0': 'コンボ0',
-        'slow_typing': '速度半減'
+        'score_half': 'スコア半減',
+        'skill_seal': 'スキル封印',
+        'half_time': '最初半分の時間打てない'
     };
     return names[handicap] || 'なし';
 }
@@ -1514,10 +1517,10 @@ function renderShop() {
         
         if (skill.training) {
             if (skill.id === "swordsman") {
-                isUnlocked = ownedSkills.includes("swordsman") || storyProgress.chapter1 >= 7; // 修行クリア or ボスクリア？
+                isUnlocked = ownedSkills.includes("swordsman");
                 requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行1をクリアすると使用可能'}】`;
             } else if (skill.id === "hacker_trainee") {
-                isUnlocked = ownedSkills.includes("hacker_trainee") || storyProgress.chapter2 >= 7;
+                isUnlocked = ownedSkills.includes("hacker_trainee");
                 requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行2をクリアすると使用可能'}】`;
             }
         }
@@ -1930,8 +1933,12 @@ window.goHome = () => {
 function clearHandicapEffects() {
     if (handicapNoTypeTimer) clearTimeout(handicapNoTypeTimer);
     if (handicapSlowTimer) clearInterval(handicapSlowTimer);
+    if (handicapHalfTimeTimer) clearTimeout(handicapHalfTimeTimer);
+    if (handicapSkillSealTimer) clearTimeout(handicapSkillSealTimer);
     handicapNoTypeTimer = null;
     handicapSlowTimer = null;
+    handicapHalfTimeTimer = null;
+    handicapSkillSealTimer = null;
 }
 
 function nextQuestion() {
@@ -1948,11 +1955,33 @@ function renderRoma() {
     el("q-todo").innerText = currentRoma.substring(romaIdx);
 }
 
+// 偽物タイピング用の表示更新
+function renderFakeRoma() {
+    const fakeDoneEl = document.getElementById('fake-q-done');
+    const fakeTodoEl = document.getElementById('fake-q-todo');
+    if (fakeDoneEl && fakeTodoEl) {
+        fakeDoneEl.innerText = fakeTypingRoma.substring(0, fakeTypingIdx);
+        fakeTodoEl.innerText = fakeTypingRoma.substring(fakeTypingIdx);
+    }
+}
+
 function processCorrectType() {
     const myHandicap = getMyHandicap();
     
-    if (myHandicap === "slow_typing") {
-        if (Math.random() > 0.5) return;
+    // ハンデチェック
+    if (myHandicap === "no_type_10" && timer > duration - 10) {
+        sounds.miss.play();
+        return;
+    }
+    
+    if (myHandicap === "half_time" && timer > duration / 2) {
+        sounds.miss.play();
+        return;
+    }
+    
+    if (myHandicap === "skill_seal") {
+        skillSealed = true;
+        // スキル封印は試合全体に適用
     }
     
     romaIdx++;
@@ -2096,6 +2125,7 @@ function giveBossSkillToAll(skillId, members) {
 function canType() {
     const myHandicap = getMyHandicap();
     if (myHandicap === "no_type_10" && timer > duration - 10) return false;
+    if (myHandicap === "half_time" && timer > duration / 2) return false;
     return gameActive && !isStunned && !isJamming && hackerTabsActive === 0 && !mazeActive && !hackingActive && !bleedingActive && !fakeTypingActive;
 }
 
@@ -2131,6 +2161,7 @@ window.addEventListener("keydown", e => {
     if (fakeTypingActive) {
         if (e.key === fakeTypingRoma[fakeTypingIdx]) {
             fakeTypingIdx++;
+            renderFakeRoma(); // 打った文字を光らせる
             if (fakeTypingIdx >= fakeTypingRoma.length) {
                 clearFakeTyping();
                 setStun(5000);
@@ -2164,7 +2195,7 @@ function startGame(sec) {
     clearInterval(gameInterval);
     gameActive = true; 
     score = 0; 
-    combo = getMyHandicap() === "combo_start_0" ? 0 : 0; 
+    combo = 0; 
     timer = sec; 
     duration = sec; 
     currentWordIdx = 0;
@@ -3436,17 +3467,45 @@ function startPoison(duration) {
     }, duration);
 }
 
+// 偽物タイピング開始（改良版）
 function startFakeTyping() {
     if (invincibleActive) return;
     
     fakeTypingActive = true;
-    fakeTypingText = "あいうえおかきくけこ";
-    fakeTypingRoma = "aiueokakikukeko";
+    
+    // 現在のゲームの難易度に合わせた単語を選択
+    const currentDifficulty = currentWords === WORD_DB.easy ? 'easy' : 
+                             currentWords === WORD_DB.normal ? 'normal' : 'hard';
+    
+    // 同じ難易度からランダムに単語を選択
+    const wordList = WORD_DB[currentDifficulty];
+    const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
+    
+    fakeTypingText = randomWord;
+    const patterns = getRomaPatterns(randomWord);
+    fakeTypingRoma = patterns[0];
     fakeTypingIdx = 0;
     
-    el("q-ja").innerText = fakeTypingText;
-    el("q-done").innerText = "";
-    el("q-todo").innerText = fakeTypingRoma;
+    // 偽物タイピング専用表示エリアを表示
+    const fakeDisplay = el("fake-typing-display");
+    const realDisplay = el("q-ja").parentNode;
+    
+    if (fakeDisplay) {
+        fakeDisplay.classList.remove("hidden");
+        const fakeJa = document.getElementById('fake-q-ja');
+        const fakeRoma = document.getElementById('fake-q-roma');
+        if (fakeJa) fakeJa.innerText = fakeTypingText;
+        if (fakeRoma) {
+            document.getElementById('fake-q-done').innerText = "";
+            document.getElementById('fake-q-todo').innerText = fakeTypingRoma;
+        }
+        
+        // 本物の表示を非表示
+        const realJa = el("q-ja");
+        const realRoma = el("q-roma");
+        if (realJa) realJa.style.display = 'none';
+        if (realRoma) realRoma.style.display = 'none';
+    }
     
     if (fakeTypingButtonTimer) clearTimeout(fakeTypingButtonTimer);
     fakeTypingButtonTimer = setTimeout(() => {
@@ -3473,6 +3532,15 @@ function clearFakeTyping() {
     
     const button = el("fake-typing-button");
     if (button) button.classList.add("hidden");
+    
+    // 偽物表示を非表示、本物を再表示
+    const fakeDisplay = el("fake-typing-display");
+    const realJa = el("q-ja");
+    const realRoma = el("q-roma");
+    
+    if (fakeDisplay) fakeDisplay.classList.add("hidden");
+    if (realJa) realJa.style.display = 'block';
+    if (realRoma) realRoma.style.display = 'block';
     
     nextQuestion();
 }
@@ -4102,6 +4170,7 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
+    // 厳密なロックチェック
     if (chapter === 1) {
         if (stage > storyProgress.chapter1 + 1) {
             alert("前のステージをクリアしてください");
