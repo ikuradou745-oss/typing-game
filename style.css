@@ -105,8 +105,6 @@ body, html {
     box-shadow: 0 0 30px var(--accent-gold);
 }
 
-/* BANルーレット削除 - 関連スタイルを削除 */
-
 /* コード入力UI */
 #code-ui {
     position: fixed;
@@ -798,7 +796,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   デバッグモード
+   デバッグモード（w + l + 8）
    ========================================= */
 #debug-overlay {
     position: fixed;
@@ -1467,8 +1465,6 @@ body.bleeding #game-core {
     50% { opacity: 0.8; }
 }
 
-/* BANルーレット削除 - 関連スタイルを削除 */
-
 /* カウントスコアルーレット */
 #score-roulette {
     position: fixed;
@@ -1597,7 +1593,7 @@ body.bleeding #game-core {
     100% { transform: rotate(0deg); }
 }
 
-/* 笑うアニメーション */
+/* 笑うアニメーション（偽物タイピング用） */
 #laugh-effect {
     position: fixed;
     top: 0;
@@ -1648,7 +1644,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   チーム戦関連（改良版：クリックでチーム切り替え、一括ボタン削除）
+   チーム戦関連（改良版：クリック確実に動作）
    ========================================= */
 .team-setup {
     width: 100%;
@@ -1695,6 +1691,7 @@ body.bleeding #game-core {
     pointer-events: auto;
     position: relative;
     z-index: 50;
+    user-select: none;
 }
 
 .team-member-item:hover {
@@ -1739,10 +1736,8 @@ body.bleeding #game-core {
     border: 1px solid #8888ff;
 }
 
-/* 一括割り当てボタン削除 */
-
 /* =========================================
-   ハンデ設定（メンバー個別・選択状態がわかりやすい・クリック確実）
+   ハンデ設定（クリック確実に動作・選択状態明確）
    ========================================= */
 .handicap-section {
     width: 100%;
@@ -1801,6 +1796,7 @@ body.bleeding #game-core {
     padding: 5px;
     border-radius: 8px;
     transition: 0.2s;
+    user-select: none;
 }
 
 .handicap-member-header:hover {
@@ -1871,6 +1867,7 @@ body.bleeding #game-core {
     pointer-events: auto;
     position: relative;
     z-index: 100;
+    user-select: none;
 }
 
 .handicap-option:hover {
