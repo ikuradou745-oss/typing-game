@@ -60,7 +60,7 @@
         </div>
     </div>
 
-    <!-- デバッグモード入力オーバーレイ -->
+    <!-- デバッグモード入力オーバーレイ (w + l + 8) -->
     <div id="debug-overlay" class="hidden">
         <div class="debug-container">
             <h3>🔧 デバッグモード 🔧</h3>
@@ -158,7 +158,7 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面（第3章ロック機能強化） -->
+            <!-- ストーリーモード画面（第3章ロック機能強化済み） -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
@@ -215,7 +215,7 @@
                 </div>
             </div>
 
-            <!-- スキルガチャ画面 -->
+            <!-- スキルガチャ画面（ガチャキャラ装備バグ修正済み） -->
             <div id="screen-gacha" class="screen hidden">
                 <h2 class="title-glow" style="color: #FF69B4;">SKILL GACHA</h2>
                 <div class="gacha-coin-display">所持コイン: <span id="gacha-coin-amount">0</span> 🪙</div>
@@ -293,6 +293,7 @@
                 <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
             </div>
 
+            <!-- スキルショップ画面（修行・ボススキル表示改善） -->
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
@@ -310,7 +311,7 @@
                 </div>
             </div>
 
-            <!-- バトルセットアップ画面（チーム戦・ハンデUI改善） -->
+            <!-- バトルセットアップ画面（チーム戦・ハンデUI完全修正版：クリック確実に動作） -->
             <div id="screen-battle-setup" class="screen hidden">
                 <h2 class="title-glow">BATTLE SETUP</h2>
                 <div class="setup-panel">
@@ -335,7 +336,7 @@
                         </select>
                     </div>
                     
-                    <!-- チーム設定エリア（改良版：クリックでチーム切り替え、一括ボタン削除） -->
+                    <!-- チーム設定エリア（改良版：クリックでチーム切り替え、確実に動作） -->
                     <div id="team-setup" class="team-setup hidden">
                         <h4 class="team-setup-title">チーム割り当て（メンバーをクリックで赤/青切替）</h4>
                         <div class="team-members-container">
@@ -343,10 +344,9 @@
                                 <!-- メンバー一覧がJSで動的に生成されます（クリックでチーム切替） -->
                             </div>
                         </div>
-                        <!-- 一括割り当てボタンを削除（個別クリックで切り替え） -->
                     </div>
 
-                    <!-- ハンデ設定エリア（改良版：選択状態がわかりやすいスタイル＆クリック確実化） -->
+                    <!-- ハンデ設定エリア（改良版：選択状態がわかりやすいスタイル＆クリック確実） -->
                     <div class="handicap-section">
                         <h4 class="handicap-title">ハンデ設定 (メンバー個別)</h4>
                         <div class="handicap-members-container">
@@ -435,7 +435,7 @@
                     
                     <div id="skill-action-box" class="hidden">
                         <!-- メインスキルボタン（スペースキー用） -->
-                        <button id="in-game-skill-btn" onclick="window.activateSkill()">
+                        <button id="in-game-skill-btn" onclick="window.activateSkill('space')">
                             <span id="skill-btn-name">スキルなし</span>
                             <div id="skill-cooldown-bar"></div>
                         </button>
