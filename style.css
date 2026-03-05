@@ -17,6 +17,8 @@
     --rainbow-5: #0000ff;
     --rainbow-6: #4b0082;
     --rainbow-7: #8f00ff;
+    --handicap-skill-seal: #ff69b4;
+    --handicap-half-time: #ff8c00;
 }
 
 * { box-sizing: border-box; }
@@ -54,7 +56,7 @@ body, html {
 .screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
 .hidden { display: none !important; }
 
-/* ボタン */
+/* ボタン - パーティー中でも使用可能に */
 .btn-group { 
     display: grid; 
     grid-template-columns: 1fr 1fr; 
@@ -281,6 +283,44 @@ body, html {
 .char-done { color: var(--accent-blue); }
 .char-todo { color: #444; }
 
+/* 偽物タイピング表示エリア - 本物と同じスタイル */
+#fake-typing-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: 20px 0;
+}
+
+#fake-typing-display .word-ja {
+    font-size: 4.5rem;
+    font-weight: 900;
+    margin: 20px 0;
+    text-shadow: 0 0 30px var(--accent-gold);
+    text-align: center;
+    color: #ffaa00;
+}
+
+#fake-typing-display .word-roma {
+    font-family: 'JetBrains Mono';
+    font-size: 2.8rem;
+    background: rgba(0,0,0,0.7);
+    padding: 15px 40px;
+    border-radius: 20px;
+    border: 2px solid var(--accent-gold);
+    box-shadow: 0 0 20px var(--accent-gold);
+}
+
+#fake-typing-display .char-done {
+    color: var(--accent-gold);
+    text-shadow: 0 0 10px var(--accent-gold);
+}
+
+#fake-typing-display .char-todo {
+    color: #666;
+}
+
 /* =========================================
    サイドバー (50:50 スクロール対応)
    ========================================= */
@@ -505,7 +545,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
-/* スキルショップ */
+/* スキルショップ - パーティー中でも使用可能 */
 .shop-coin-display { 
     font-size: 1.8rem; 
     color: #FFD700; 
@@ -1737,7 +1777,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   ハンデ設定（クリック確実に動作・選択状態明確）
+   ハンデ設定（5種類対応・クリック確実に動作・選択状態明確）
    ========================================= */
 .handicap-section {
     width: 100%;
@@ -1870,22 +1910,37 @@ body.bleeding #game-core {
     user-select: none;
 }
 
+/* ハンデ種類ごとの色分け */
+.handicap-option[data-handicap="none"] { border-color: #888; color: #ccc; }
+.handicap-option[data-handicap="score_half"] { border-color: var(--accent-gold); color: var(--accent-gold); }
+.handicap-option[data-handicap="no_type_10"] { border-color: var(--accent-blue); color: var(--accent-blue); }
+.handicap-option[data-handicap="skill_seal"] { border-color: var(--handicap-skill-seal); color: var(--handicap-skill-seal); }
+.handicap-option[data-handicap="half_time"] { border-color: var(--handicap-half-time); color: var(--handicap-half-time); }
+
 .handicap-option:hover {
-    background: var(--accent-green);
-    color: #000;
     transform: scale(1.05);
-    box-shadow: 0 0 20px var(--accent-green);
+    box-shadow: 0 0 20px currentColor;
     z-index: 101;
 }
 
+.handicap-option[data-handicap="none"]:hover { background: #888; color: #000; }
+.handicap-option[data-handicap="score_half"]:hover { background: var(--accent-gold); color: #000; }
+.handicap-option[data-handicap="no_type_10"]:hover { background: var(--accent-blue); color: #000; }
+.handicap-option[data-handicap="skill_seal"]:hover { background: var(--handicap-skill-seal); color: #000; }
+.handicap-option[data-handicap="half_time"]:hover { background: var(--handicap-half-time); color: #000; }
+
 .handicap-option.selected {
-    background: var(--accent-green);
-    color: #000;
     transform: scale(1.1);
-    box-shadow: 0 0 20px var(--accent-green);
     border-color: #fff;
     font-weight: 900;
+    box-shadow: 0 0 20px currentColor;
 }
+
+.handicap-option[data-handicap="none"].selected { background: #888; color: #000; }
+.handicap-option[data-handicap="score_half"].selected { background: var(--accent-gold); color: #000; }
+.handicap-option[data-handicap="no_type_10"].selected { background: var(--accent-blue); color: #000; }
+.handicap-option[data-handicap="skill_seal"].selected { background: var(--handicap-skill-seal); color: #000; }
+.handicap-option[data-handicap="half_time"].selected { background: var(--handicap-half-time); color: #000; }
 
 /* ハンデ選択状態をより強調 */
 .handicap-option.selected::before {
@@ -1963,7 +2018,7 @@ body.bleeding #game-core {
 }
 
 /* =========================================
-   ガチャ画面（スクロール改善・スキルリスト追加）
+   ガチャ画面（スクロール改善・スキルリスト追加・装備バグ修正）
    ========================================= */
 #screen-gacha {
     justify-content: flex-start;
