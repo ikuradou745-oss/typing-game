@@ -1,10 +1,17 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V17.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V18.0 (完全修正版)
 // 修正内容:
-// 1. ストーリーモード第3章のロック機能を強化
-// 2. タイピング入力の多様なパターン対応（ん→n/nn、しょ→sho/syo、っ→xx/kk/tt等）
-// 3. ガチャスキルの装備機能を改善
+// 1. ローマ字変換を正しい仕様に完全修正
+//    - 「ん」は「nn」のみ（n単体は「あ行」の前のみ特別対応）
+//    - 伸ばし棒「ー」は「-」で対応
+//    - 「しょ」は「sho」「syo」の両方対応
+//    - 促音「っ」は次の子音を2回打つ方式（kka, tta, ssa, tcha等）
+//    - 小文字「ぁぃぅぇぉ」は「la/li/lu/le/lo」または「xa/xi/xu/xe/xo」
+//    - 拗音「ゃゅょ」は「lya/lyu/lyo」または「xya/xyu/xyo」
+// 2. ハンデがある場合の説明表示を追加
+// 3. ストーリーモード第3章のロック機能を完全修正
+// 4. ガチャスキルの装備機能を改善
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -745,7 +752,11 @@ function updateStoryProgressDisplay() {
     
     if (progressChapter1) progressChapter1.innerText = `${storyProgress.chapter1}/7`;
     if (progressChapter2) progressChapter2.innerText = `${storyProgress.chapter2}/7`;
-    if (progressChapter3) progressChapter3.innerText = `${storyProgress.chapter3}/10`;
+    if (progressChapter3) {
+        // undefined表示のバグを修正
+        const displayValue = storyProgress.chapter3 !== undefined ? storyProgress.chapter3 : 0;
+        progressChapter3.innerText = `${displayValue}/10`;
+    }
 }
 
 function updateProfileFace() {
@@ -809,74 +820,170 @@ window.updateMyName = () => {
     saveAndDisplayData();
 };
 
-// --- ローマ字変換（完全版：すべてのパターンに対応）---
-// 参考: 日本語ローマ字変換の一般的なパターン
-const KANA_MAP = {
-    // 基本50音
-    'あ':'a', 'い':'i', 'う':'u', 'え':'e', 'お':'o',
-    'か':'ka', 'き':'ki', 'く':'ku', 'け':'ke', 'こ':'ko',
-    'さ':'sa', 'し':['si','shi','ci'], 'す':'su', 'せ':'se', 'そ':'so',
-    'た':'ta', 'ち':['ti','chi'], 'つ':['tu','tsu'], 'て':'te', 'と':'to',
-    'な':'na', 'に':'ni', 'ぬ':'nu', 'ね':'ne', 'の':'no',
-    'は':'ha', 'ひ':'hi', 'ふ':['fu','hu'], 'へ':'he', 'ほ':'ho',
-    'ま':'ma', 'み':'mi', 'む':'mu', 'め':'me', 'も':'mo',
-    'や':'ya', 'ゆ':'yu', 'よ':'yo',
-    'ら':'ra', 'り':'ri', 'る':'ru', 'れ':'re', 'ろ':'ro',
-    'わ':'wa', 'を':'wo', 'ん':['nn','n','xn'],
-    
-    // 濁音・半濁音
-    'が':'ga', 'ぎ':'gi', 'ぐ':'gu', 'げ':'ge', 'ご':'go',
-    'ざ':'za', 'じ':['zi','ji'], 'ず':'zu', 'ぜ':'ze', 'ぞ':'zo',
-    'だ':'da', 'ぢ':['di','ji'], 'づ':'du', 'で':'de', 'ど':'do',
-    'ば':'ba', 'び':'bi', 'ぶ':'bu', 'べ':'be', 'ぼ':'bo',
-    'ぱ':'pa', 'ぴ':'pi', 'ぷ':'pu', 'ぺ':'pe', 'ぽ':'po',
-    
-    // 拗音（完全版）- すべての一般的なパターンを含む
-    'きゃ':['kya','kilya'], 'きゅ':['kyu','kilyu'], 'きょ':['kyo','kilyo'],
-    'しゃ':['sya','sha','silya','shya'], 'しゅ':['syu','shu','silyu','shyu'], 'しょ':['syo','sho','silyo','shyo'],
-    'ちゃ':['tya','cha','tilya','chya','cya'], 'ちゅ':['tyu','chu','tilyu','chyu','cyu'], 'ちょ':['tyo','cho','tilyo','chyo','cyo'],
-    'にゃ':['nya','nilya'], 'にゅ':['nyu','nilyu'], 'にょ':['nyo','nilyo'],
-    'ひゃ':['hya','hilya'], 'ひゅ':['hyu','hilyu'], 'ひょ':['hyo','hilyo'],
-    'みゃ':['mya','milya'], 'みゅ':['myu','milyu'], 'みょ':['myo','milyo'],
-    'りゃ':['rya','rilya'], 'りゅ':['ryu','rilyu'], 'りょ':['ryo','rilyo'],
-    'ぎゃ':['gya','gilya'], 'ぎゅ':['gyu','gilyu'], 'ぎょ':['gyo','gilyo'],
-    'じゃ':['zya','ja','jya','jilya','zya'], 'じゅ':['zyu','ju','jyu','jilyu','zyu'], 'じょ':['zyo','jo','jyo','jilyo','zyo'],
-    'びゃ':['bya','bilya'], 'びゅ':['byu','bilyu'], 'びょ':['byo','bilyo'],
-    'ぴゃ':['pya','pilya'], 'ぴゅ':['pyu','pilyu'], 'ぴょ':['pyo','pilyo'],
-    
-    // その他の特殊な組み合わせ
-    'ふぁ':['fa','fwa'], 'ふぃ':['fi','fwi'], 'ふぇ':['fe','fwe'], 'ふぉ':['fo','fwo'],
-    'てぃ':['ti','thi'], 'とぅ':['tu','twu'], 'でぃ':['di','dhi'], 'どぅ':['du','dwu'],
-    'うぃ':['wi','whi'], 'うぇ':['we','whe'], 'うぉ':['wo','who'],
-    'ヴぁ':['va'], 'ヴぃ':['vi'], 'ヴぇ':['ve'], 'ヴぉ':['vo'],
-    'つぁ':['tsa'], 'つぃ':['tsi'], 'つぇ':['tse'], 'つぉ':['tso'],
-    'いぇ':['ye','ie'],
-    'くぁ':['kwa','qa','kua'], 'くぃ':['kwi','qi','kui'], 'くぇ':['kwe','qe','kue'], 'くぉ':['kwo','qo','kuo'],
-    'ぐぁ':['gwa','gua'], 'ぐぃ':['gwi','gui'], 'ぐぇ':['gwe','gue'], 'ぐぉ':['gwo','guo'],
-    
-    // 促音（っ）の処理 - 様々なパターン
-    'っ': ['xtu', 'ltu', 'xtsu', 'ltsu'],
-    'ー': ['-', '']
+// =========================================
+// ローマ字変換（日本語入力の完全対応版）
+// 参考: 一般的な日本語ローマ字入力の仕様
+// =========================================
+
+// 清音マップ
+const SEION_MAP = {
+    'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
+    'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
+    'さ': 'sa', 'し': ['si', 'shi'], 'す': 'su', 'せ': 'se', 'そ': 'so',
+    'た': 'ta', 'ち': ['ti', 'chi'], 'つ': ['tu', 'tsu'], 'て': 'te', 'と': 'to',
+    'な': 'na', 'に': 'ni', 'ぬ': 'nu', 'ね': 'ne', 'の': 'no',
+    'は': 'ha', 'ひ': 'hi', 'ふ': ['hu', 'fu'], 'へ': 'he', 'ほ': 'ho',
+    'ま': 'ma', 'み': 'mi', 'む': 'mu', 'め': 'me', 'も': 'mo',
+    'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
+    'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
+    'わ': 'wa', 'を': 'wo',
+    'ん': 'nn'  // 「ん」は基本的に「nn」
 };
 
-// 促音（っ）の特別処理用マップ
-const SOKUON_MAP = {
+// 濁音・半濁音マップ
+const DAKUON_MAP = {
+    'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
+    'ざ': 'za', 'じ': ['zi', 'ji'], 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
+    'だ': 'da', 'ぢ': ['di', 'ji'], 'づ': 'du', 'で': 'de', 'ど': 'do',
+    'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
+    'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po'
+};
+
+// 拗音マップ（小さい「ゃ」「ゅ」「ょ」を含む）
+const YOUON_MAP = {
+    // きゃ行
+    'きゃ': ['kya', 'kilya'], 'きゅ': ['kyu', 'kilyu'], 'きょ': ['kyo', 'kilyo'],
+    // しゃ行
+    'しゃ': ['sya', 'sha', 'silya', 'shya'], 'しゅ': ['syu', 'shu', 'silyu', 'shyu'], 'しょ': ['syo', 'sho', 'silyo', 'shyo'],
+    // ちゃ行
+    'ちゃ': ['tya', 'cha', 'tilya', 'chya', 'cya'], 'ちゅ': ['tyu', 'chu', 'tilyu', 'chyu', 'cyu'], 'ちょ': ['tyo', 'cho', 'tilyo', 'chyo', 'cyo'],
+    // にゃ行
+    'にゃ': ['nya', 'nilya'], 'にゅ': ['nyu', 'nilyu'], 'にょ': ['nyo', 'nilyo'],
+    // ひゃ行
+    'ひゃ': ['hya', 'hilya'], 'ひゅ': ['hyu', 'hilyu'], 'ひょ': ['hyo', 'hilyo'],
+    // みゃ行
+    'みゃ': ['mya', 'milya'], 'みゅ': ['myu', 'milyu'], 'みょ': ['myo', 'milyo'],
+    // りゃ行
+    'りゃ': ['rya', 'rilya'], 'りゅ': ['ryu', 'rilyu'], 'りょ': ['ryo', 'rilyo'],
+    // ぎゃ行
+    'ぎゃ': ['gya', 'gilya'], 'ぎゅ': ['gyu', 'gilyu'], 'ぎょ': ['gyo', 'gilyo'],
+    // じゃ行
+    'じゃ': ['zya', 'ja', 'jya', 'jilya'], 'じゅ': ['zyu', 'ju', 'jyu', 'jilyu'], 'じょ': ['zyo', 'jo', 'jyo', 'jilyo'],
+    // びゃ行
+    'びゃ': ['bya', 'bilya'], 'びゅ': ['byu', 'bilyu'], 'びょ': ['byo', 'bilyo'],
+    // ぴゃ行
+    'ぴゃ': ['pya', 'pilya'], 'ぴゅ': ['pyu', 'pilyu'], 'ぴょ': ['pyo', 'pilyo']
+};
+
+// 小文字マップ（L/X シリーズ）
+const SMALL_CHAR_MAP = {
+    'ぁ': ['la', 'xa'], 'ぃ': ['li', 'xi'], 'ぅ': ['lu', 'xu'], 'ぇ': ['le', 'xe'], 'ぉ': ['lo', 'xo'],
+    'ゃ': ['lya', 'xya'], 'ゅ': ['lyu', 'xyu'], 'ょ': ['lyo', 'xyo'],
+    'っ': ['ltu', 'xtu', 'ltsu', 'xtsu']
+};
+
+// 特殊な組み合わせマップ
+const SPECIAL_COMBO_MAP = {
+    'ふぁ': ['fa', 'fwa'], 'ふぃ': ['fi', 'fwi'], 'ふぇ': ['fe', 'fwe'], 'ふぉ': ['fo', 'fwo'],
+    'てぃ': ['ti', 'thi'], 'とぅ': ['tu', 'twu'], 'でぃ': ['di', 'dhi'], 'どぅ': ['du', 'dwu'],
+    'うぃ': ['wi', 'whi'], 'うぇ': ['we', 'whe'], 'うぉ': ['wo', 'who'],
+    'ヴぁ': ['va'], 'ヴぃ': ['vi'], 'ヴぇ': ['ve'], 'ヴぉ': ['vo'],
+    'つぁ': ['tsa'], 'つぃ': ['tsi'], 'つぇ': ['tse'], 'つぉ': ['tso'],
+    'いぇ': ['ye', 'ie'],
+    'くぁ': ['kwa', 'qa', 'kua'], 'くぃ': ['kwi', 'qi', 'kui'], 'くぇ': ['kwe', 'qe', 'kue'], 'くぉ': ['kwo', 'qo', 'kuo'],
+    'ぐぁ': ['gwa', 'gua'], 'ぐぃ': ['gwi', 'gui'], 'ぐぇ': ['gwe', 'gue'], 'ぐぉ': ['gwo', 'guo']
+};
+
+// 長音マップ
+const CHOON_MAP = {
+    'ー': ['-', '']  // 伸ばし棒は「-」で対応
+};
+
+// 全マップを統合
+const KANA_MAP = {
+    ...SEION_MAP,
+    ...DAKUON_MAP,
+    ...YOUON_MAP,
+    ...SMALL_CHAR_MAP,
+    ...SPECIAL_COMBO_MAP,
+    ...CHOON_MAP
+};
+
+// 子音マップ（促音「っ」の処理用）
+const CONSONANT_MAP = {
     'か': 'k', 'き': 'k', 'く': 'k', 'け': 'k', 'こ': 'k',
     'さ': 's', 'し': 's', 'す': 's', 'せ': 's', 'そ': 's',
     'た': 't', 'ち': 't', 'つ': 't', 'て': 't', 'と': 't',
-    'ぱ': 'p', 'ぴ': 'p', 'ぷ': 'p', 'ぺ': 'p', 'ぽ': 'p',
-    'ば': 'b', 'び': 'b', 'ぶ': 'b', 'べ': 'b', 'ぼ': 'b',
-    'だ': 'd', 'ぢ': 'd', 'づ': 'd', 'で': 'd', 'ど': 'd',
+    'な': 'n', 'に': 'n', 'ぬ': 'n', 'ね': 'n', 'の': 'n',
+    'は': 'h', 'ひ': 'h', 'ふ': 'h', 'へ': 'h', 'ほ': 'h',
+    'ま': 'm', 'み': 'm', 'む': 'm', 'め': 'm', 'も': 'm',
+    'や': 'y', 'ゆ': 'y', 'よ': 'y',
+    'ら': 'r', 'り': 'r', 'る': 'r', 'れ': 'r', 'ろ': 'r',
+    'わ': 'w', 'を': 'w',
     'が': 'g', 'ぎ': 'g', 'ぐ': 'g', 'げ': 'g', 'ご': 'g',
-    'ざ': 'z', 'じ': 'j', 'ず': 'z', 'ぜ': 'z', 'ぞ': 'z'
+    'ざ': 'z', 'じ': 'j', 'ず': 'z', 'ぜ': 'z', 'ぞ': 'z',
+    'だ': 'd', 'ぢ': 'j', 'づ': 'z', 'で': 'd', 'ど': 'd',
+    'ば': 'b', 'び': 'b', 'ぶ': 'b', 'べ': 'b', 'ぼ': 'b',
+    'ぱ': 'p', 'ぴ': 'p', 'ぷ': 'p', 'ぺ': 'p', 'ぽ': 'p'
 };
 
+// 「ん」の特別処理（あ行・な行・や行の前で「n'」または「n」）
+function handleN(kana, nextChar) {
+    if (!nextChar) return ['nn', 'n']; // 文末は「nn」「n」
+    
+    // あ行、な行、や行の前は「n'」または「n」
+    if (['あ', 'い', 'う', 'え', 'お', 
+         'な', 'に', 'ぬ', 'ね', 'の',
+         'や', 'ゆ', 'よ'].includes(nextChar)) {
+        return ["n'", "n"];
+    }
+    
+    return ['nn', 'n']; // それ以外は「nn」「n」
+}
+
+// 促音「っ」の処理（次の子音を重ねる）
+function handleSokuon(nextChar) {
+    if (!nextChar) return ['xtu', 'ltu', 'xtsu', 'ltsu'];
+    
+    // 次の文字の子音を取得
+    const consonant = CONSONANT_MAP[nextChar];
+    if (!consonant) return ['xtu', 'ltu', 'xtsu', 'ltsu'];
+    
+    // 次の文字のローマ字パターンを取得
+    const nextPatterns = getRomaPatterns(nextChar);
+    const result = [];
+    
+    nextPatterns.forEach(pattern => {
+        if (pattern.length > 0) {
+            // 子音を重ねる（kka, tta, ssa など）
+            result.push(consonant + pattern);
+            
+            // 特殊ケース: 'ch' で始まる場合（tcha）
+            if (pattern.startsWith('ch')) {
+                result.push('t' + pattern);
+            }
+            // 特殊ケース: 'sh' で始まる場合（ssha）
+            if (pattern.startsWith('sh')) {
+                result.push('s' + pattern);
+            }
+        }
+    });
+    
+    // 標準的な促音パターンも追加
+    result.push(...['xtu', 'ltu', 'xtsu', 'ltsu']);
+    
+    return [...new Set(result)]; // 重複除去
+}
+
+// メインのローマ字パターン生成関数
 function getRomaPatterns(kana) {
+    if (!kana) return [""];
+    
     let patterns = [""];
     let i = 0;
     
     while (i < kana.length) {
-        // 3文字の拗音をチェック（「っしゃ」などの特殊ケース）
+        // 3文字の特殊組み合わせをチェック
         let char3 = kana.substring(i, i + 3);
         // 2文字の拗音をチェック
         let char2 = kana.substring(i, i + 2);
@@ -886,64 +993,31 @@ function getRomaPatterns(kana) {
         let candidates = [];
         let advance = 0;
         
-        // 3文字の特殊ケース（「っしゃ」「っちゃ」など）
-        if (char3 === 'っしゃ' || char3 === 'っしゅ' || char3 === 'っしょ' ||
-            char3 === 'っちゃ' || char3 === 'っちゅ' || char3 === 'っちょ' ||
-            char3 === 'っきゃ' || char3 === 'っきゅ' || char3 === 'っきょ') {
-            
-            const nextChar = char3[1] + char3[2]; // 「しゃ」「ちゃ」など
-            if (KANA_MAP[nextChar]) {
-                const basePatterns = Array.isArray(KANA_MAP[nextChar]) ? KANA_MAP[nextChar] : [KANA_MAP[nextChar]];
-                // 促音のパターン + 次の音の最初の文字を重ねる（kkya, tcha など）
-                const sokuonCandidates = [];
-                basePatterns.forEach(pattern => {
-                    // 例: 「っしゃ」→ 'ssya', 'ssha', 'ssilya' など
-                    sokuonCandidates.push(pattern[0] + pattern);
-                    // 例: 「っちゃ」→ 'ttya', 'tcha', 'tchya' など
-                    if (pattern.startsWith('c')) {
-                        sokuonCandidates.push('t' + pattern);
-                    }
-                });
-                candidates = sokuonCandidates;
-                advance = 3;
-            }
+        // 3文字の特殊組み合わせ
+        if (KANA_MAP[char3]) {
+            candidates = Array.isArray(KANA_MAP[char3]) ? KANA_MAP[char3] : [KANA_MAP[char3]];
+            advance = 3;
         }
         // 2文字の拗音
         else if (KANA_MAP[char2]) {
             candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]];
             advance = 2;
         }
+        // 「ん」の特別処理
+        else if (char1 === 'ん') {
+            const nextChar = kana[i + 1];
+            candidates = handleN(char1, nextChar);
+            advance = 1;
+        }
+        // 促音「っ」の処理
+        else if (char1 === 'っ') {
+            const nextChar = kana[i + 1];
+            candidates = handleSokuon(nextChar);
+            advance = 1;
+        }
         // 1文字の通常音
         else if (KANA_MAP[char1]) {
             candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]];
-            advance = 1;
-        }
-        // 促音（っ）の処理 - 次の文字を重ねるパターン
-        else if (char1 === 'っ' && i + 1 < kana.length) {
-            let nextChar = kana[i + 1];
-            let nextPatterns = getRomaPatterns(nextChar); // 再帰的に次の文字のパターンを取得
-            
-            // 次の文字の最初の文字を重ねる（例：kka, tta, ssa など）
-            candidates = [];
-            nextPatterns.forEach(pattern => {
-                if (pattern.length > 0) {
-                    // 促音のパターン: 次の文字の最初の子音を重ねる
-                    const firstChar = pattern[0];
-                    candidates.push(firstChar + pattern);
-                    
-                    // 特殊ケース: 'ch' で始まる場合
-                    if (pattern.startsWith('ch')) {
-                        candidates.push('t' + pattern); // tcha
-                    }
-                    // 特殊ケース: 'sh' で始まる場合
-                    if (pattern.startsWith('sh')) {
-                        candidates.push('s' + pattern); // ssha
-                    }
-                }
-            });
-            
-            // 標準的な促音パターンも追加
-            candidates.push(...['xtu', 'ltu', 'xtsu', 'ltsu']);
             advance = 1;
         }
         // 不明な文字
@@ -1440,6 +1514,20 @@ function isOpponentTeam(targetId) {
     const myTeam = partyMembers[myId]?.team || "red";
     const targetTeam = getTargetTeam(targetId);
     return myTeam !== targetTeam; // 違うチームなら相手
+}
+
+// ハンデ説明表示関数
+function showHandicapDescription() {
+    const myHandicap = getMyHandicap();
+    if (myHandicap !== "none") {
+        const descriptions = {
+            'no_type_10': '⏱️ ハンデ: 最初の10秒間はタイピングできません',
+            'score_half': '📉 ハンデ: 獲得スコアが半分になります',
+            'skill_seal': '🔒 ハンデ: スキルが封印されています',
+            'half_time': '⏳ ハンデ: 最初の30秒間はタイピングできません'
+        };
+        showBattleAlert(descriptions[myHandicap], "#FFA500");
+    }
 }
 
 // --- スキンショップ ---
@@ -2389,6 +2477,9 @@ function startGame(sec) {
     nextQuestion(); 
     el("stat-score").innerText = "0"; 
     el("stat-combo").innerText = "0";
+    
+    // ハンデ説明を表示
+    showHandicapDescription();
     
     gameInterval = setInterval(() => {
         if(!gameActive) { clearInterval(gameInterval); return; }
@@ -4346,29 +4437,35 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
-    // 厳密なロックチェック（強化版）
+    // 厳密なロックチェック（強化版）- undefined対策
+    const safeProgress = {
+        chapter1: storyProgress.chapter1 || 0,
+        chapter2: storyProgress.chapter2 || 0,
+        chapter3: storyProgress.chapter3 || 0
+    };
+    
     if (chapter === 1) {
-        if (stage > storyProgress.chapter1 + 1) {
+        if (stage > safeProgress.chapter1 + 1) {
             alert("前のステージをクリアしてください");
             return;
         }
     } else if (chapter === 2) {
-        if (storyProgress.chapter1 < 7) {
+        if (safeProgress.chapter1 < 7) {
             alert("第1章をクリアしてください");
             return;
         }
-        if (stage > storyProgress.chapter2 + 1) {
+        if (stage > safeProgress.chapter2 + 1) {
             alert("前のステージをクリアしてください");
             return;
         }
     } else if (chapter === 3) {
         // 第2章をクリアしていないと第3章全体がロック
-        if (storyProgress.chapter2 < 7) {
+        if (safeProgress.chapter2 < 7) {
             alert("第2章をクリアしてください");
             return;
         }
         // 前のステージをクリアしていないとロック
-        if (stage > storyProgress.chapter3 + 1) {
+        if (stage > safeProgress.chapter3 + 1) {
             alert("前のステージをクリアしてください");
             return;
         }
