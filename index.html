@@ -158,7 +158,7 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面（第3章ロック機能完全実装） -->
+            <!-- ストーリーモード画面（第3章ロック機能完全実装・第一章と同じロジック） -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
@@ -215,7 +215,7 @@
                 </div>
             </div>
 
-            <!-- スキルガチャ画面（パーティー中でも使用可能） -->
+            <!-- スキルガチャ画面（パーティー中でも使用可能・ガチャスキル装備対応） -->
             <div id="screen-gacha" class="screen hidden">
                 <h2 class="title-glow" style="color: #FF69B4;">SKILL GACHA</h2>
                 <div class="gacha-coin-display">所持コイン: <span id="gacha-coin-amount">0</span> 🪙</div>
@@ -256,7 +256,7 @@
                 <!-- 所持キャラクター一覧 -->
                 <div class="gacha-char-grid-container">
                     <div id="gacha-char-list" class="gacha-char-grid">
-                        <!-- 所持キャラクターがJSで動的に生成されます -->
+                        <!-- 所持キャラクターがJSで動的に生成されます（クリックで装備） -->
                     </div>
                 </div>
 
@@ -452,7 +452,7 @@
                         <div id="skill-status-text" class="hidden"></div>
                     </div>
 
-                    <!-- 偽物タイピング用の追加表示（打った文字を光らせる） -->
+                    <!-- 偽物タイピング用の追加表示（本物と同じ青色のハイライト） -->
                     <div id="fake-typing-display" class="hidden">
                         <div class="word-ja" id="fake-q-ja"></div>
                         <div class="word-roma" id="fake-q-roma">
@@ -546,11 +546,12 @@
         </div>
     </div>
 
-    <!-- ハッキング画面オーバーレイ -->
+    <!-- ハッキング画面オーバーレイ（5秒後にタイピング可能になるよう構造修正） -->
     <div id="hacking-overlay" class="hidden">
         <div class="hacking-screen">
-            <div class="hacking-text">システムハッキングされました</div>
-            <div class="hacking-progress">3</div>
+            <div class="hacking-text">ハッキング！しかもウイルスあり！</div>
+            <div class="hacking-progress">5</div>
+            <div class="hacking-message hidden" id="hacking-complete">ハッキング終了</div>
         </div>
     </div>
 
