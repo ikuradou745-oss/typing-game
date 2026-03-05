@@ -158,13 +158,20 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面（第3章ロック機能完全実装・第一章と同じロジック） -->
+            <!-- ストーリーモード画面（第3章ロック機能強化・進捗表示追加） -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
-                    <button class="chapter-tab active" data-chapter="1">第1章</button>
+                    <button class="chapter-tab active" data-chapter="1" id="chapter1-tab">第1章</button>
                     <button class="chapter-tab" data-chapter="2" id="chapter2-tab">第2章</button>
                     <button class="chapter-tab" data-chapter="3" id="chapter3-tab">第3章</button>
+                </div>
+                
+                <!-- 進捗状況表示エリア（追加） -->
+                <div class="story-progress-summary" id="story-progress-summary">
+                    <div class="progress-item">第1章: <span id="progress-chapter1">0/7</span></div>
+                    <div class="progress-item">第2章: <span id="progress-chapter2">0/7</span></div>
+                    <div class="progress-item">第3章: <span id="progress-chapter3">0/10</span></div>
                 </div>
                 
                 <div id="story-chapter-1" class="story-chapter active">
