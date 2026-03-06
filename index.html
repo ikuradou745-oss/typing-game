@@ -260,10 +260,10 @@
                     <button class="gacha-tab" onclick="window.switchGachaTab('ur')">UR</button>
                 </div>
 
-                <!-- 所持キャラクター一覧 -->
+                <!-- 所持キャラクター一覧（クリックで装備可能） -->
                 <div class="gacha-char-grid-container">
-                    <div id="gacha-char-list" class="gacha-char-grid">
-                        <!-- 所持キャラクターがJSで動的に生成されます（クリックで装備） -->
+                    <div id="gacha-char-list" class="gacha-char-grid" onclick="window.handleGachaCharClick(event)">
+                        <!-- 所持キャラクターがJSで動的に生成されます -->
                     </div>
                 </div>
 
