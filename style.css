@@ -22,6 +22,8 @@
     --story-locked: #ff4444;
     --story-unlocked: #00ff00;
     --story-current: #00f2ff;
+    --story-cleared: #00cc00;
+    --story-available: #00f2ff;
 }
 
 * { box-sizing: border-box; }
@@ -1071,7 +1073,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     min-height: 100px;
 }
 
-.stage-node:hover:not(.locked) {
+.stage-node:hover:not(.locked):not(.disabled) {
     transform: scale(1.05);
     border-color: var(--accent-blue);
     box-shadow: 0 0 20px var(--accent-blue);
@@ -1082,6 +1084,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     border-color: var(--accent-green);
     box-shadow: 0 0 20px var(--accent-green);
     position: relative;
+    background: linear-gradient(145deg, #1a3a1a, #0a2a0a);
 }
 
 .stage-node.completed::after {
@@ -1151,6 +1154,13 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
 }
 
+/* 解放済みステージ（プレイ可能） */
+.stage-node.available {
+    border-color: var(--story-available);
+    box-shadow: 0 0 15px var(--story-available);
+    cursor: pointer;
+}
+
 /* ボスステージ */
 .stage-node.boss-stage {
     border-color: #FFD700;
@@ -1166,6 +1176,11 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .stage-node.boss-stage.locked {
     border-color: #666;
     box-shadow: none;
+}
+
+.stage-node.boss-stage.available {
+    border-color: #FFD700;
+    box-shadow: 0 0 25px #FFD700;
 }
 
 /* 現在選択中のステージ */
@@ -1209,6 +1224,11 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 
 .stage-node.locked .stage-number {
     color: #888;
+}
+
+.stage-node.available .stage-number {
+    color: var(--story-available);
+    text-shadow: 0 0 5px var(--story-available);
 }
 
 /* ステージ詳細画面 */
@@ -2354,6 +2374,7 @@ body.bleeding #game-core {
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     padding: 15px;
+    cursor: pointer;
 }
 
 /* ガチャキャラアイテム（装備表示強化） */
