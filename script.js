@@ -1,10 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V18.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V19.0 (完全修正版)
 // 修正内容:
-// 2. ハンデがある場合の説明表示を追加
-// 3. ストーリーモード第3章のロック機能を完全修正
-// 4. ガチャスキルの装備機能を改善
+// 1. ローマ字変換を1パターンに統一（っ→同じ文字2回、しゅ→syu、ちゃ→tya、ん→nn、ぉ→xo等）
+// 2. タイピング終了時のタイマー停止バグを修正
+// 3. ガチャスキルの装備機能を完全修正
+// 4. ストーリーモード第3章のロック機能を完全修正（進捗スコア方式）
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -746,7 +747,6 @@ function updateStoryProgressDisplay() {
     if (progressChapter1) progressChapter1.innerText = `${storyProgress.chapter1}/7`;
     if (progressChapter2) progressChapter2.innerText = `${storyProgress.chapter2}/7`;
     if (progressChapter3) {
-        // undefined表示のバグを修正
         const displayValue = storyProgress.chapter3 !== undefined ? storyProgress.chapter3 : 0;
         progressChapter3.innerText = `${displayValue}/10`;
     }
@@ -801,9 +801,9 @@ function updateButtonStates() {
     if (btnParty) btnParty.disabled = isMatchmaking || trainingMode; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
     if (btnSkin) btnSkin.disabled = isBusy;
-    if (btnShop) btnShop.disabled = isBusy; // パーティー中でも使用可能
+    if (btnShop) btnShop.disabled = isBusy;
     if (btnStory) btnStory.disabled = isBusy;
-    if (btnGacha) btnGacha.disabled = isBusy; // パーティー中でも使用可能
+    if (btnGacha) btnGacha.disabled = isBusy;
     if (btnTraining) btnTraining.disabled = isBusy || myPartyId !== null;
 }
 
@@ -814,7 +814,7 @@ window.updateMyName = () => {
 };
 
 // =========================================
-// ローマ字変換（日本語入力の完全対応版）
+// ローマ字変換（1パターン統一版）
 // 参考: 一般的な日本語ローマ字入力の仕様
 // =========================================
 
@@ -830,7 +830,7 @@ const SEION_MAP = {
     'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
     'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
     'わ': 'wa', 'を': 'wo',
-    'ん': 'nn'  // 「ん」は基本的に「nn」
+    'ん': 'nn'
 };
 
 // 濁音・半濁音マップ
@@ -842,54 +842,44 @@ const DAKUON_MAP = {
     'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po'
 };
 
-// 拗音マップ（小さい「ゃ」「ゅ」「ょ」を含む）
+// 拗音マップ（1パターン統一）
 const YOUON_MAP = {
-    // きゃ行
     'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
-    // しゃ行
     'しゃ': 'sya', 'しゅ': 'syu', 'しょ': 'syo',
-    // ちゃ行
     'ちゃ': 'tya', 'ちゅ': 'tyu', 'ちょ': 'tyo',
-    // にゃ行
     'にゃ': 'nya', 'にゅ': 'nyu', 'にょ': 'nyo',
-    // ひゃ行
-    'ひゃ': ['hya', 'hilya'], 'ひゅ': ['hyu', 'hilyu'], 'ひょ': ['hyo', 'hilyo'],
-    // みゃ行
-    'みゃ': ['mya', 'milya'], 'みゅ': ['myu', 'milyu'], 'みょ': ['myo', 'milyo'],
-    // りゃ行
-    'りゃ': ['rya', 'rilya'], 'りゅ': ['ryu', 'rilyu'], 'りょ': ['ryo', 'rilyo'],
-    // ぎゃ行
-    'ぎゃ': ['gya', 'gilya'], 'ぎゅ': ['gyu', 'gilyu'], 'ぎょ': ['gyo', 'gilyo'],
-    // じゃ行
-    // 'じゃ': ['zya', 'ja', 'jya', 'jilya'], 'じゅ': ['zyu', 'ju', 'jyu', 'jilyu'], 'じょ': ['zyo', 'jo', 'jyo', 'jilyo'],
-    // びゃ行
-    'びゃ': ['bya', 'bilya'], 'びゅ': ['byu', 'bilyu'], 'びょ': ['byo', 'bilyo'],
-    // ぴゃ行
-    'ぴゃ': ['pya', 'pilya'], 'ぴゅ': ['pyu', 'pilyu'], 'ぴょ': ['pyo', 'pilyo']
+    'ひゃ': 'hya', 'ひゅ': 'hyu', 'ひょ': 'hyo',
+    'みゃ': 'mya', 'みゅ': 'myu', 'みょ': 'myo',
+    'りゃ': 'rya', 'りゅ': 'ryu', 'りょ': 'ryo',
+    'ぎゃ': 'gya', 'ぎゅ': 'gyu', 'ぎょ': 'gyo',
+    'じゃ': 'zya', 'じゅ': 'zyu', 'じょ': 'zyo',
+    'びゃ': 'bya', 'びゅ': 'byu', 'びょ': 'byo',
+    'ぴゃ': 'pya', 'ぴゅ': 'pyu', 'ぴょ': 'pyo'
 };
 
-// 小文字マップ（L/X シリーズ）
+// 小文字マップ（L/X シリーズ）- 1パターンに統一
 const SMALL_CHAR_MAP = {
-    // 'ぁ': ['la', 'xa'], 'ぃ': ['li', 'xi'], 'ぅ': ['lu', 'xu'], 'ぇ': ['le', 'xe'], 'ぉ': ['lo', 'xo'],
-    // 'ゃ': ['lya', 'xya'], 'ゅ': ['lyu', 'xyu'], 'ょ': ['lyo', 'xyo'],
-    'っ': ['ltsu', 'xtsu']
+    'ぁ': 'xa', 'ぃ': 'xi', 'ぅ': 'xu', 'ぇ': 'xe', 'ぉ': 'xo',
+    'ゃ': 'xya', 'ゅ': 'xyu', 'ょ': 'xyo',
+    'っ': 'xtu'
 };
 
-// 特殊な組み合わせマップ
+// 特殊な組み合わせマップ - 主要なものだけ1パターンに統一
 const SPECIAL_COMBO_MAP = {
-    // 'ふぁ': ['fa', 'fwa'], 'ふぃ': ['fi', 'fwi'], 'ふぇ': ['fe', 'fwe'], 'ふぉ': ['fo', 'fwo'],
-    // 'てぃ': ['ti', 'thi'], 'とぅ': ['tu', 'twu'], 'でぃ': ['di', 'dhi'], 'どぅ': ['du', 'dwu'],
-    // 'うぃ': ['wi', 'whi'], 'うぇ': ['we', 'whe'], 'うぉ': ['wo', 'who'],
-    // 'ヴぁ': ['va'], 'ヴぃ': ['vi'], 'ヴぇ': ['ve'], 'ヴぉ': ['vo'],
-    // 'つぁ': ['tsa'], 'つぃ': ['tsi'], 'つぇ': ['tse'], 'つぉ': ['tso'],
-    // 'いぇ': ['ye', 'ie'],
-    // 'くぁ': ['kwa', 'qa', 'kua'], 'くぃ': ['kwi', 'qi', 'kui'], 'くぇ': ['kwe', 'qe', 'kue'], 'くぉ': ['kwo', 'qo', 'kuo'],
-    // 'ぐぁ': ['gwa', 'gua'], 'ぐぃ': ['gwi', 'gui'], 'ぐぇ': ['gwe', 'gue'], 'ー': '-', 'ぐぉ': ['gwo', 'guo']
+    'ふぁ': 'fa', 'ふぃ': 'fi', 'ふぇ': 'fe', 'ふぉ': 'fo',
+    'てぃ': 'ti', 'とぅ': 'tu',
+    'でぃ': 'di', 'どぅ': 'du',
+    'うぃ': 'wi', 'うぇ': 'we', 'うぉ': 'wo',
+    'ヴぁ': 'va', 'ヴぃ': 'vi', 'ヴぇ': 've', 'ヴぉ': 'vo',
+    'つぁ': 'tsa', 'つぃ': 'tsi', 'つぇ': 'tse', 'つぉ': 'tso',
+    'いぇ': 'ye',
+    'くぁ': 'kwa', 'くぃ': 'kwi', 'くぇ': 'kwe', 'くぉ': 'kwo',
+    'ぐぁ': 'gwa', 'ぐぃ': 'gwi', 'ぐぇ': 'gwe', 'ぐぉ': 'gwo'
 };
 
 // 長音マップ
 const CHOON_MAP = {
-    'ー': '-'  // 伸ばし棒は「-」で対応
+    'ー': '-'
 };
 
 // 全マップを統合
@@ -920,123 +910,81 @@ const CONSONANT_MAP = {
     'ぱ': 'p', 'ぴ': 'p', 'ぷ': 'p', 'ぺ': 'p', 'ぽ': 'p'
 };
 
-// 「ん」の特別処理（あ行・な行・や行の前で「n'」または「n」）
-function handleN(kana, nextChar) {
-    if (!nextChar) return ['nn', 'nn']; // 文末は「nn」「n」
+// 「ん」の特別処理（1パターンに統一 - 常に「nn」）
+function handleN() {
+    return 'nn';
+}
+
+// 促音「っ」の処理（次の子音を重ねる）- 1パターンに統一
+function handleSokuon(nextChar) {
+    if (!nextChar) return 'xtu';
     
-    // あ行、な行、や行の前は「n'」または「n」
-    if (['あ', 'い', 'う', 'え', 'お', 
-         'な', 'に', 'ぬ', 'ね', 'の',
-         'や', 'ゆ', 'よ'].includes(nextChar)) {
-        return "nn";
+    const consonant = CONSONANT_MAP[nextChar];
+    if (!consonant) return 'xtu';
+    
+    const nextPattern = getRomaPatterns(nextChar);
+    if (nextPattern && nextPattern.length > 0) {
+        const pattern = nextPattern[0];
+        if (pattern.startsWith('tya')) {
+            return 't' + pattern;
+        } else if (pattern.startsWith('sya')) {
+            return 's' + pattern;
+        } else {
+            return consonant + pattern;
+        }
     }
     
-    return "nn"; // それ以外は「nn」「n」
+    return consonant + nextChar;
 }
 
-// 促音「っ」の処理（次の子音を重ねる）
-function handleSokuon(nextChar) {
-    if (!nextChar) return ['xtu', 'ltu', 'xtsu', 'ltsu'];
-    
-    // 次の文字の子音を取得
-    const consonant = CONSONANT_MAP[nextChar];
-    if (!consonant) return ['xtu', 'ltu', 'xtsu', 'ltsu'];
-    
-    // 次の文字のローマ字パターンを取得
-    const nextPatterns = getRomaPatterns(nextChar);
-    const result = [];
-    
-    nextPatterns.forEach(pattern => {
-        if (pattern.length > 0) {
-            // 子音を重ねる（kka, tta, ssa など）
-            result.push(consonant + pattern);
-            
-            // 特殊ケース: 'ch' で始まる場合（tcha）
-            if (pattern.startsWith('tya')) {
-                result.push('t' + pattern);
-            }
-            // 特殊ケース: 'sh' で始まる場合（ssha）
-            if (pattern.startsWith('sh')) {
-                result.push('s' + pattern);
-            }
-        }
-    });
-    
-    // 標準的な促音パターンも追加
-    result.push(...['xtu', 'ltu', 'xtsu', 'ltsu']);
-    
-    return [...new Set(result)]; // 重複除去
-}
-
-// メインのローマ字パターン生成関数
+// メインのローマ字パターン生成関数（1パターンのみ返す）
 function getRomaPatterns(kana) {
     if (!kana) return [""];
     
-    let patterns = [""];
+    let result = "";
     let i = 0;
     
     while (i < kana.length) {
         // 3文字の特殊組み合わせをチェック
         let char3 = kana.substring(i, i + 3);
+        if (KANA_MAP[char3]) {
+            result += KANA_MAP[char3];
+            i += 3;
+            continue;
+        }
+        
         // 2文字の拗音をチェック
         let char2 = kana.substring(i, i + 2);
-        // 1文字の通常音をチェック
+        if (KANA_MAP[char2]) {
+            result += KANA_MAP[char2];
+            i += 2;
+            continue;
+        }
+        
+        // 1文字の処理
         let char1 = kana.substring(i, i + 1);
         
-        let candidates = [];
-        let advance = 0;
-        
-        // 3文字の特殊組み合わせ
-        if (KANA_MAP[char3]) {
-            candidates = Array.isArray(KANA_MAP[char3]) ? KANA_MAP[char3] : [KANA_MAP[char3]];
-            advance = 3;
+        if (char1 === 'ん') {
+            result += handleN();
+            i += 1;
         }
-        // 2文字の拗音
-        else if (KANA_MAP[char2]) {
-            candidates = Array.isArray(KANA_MAP[char2]) ? KANA_MAP[char2] : [KANA_MAP[char2]];
-            advance = 2;
-        }
-        // 「ん」の特別処理
-        else if (char1 === 'ん') {
-            const nextChar = kana[i + 1];
-            candidates = handleN(char1, nextChar);
-            advance = 1;
-        }
-        // 促音「っ」の処理
         else if (char1 === 'っ') {
             const nextChar = kana[i + 1];
-            candidates = handleSokuon(nextChar);
-            advance = 1;
+            const sokuonResult = handleSokuon(nextChar);
+            result += sokuonResult;
+            i += 1;
         }
-        // 1文字の通常音
         else if (KANA_MAP[char1]) {
-            candidates = Array.isArray(KANA_MAP[char1]) ? KANA_MAP[char1] : [KANA_MAP[char1]];
-            advance = 1;
+            result += KANA_MAP[char1];
+            i += 1;
         }
-        // 不明な文字
         else {
-            candidates = [char1];
-            advance = 1;
-        }
-        
-        // パターンを組み合わせる
-        let nextPatterns = [];
-        patterns.forEach(p => {
-            candidates.forEach(c => {
-                nextPatterns.push(p + c);
-            });
-        });
-        patterns = nextPatterns;
-        i += advance;
-        
-        // パターンが多くなりすぎないように制限（パフォーマンス対策）
-        if (patterns.length > 100) {
-            patterns = patterns.slice(0, 100);
+            result += char1;
+            i += 1;
         }
     }
     
-    // 重複を除去
-    return [...new Set(patterns)];
+    return [result];
 }
 
 // --- フレンド機能 ---
@@ -1190,7 +1138,6 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             
             if (p.members) {
                 partyMembers = p.members;
-                // メンバーのハンデをキャッシュ
                 Object.keys(partyMembers).forEach(id => {
                     memberHandicaps[id] = partyMembers[id].handicap || "none";
                 });
@@ -1215,7 +1162,6 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }).join("");
             el("party-list-ui").innerHTML = membersHtml;
             
-            // チーム設定とハンデ設定のUIを更新
             if (isLeader) {
                 updateTeamSetupUI();
                 updateHandicapSetupUI();
@@ -1264,7 +1210,7 @@ window.sendReady = () => {
     if (myPartyId) update(ref(db, `parties/${myPartyId}/members/${myId}`), { ready: true });
 };
 
-// --- チーム設定（改良版：メンバーをクリックして赤・青を選択、確実に動作）---
+// --- チーム設定 ---
 window.toggleTeamSetup = () => {
     const teamSetup = el("team-setup");
     if (teamSetup) {
@@ -1286,11 +1232,9 @@ function updateTeamSetupUI() {
         memberDiv.className = `team-member-item ${currentTeam}`;
         memberDiv.setAttribute('data-member-id', id);
         
-        // クリックイベントを直接設定
         memberDiv.onclick = (e) => {
             e.stopPropagation();
             e.preventDefault();
-            console.log(`Team toggle clicked for ${id}, current team: ${currentTeam}`);
             toggleMemberTeam(id);
             return false;
         };
@@ -1305,7 +1249,6 @@ function updateTeamSetupUI() {
     });
 }
 
-// メンバーのチームを切り替える（赤↔青） - 確実に動作するよう改良
 async function toggleMemberTeam(memberId) {
     if (!isLeader) {
         alert("リーダーのみがチームを変更できます");
@@ -1325,39 +1268,29 @@ async function toggleMemberTeam(memberId) {
     const currentTeam = partyMembers[memberId].team || "red";
     const newTeam = currentTeam === "red" ? "blue" : "red";
     
-    console.log(`Changing team for ${memberId} from ${currentTeam} to ${newTeam}`);
-    
     try {
-        // Firebase更新
         const memberRef = ref(db, `parties/${myPartyId}/members/${memberId}/team`);
         await set(memberRef, newTeam);
         
-        // ローカルキャッシュを即時更新
         if (partyMembers[memberId]) {
             partyMembers[memberId].team = newTeam;
         }
         
-        // メンバーハンデキャッシュも更新
         if (memberHandicaps[memberId]) {
             memberHandicaps[memberId] = partyMembers[memberId].handicap || "none";
         }
         
-        // UIを再描画
         updateTeamSetupUI();
-        
-        // 成功音
         sounds.notify.play();
-        console.log(`Team changed successfully to ${newTeam}`);
     } catch (err) {
         console.error("チーム更新エラー:", err);
         alert("チームの変更に失敗しました: " + err.message);
     }
 }
 
-// 互換性のため残す
 window.switchTeam = toggleMemberTeam;
 
-// --- ハンデ設定（5種類対応・メンバー個別・選択状態がわかりやすく・確実に動作）---
+// --- ハンデ設定 ---
 function updateHandicapSetupUI() {
     const handicapList = el("handicap-members-list");
     if (!handicapList || !partyMembers) return;
@@ -1371,7 +1304,6 @@ function updateHandicapSetupUI() {
         memberDiv.className = "handicap-member-item";
         memberDiv.setAttribute('data-member-id', id);
         
-        // ヘッダー部分
         const headerDiv = document.createElement("div");
         headerDiv.className = "handicap-member-header";
         headerDiv.onclick = (e) => {
@@ -1386,7 +1318,6 @@ function updateHandicapSetupUI() {
         `;
         memberDiv.appendChild(headerDiv);
         
-        // オプション部分 - 5種類のハンデ
         const optionsDiv = document.createElement("div");
         optionsDiv.className = `handicap-options ${currentHandicap === 'none' ? 'hidden' : ''}`;
         optionsDiv.id = `handicap-options-${id}`;
@@ -1408,7 +1339,6 @@ function updateHandicapSetupUI() {
             optionBtn.onclick = (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                console.log(`Setting handicap for ${id} to ${type.value}`);
                 setMemberHandicap(id, type.value);
             };
             optionsDiv.appendChild(optionBtn);
@@ -1430,7 +1360,6 @@ function getHandicapName(handicap) {
     return names[handicap] || 'なし';
 }
 
-// ハンデオプションの表示/非表示を切り替え
 function toggleMemberHandicap(memberId) {
     const options = document.getElementById(`handicap-options-${memberId}`);
     if (options) {
@@ -1438,7 +1367,6 @@ function toggleMemberHandicap(memberId) {
     }
 }
 
-// ハンデを設定（確実に動作するよう改良）
 async function setMemberHandicap(memberId, handicap) {
     if (!isLeader) {
         alert("リーダーのみがハンデを設定できます");
@@ -1455,61 +1383,47 @@ async function setMemberHandicap(memberId, handicap) {
         return;
     }
     
-    console.log(`Setting handicap for ${memberId} to ${handicap}`);
-    
     try {
-        // Firebase更新
         const handicapRef = ref(db, `parties/${myPartyId}/members/${memberId}/handicap`);
         await set(handicapRef, handicap);
         
-        // ローカルキャッシュを更新
         memberHandicaps[memberId] = handicap;
         if (partyMembers[memberId]) {
             partyMembers[memberId].handicap = handicap;
         }
         
-        // オプションを非表示に戻す
         const options = document.getElementById(`handicap-options-${memberId}`);
         if (options) {
             options.classList.add('hidden');
         }
         
-        // UI更新
         updateHandicapSetupUI();
-        
-        // 成功音
         sounds.notify.play();
-        console.log(`Handicap set successfully to ${handicap}`);
     } catch (err) {
         console.error("ハンデ更新エラー:", err);
         alert("ハンデの設定に失敗しました: " + err.message);
     }
 }
 
-// グローバル公開
 window.toggleMemberHandicap = toggleMemberHandicap;
 window.setMemberHandicap = setMemberHandicap;
 
-// 自分のハンデを取得
 function getMyHandicap() {
     return memberHandicaps[myId] || "none";
 }
 
-// チームを取得（相手のチーム判定用）
 function getTargetTeam(targetId) {
     return partyMembers[targetId]?.team || "red";
 }
 
-// 相手チームかどうか判定（チーム戦用）- すべての攻撃判定で使用
 function isOpponentTeam(targetId) {
-    if (!myPartyId) return true; // パーティーなしは全員が相手
-    if (teamMode !== "team") return true; // 個人戦は全員が相手
+    if (!myPartyId) return true;
+    if (teamMode !== "team") return true;
     const myTeam = partyMembers[myId]?.team || "red";
     const targetTeam = getTargetTeam(targetId);
-    return myTeam !== targetTeam; // 違うチームなら相手
+    return myTeam !== targetTeam;
 }
 
-// ハンデ説明表示関数
 function showHandicapDescription() {
     const myHandicap = getMyHandicap();
     if (myHandicap !== "none") {
@@ -1683,7 +1597,7 @@ function equipAccessory(accessoryId) {
     saveAndDisplayData();
 }
 
-// --- ショップシステム（修行・ボススキル表示改善）---
+// --- ショップシステム ---
 window.openShop = () => {
     openScreen("screen-shop");
     renderShop();
@@ -1721,12 +1635,11 @@ function renderShop() {
     if (!shopList) return;
     shopList.innerHTML = "";
     Object.values(SKILL_DB).forEach(skill => {
-        if (skill.gacha) return; // ガチャキャラはガチャ画面のみ
+        if (skill.gacha) return;
         
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
         
-        let canUseBossSkill = true;
         let requirementText = "";
         let isUnlocked = true;
         
@@ -1792,7 +1705,7 @@ window.unlockBossSkill = (skillId) => {
 };
 
 // =========================================
-// ガチャ機能（スクロール改善・装備バグ修正）
+// ガチャ機能（装備バグ完全修正版）
 // =========================================
 
 window.openGacha = () => {
@@ -1829,6 +1742,25 @@ window.switchGachaTab = (rarity) => {
     renderGachaCharacters(rarity);
 };
 
+// ガチャキャラクターの装備処理（完全修正版）
+window.handleGachaCharClick = (event) => {
+    const target = event.target.closest('.gacha-char-item');
+    if (!target) return;
+    
+    const charId = target.dataset.charId;
+    if (!charId) return;
+    
+    console.log(`Gacha character clicked: ${charId}`);
+    
+    const isOwned = ownedSkills.includes(charId);
+    if (!isOwned) {
+        alert(`${target.querySelector('.gacha-char-name')?.textContent || 'このキャラ'}をまだ所持していません。ガチャを引いて入手しましょう！`);
+        return;
+    }
+    
+    equipGachaCharacter(charId);
+};
+
 function renderGachaCharacters(rarity) {
     const container = el("gacha-char-list");
     if (!container) return;
@@ -1848,23 +1780,12 @@ function renderGachaCharacters(rarity) {
         const isEquipped = equippedSkill === char.id;
         const item = document.createElement("div");
         item.className = `gacha-char-item ${char.rarity.toLowerCase()} ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+        item.dataset.charId = char.id;
         item.innerHTML = `
             <div class="gacha-char-rarity">${char.rarity}</div>
             <div class="gacha-char-name">${char.name}</div>
             <div class="gacha-char-ability">${char.desc}</div>
         `;
-        
-        // クリックイベントを直接設定（確実に動作するよう改良）
-        item.onclick = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            if (isOwned) {
-                console.log(`Equipping gacha character: ${char.id}`);
-                equipGachaCharacter(char.id);
-            } else {
-                alert(`${char.name}をまだ所持していません。ガチャを引いて入手しましょう！`);
-            }
-        };
         
         container.appendChild(item);
     });
@@ -1882,7 +1803,7 @@ function renderGachaCharacters(rarity) {
     }
 }
 
-// ガチャキャラを装備（バグ修正）- 確実に装備できるよう改良
+// ガチャキャラを装備（完全修正版）
 function equipGachaCharacter(charId) {
     if (!ownedSkills.includes(charId)) {
         alert("このキャラクターを所持していません");
@@ -1890,26 +1811,41 @@ function equipGachaCharacter(charId) {
     }
     
     console.log(`Equipping gacha character: ${charId}`);
+    
+    // 装備スキルを設定
     equippedSkill = charId;
-    saveAndDisplayData();
     
-    // UIを強制的に更新
-    renderGachaCharacters(getCurrentGachaTabRarity());
-    if (el("screen-shop") && !el("screen-shop").classList.contains("hidden")) {
-        renderShop();
-    }
+    // ローカルストレージに保存
+    localStorage.setItem("ramo_equipped", equippedSkill);
     
-    // スキルUIも更新
+    // Firebaseに保存
+    const userRef = ref(db, `users/${myId}`);
+    update(userRef, { equipped: equippedSkill }).catch(err => console.error("Firebase equip error:", err));
+    
+    // スキルUIを更新
     if (gameActive) {
         setupSkillUI();
     }
     
-    sounds.notify.play();
-    alert(`${GACHA_CHAR_DB[charId].name}を装備しました！`);
+    // UIを強制的に更新
+    renderGachaCharacters(getCurrentGachaTabRarity());
     
-    // Firebaseにも反映
-    const userRef = ref(db, `users/${myId}`);
-    update(userRef, { equipped: equippedSkill }).catch(err => console.error("Firebase equip error:", err));
+    // ショップ画面が表示されていれば更新
+    if (el("screen-shop") && !el("screen-shop").classList.contains("hidden")) {
+        renderShop();
+    }
+    
+    // 装備中表示を更新
+    const equippedNameEl = el("gacha-equipped-name");
+    if (equippedNameEl) {
+        equippedNameEl.innerText = GACHA_CHAR_DB[charId]?.name || charId;
+    }
+    
+    sounds.notify.play();
+    alert(`${GACHA_CHAR_DB[charId]?.name || charId}を装備しました！`);
+    
+    // データ保存
+    saveAndDisplayData();
 }
 
 window.drawGacha = async (type) => {
@@ -2179,18 +2115,17 @@ function nextQuestion() {
     let q = currentWords[randomIdx];
     el("q-ja").innerText = q;
     let patterns = getRomaPatterns(q);
-    // ランダムなパターンを選択
-    currentRoma = patterns[Math.floor(Math.random() * patterns.length)]; 
+    // 最初のパターンを使用（1パターンに統一済み）
+    currentRoma = patterns[0]; 
     romaIdx = 0; 
     renderRoma();
-    
-    // デバッグ用（必要に応じてコメント解除）
-    // console.log(`単語: ${q}, パターン: ${patterns.length}個, 選択: ${currentRoma}`);
 }
 
 function renderRoma() {
-    el("q-done").innerText = currentRoma.substring(0, romaIdx);
-    el("q-todo").innerText = currentRoma.substring(romaIdx);
+    const doneEl = el("q-done");
+    const todoEl = el("q-todo");
+    if (doneEl) doneEl.innerText = currentRoma.substring(0, romaIdx);
+    if (todoEl) todoEl.innerText = currentRoma.substring(romaIdx);
 }
 
 // 偽物タイピング用の表示更新
@@ -2219,7 +2154,6 @@ function processCorrectType() {
     
     if (myHandicap === "skill_seal") {
         skillSealed = true;
-        // スキル封印は試合全体に適用
     }
     
     romaIdx++;
@@ -2397,10 +2331,9 @@ window.addEventListener("keydown", e => {
     }
     
     if (fakeTypingActive) {
-        // 偽物タイピングでは入力された文字が次の文字と一致するかチェック
         if (e.key === fakeTypingRoma[fakeTypingIdx]) {
             fakeTypingIdx++;
-            renderFakeRoma(); // 打った文字を光らせる
+            renderFakeRoma();
             if (fakeTypingIdx >= fakeTypingRoma.length) {
                 clearFakeTyping();
                 setStun(5000);
@@ -2416,7 +2349,6 @@ window.addEventListener("keydown", e => {
     
     if (!canType()) return;
 
-    // 現在の入力文字と比較（大文字小文字を区別しない）
     if (e.key.toLowerCase() === currentRoma[romaIdx].toLowerCase()) {
         processCorrectType();
     } else if (!["Shift","Alt","Control","Space","1","2","3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
@@ -2471,7 +2403,6 @@ function startGame(sec) {
     el("stat-score").innerText = "0"; 
     el("stat-combo").innerText = "0";
     
-    // ハンデ説明を表示
     showHandicapDescription();
     
     gameInterval = setInterval(() => {
@@ -2947,7 +2878,6 @@ function showBattleAlert(text, color) {
     setTimeout(() => alertEl.classList.add("hidden"), 4000);
 }
 
-// チームを考慮した攻撃送信（改良版）
 function sendAttackToOpponents(type, duration, stealAmount) {
     if (!myPartyId || invincibleActive) return;
     get(ref(db, `parties/${myPartyId}/members`)).then(s => {
@@ -2959,9 +2889,8 @@ function sendAttackToOpponents(type, duration, stealAmount) {
                 if (targetId !== myId) {
                     const targetTeam = members[targetId]?.team || "red";
                     
-                    // チーム戦の場合、相手チームにのみ攻撃
                     if (teamMode === "team" && myTeam === targetTeam) {
-                        return; // 同じチームには攻撃しない
+                        return;
                     }
                     
                     const attackId = generateId();
@@ -2988,7 +2917,7 @@ function sendRandomTargetAttack(type, duration, stealAmount) {
                 if (id === myId) return false;
                 if (teamMode === "team") {
                     const targetTeam = members[id]?.team || "red";
-                    return myTeam !== targetTeam; // 相手チームのみ
+                    return myTeam !== targetTeam;
                 }
                 return true;
             });
@@ -3710,27 +3639,22 @@ function startPoison(duration) {
     }, duration);
 }
 
-// 偽物タイピング開始（改良版）- 本物と同じ青色のハイライト
 function startFakeTyping() {
     if (invincibleActive) return;
     
     fakeTypingActive = true;
     
-    // 現在のゲームの難易度に合わせた単語を選択
     const currentDifficulty = currentWords === WORD_DB.easy ? 'easy' : 
                              currentWords === WORD_DB.normal ? 'normal' : 'hard';
     
-    // 同じ難易度からランダムに単語を選択
     const wordList = WORD_DB[currentDifficulty];
     const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
     
     fakeTypingText = randomWord;
     const patterns = getRomaPatterns(randomWord);
-    // ランダムなパターンを選択
-    fakeTypingRoma = patterns[Math.floor(Math.random() * patterns.length)];
+    fakeTypingRoma = patterns[0];
     fakeTypingIdx = 0;
     
-    // 偽物タイピング専用表示エリアを表示
     const fakeDisplay = el("fake-typing-display");
     
     if (fakeDisplay) {
@@ -3743,7 +3667,6 @@ function startFakeTyping() {
         if (fakeDone) fakeDone.innerText = "";
         if (fakeTodo) fakeTodo.innerText = fakeTypingRoma;
         
-        // 本物の表示を非表示
         const realJa = el("q-ja");
         const realRoma = el("q-roma");
         if (realJa) realJa.style.display = 'none';
@@ -3776,7 +3699,6 @@ function clearFakeTyping() {
     const button = el("fake-typing-button");
     if (button) button.classList.add("hidden");
     
-    // 偽物表示を非表示、本物を再表示
     const fakeDisplay = el("fake-typing-display");
     const realJa = el("q-ja");
     const realRoma = el("q-roma");
@@ -3798,7 +3720,6 @@ window.detectFakeTyping = () => {
     sounds.correct.play();
 };
 
-// StarterGui（ハッキング）改良版 - 5秒後にタイピング可能に
 function startStarterGui() {
     if (invincibleActive) return;
     
@@ -3822,7 +3743,6 @@ function startStarterGui() {
         } else {
             clearInterval(interval);
             
-            // 5秒後にハッキング終了
             if (message) {
                 message.classList.remove("hidden");
                 message.innerHTML = "ハッキング終了";
@@ -3832,7 +3752,6 @@ function startStarterGui() {
                 overlay.classList.add("hidden");
                 hackingActive = false;
                 
-                // スキル封印とコンボ半減の効果を適用
                 skillSealed = true;
                 showBattleAlert("🔒 スキル封印！10秒間", "#ff0000");
                 
@@ -3844,7 +3763,7 @@ function startStarterGui() {
                     skillSealed = false;
                     showBattleAlert("🔓 スキル封印解除", "#00ff00");
                 }, 10000);
-            }, 1000); // 完了メッセージを1秒表示してから非表示
+            }, 1000);
         }
     }, 1000);
 }
@@ -4301,8 +4220,91 @@ function selectPuzzleDot(index) {
 }
 
 // =========================================
-// ストーリーモード制御（第3章ロック機能強化・完全修正版）
+// ストーリーモード制御（第3章ロック機能完全修正版）
 // =========================================
+
+// 進捗スコア管理用変数
+let storyProgressScore = {
+    chapter1: 0,  // 0-7
+    chapter2: 0,  // 0-7  
+    chapter3: 0   // 0-10
+};
+
+// ストーリーモードの進捗を取得
+function getStoryProgress() {
+    return {
+        chapter1: storyProgress.chapter1 || 0,
+        chapter2: storyProgress.chapter2 || 0,
+        chapter3: storyProgress.chapter3 || 0
+    };
+}
+
+// ステージが解放可能かチェック
+function isStageUnlocked(chapter, stage) {
+    const progress = getStoryProgress();
+    
+    // 第1章
+    if (chapter === 1) {
+        return stage <= progress.chapter1 + 1;
+    }
+    
+    // 第2章
+    if (chapter === 2) {
+        // 第1章をクリアしているか
+        if (progress.chapter1 < 7) return false;
+        return stage <= progress.chapter2 + 1;
+    }
+    
+    // 第3章
+    if (chapter === 3) {
+        // 第2章をクリアしているか
+        if (progress.chapter2 < 7) return false;
+        return stage <= progress.chapter3 + 1;
+    }
+    
+    return false;
+}
+
+// ステージがクリア済みかチェック
+function isStageCompleted(chapter, stage) {
+    const progress = getStoryProgress();
+    
+    if (chapter === 1) {
+        return progress.chapter1 >= stage;
+    } else if (chapter === 2) {
+        return progress.chapter2 >= stage;
+    } else if (chapter === 3) {
+        return progress.chapter3 >= stage;
+    }
+    
+    return false;
+}
+
+// 現在のステージかチェック
+function isCurrentStage(chapter, stage) {
+    const progress = getStoryProgress();
+    
+    if (chapter === 1) {
+        return progress.chapter1 === stage - 1 && !isStageCompleted(chapter, stage);
+    } else if (chapter === 2) {
+        return progress.chapter2 === stage - 1 && !isStageCompleted(chapter, stage);
+    } else if (chapter === 3) {
+        return progress.chapter3 === stage - 1 && !isStageCompleted(chapter, stage);
+    }
+    
+    return false;
+}
+
+// 章がロックされているかチェック
+function isChapterLocked(chapter) {
+    const progress = getStoryProgress();
+    
+    if (chapter === 1) return false;
+    if (chapter === 2) return progress.chapter1 < 7;
+    if (chapter === 3) return progress.chapter2 < 7;
+    return true;
+}
+
 window.openStoryMode = () => {
     if (isMatchmaking || trainingMode) {
         alert("マッチング待機中・修行中はストーリーモードを開けません");
@@ -4326,17 +4328,22 @@ window.openStoryMode = () => {
 function renderStoryMap() {
     updateChapterLocks();
     
+    const progress = getStoryProgress();
+    
+    // 第1章
     const map1 = el("story-map-1");
     if (map1) {
         map1.innerHTML = "";
         STORY_STAGES.chapter1.forEach((stage, index) => {
             const stageNum = index + 1;
-            const isLocked = storyProgress.chapter1 < stageNum - 1;
-            const isCompleted = storyProgress.chapter1 >= stageNum;
-            const isCurrent = storyProgress.chapter1 === stageNum - 1 && !isCompleted;
+            const isLocked = !isStageUnlocked(1, stageNum);
+            const isCompleted = isStageCompleted(1, stageNum);
+            const isCurrent = isCurrentStage(1, stageNum);
             
             const node = document.createElement("div");
-            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : 'available'} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.dataset.chapter = "1";
+            node.dataset.stage = stageNum;
             node.onclick = () => !isLocked && selectStage(1, stageNum);
             
             node.innerHTML = `
@@ -4347,18 +4354,20 @@ function renderStoryMap() {
         });
     }
 
+    // 第2章
     const map2 = el("story-map-2");
     if (map2) {
         map2.innerHTML = "";
         STORY_STAGES.chapter2.forEach((stage, index) => {
             const stageNum = index + 1;
-            const chapterLocked = storyProgress.chapter1 < 7;
-            const isLocked = chapterLocked || storyProgress.chapter2 < stageNum - 1;
-            const isCompleted = !chapterLocked && storyProgress.chapter2 >= stageNum;
-            const isCurrent = !chapterLocked && storyProgress.chapter2 === stageNum - 1 && !isCompleted;
+            const isLocked = !isStageUnlocked(2, stageNum);
+            const isCompleted = isStageCompleted(2, stageNum);
+            const isCurrent = isCurrentStage(2, stageNum);
             
             const node = document.createElement("div");
-            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : 'available'} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.dataset.chapter = "2";
+            node.dataset.stage = stageNum;
             node.onclick = () => !isLocked && selectStage(2, stageNum);
             
             node.innerHTML = `
@@ -4369,20 +4378,26 @@ function renderStoryMap() {
         });
     }
 
+    // 第3章（完全修正版）
     const map3 = el("story-map-3");
     if (map3) {
         map3.innerHTML = "";
         STORY_STAGES.chapter3.forEach((stage, index) => {
             const stageNum = index + 1;
-            // 第3章のロック条件：第2章をクリアしていないと章全体がロック
-            const chapterLocked = storyProgress.chapter2 < 7;
-            // 前のステージをクリアしていないとロック（第1章と同じロジック）
-            const isLocked = chapterLocked || storyProgress.chapter3 < stageNum - 1;
-            const isCompleted = !chapterLocked && storyProgress.chapter3 >= stageNum;
-            const isCurrent = !chapterLocked && storyProgress.chapter3 === stageNum - 1 && !isCompleted;
+            
+            // 第2章をクリアしていないと第3章全体がロック
+            const chapterLocked = progress.chapter2 < 7;
+            
+            // 解放条件：第2章クリア済み かつ 前のステージをクリア済み
+            const isUnlocked = !chapterLocked && (stageNum <= progress.chapter3 + 1);
+            const isLocked = !isUnlocked;
+            const isCompleted = !chapterLocked && progress.chapter3 >= stageNum;
+            const isCurrent = !chapterLocked && progress.chapter3 === stageNum - 1 && !isCompleted;
             
             const node = document.createElement("div");
-            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.className = `stage-node ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : 'available'} ${stage.boss ? 'boss-stage' : ''} ${isCurrent ? 'current' : ''}`;
+            node.dataset.chapter = "3";
+            node.dataset.stage = stageNum;
             node.onclick = () => !isLocked && selectStage(3, stageNum);
             
             node.innerHTML = `
@@ -4393,6 +4408,7 @@ function renderStoryMap() {
         });
     }
     
+    // 章タブのクリックイベント
     document.querySelectorAll('.chapter-tab').forEach(tab => {
         tab.onclick = () => {
             const chapter = parseInt(tab.dataset.chapter);
@@ -4411,13 +4427,6 @@ function renderStoryMap() {
     });
 }
 
-function isChapterLocked(chapter) {
-    if (chapter === 1) return false;
-    if (chapter === 2) return storyProgress.chapter1 < 7;
-    if (chapter === 3) return storyProgress.chapter2 < 7;
-    return true;
-}
-
 function updateChapterLocks() {
     document.querySelectorAll('.chapter-tab').forEach(tab => {
         const chapter = parseInt(tab.dataset.chapter);
@@ -4430,38 +4439,10 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
-    // 厳密なロックチェック（強化版）- undefined対策
-    const safeProgress = {
-        chapter1: storyProgress.chapter1 || 0,
-        chapter2: storyProgress.chapter2 || 0,
-        chapter3: storyProgress.chapter3 || 0
-    };
-    
-    if (chapter === 1) {
-        if (stage > safeProgress.chapter1 + 1) {
-            alert("前のステージをクリアしてください");
-            return;
-        }
-    } else if (chapter === 2) {
-        if (safeProgress.chapter1 < 7) {
-            alert("第1章をクリアしてください");
-            return;
-        }
-        if (stage > safeProgress.chapter2 + 1) {
-            alert("前のステージをクリアしてください");
-            return;
-        }
-    } else if (chapter === 3) {
-        // 第2章をクリアしていないと第3章全体がロック
-        if (safeProgress.chapter2 < 7) {
-            alert("第2章をクリアしてください");
-            return;
-        }
-        // 前のステージをクリアしていないとロック
-        if (stage > safeProgress.chapter3 + 1) {
-            alert("前のステージをクリアしてください");
-            return;
-        }
+    // 厳密なロックチェック
+    if (!isStageUnlocked(chapter, stage)) {
+        alert("前のステージをクリアしてください");
+        return;
     }
     
     currentStage = { chapter, stage };
