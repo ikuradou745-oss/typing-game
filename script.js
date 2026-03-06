@@ -1,11 +1,12 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V19.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V20.0 (完全修正版)
 // 修正内容:
-// 1. ローマ字変換を1パターンに統一（っ→同じ文字2回、しゅ→syu、ちゃ→tya、ん→nn、ぉ→xo等）
-// 2. タイピング終了時のタイマー停止バグを修正
-// 3. ガチャスキルの装備機能を完全修正
-// 4. ストーリーモード第3章のロック機能を完全修正（進捗スコア方式）
+// 1. ローマ字変換を1パターンに統一
+// 2. ストーリーモードの進捗管理を完全修正（3-1クリア後3-2解放）
+// 3. 修行モードのクリアフラグ管理を修正
+// 4. ガチャスキルとノーマルスキルをショップで分けて表示
+// 5. スキル装備機能の安定性向上
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -199,6 +200,10 @@ let trainingMode = false;
 let trainingAttackTimer = null;
 let trainingType = 0; // 1 or 2
 let trainingScore = 0;
+let trainingCompleted = {
+    training1: false,
+    training2: false
+};
 
 // ストーリーモードのステージデータ（第3章追加・ロック条件強化）
 const STORY_STAGES = {
@@ -523,6 +528,7 @@ async function resetAllData() {
         skills: ["none"],
         equipped: "none",
         story_progress: { chapter1: 0, chapter2: 0, chapter3: 0 },
+        training_completed: { training1: false, training2: false },
         skin: { skin: "skin-1", face: "face-1", accessories: [] },
         accessory: null,
         tysm_used: false,
@@ -538,6 +544,7 @@ async function resetAllData() {
     ownedSkills = ["none"];
     equippedSkill = "none";
     storyProgress = { chapter1: 0, chapter2: 0, chapter3: 0 };
+    trainingCompleted = { training1: false, training2: false };
     skinData = { skin: "skin-1", face: "face-1", accessories: [] };
     equippedAccessory = null;
     tysmUsed = false;
@@ -706,6 +713,7 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
     localStorage.setItem("ramo_story_progress", JSON.stringify(storyProgress));
+    localStorage.setItem("ramo_training_completed", JSON.stringify(trainingCompleted));
     localStorage.setItem("ramo_skin", JSON.stringify(skinData));
     localStorage.setItem("ramo_accessory", equippedAccessory);
     localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
@@ -718,9 +726,8 @@ function saveAndDisplayData() {
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
     if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString();
     
-    // ストーリー進捗表示を更新
     updateStoryProgressDisplay();
-    
+    updateTrainingStatus();
     updateProfileFace();
     
     const userRef = ref(db, `users/${myId}`);
@@ -731,6 +738,7 @@ function saveAndDisplayData() {
             skills: ownedSkills,
             equipped: equippedSkill,
             story_progress: storyProgress,
+            training_completed: trainingCompleted,
             skin: skinData,
             accessory: equippedAccessory,
             name: myName,
@@ -796,7 +804,6 @@ function updateButtonStates() {
     const btnGacha = el("btn-gacha");
     const btnTraining = el("btn-training");
 
-    // パーティー中でもスキルショップとガチャは使用可能に
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
     if (btnParty) btnParty.disabled = isMatchmaking || trainingMode; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
@@ -815,10 +822,8 @@ window.updateMyName = () => {
 
 // =========================================
 // ローマ字変換（1パターン統一版）
-// 参考: 一般的な日本語ローマ字入力の仕様
 // =========================================
 
-// 清音マップ
 const SEION_MAP = {
     'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
     'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
@@ -833,7 +838,6 @@ const SEION_MAP = {
     'ん': 'nn'
 };
 
-// 濁音・半濁音マップ
 const DAKUON_MAP = {
     'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
     'ざ': 'za', 'じ': 'zi', 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
@@ -842,7 +846,6 @@ const DAKUON_MAP = {
     'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po'
 };
 
-// 拗音マップ（1パターン統一）
 const YOUON_MAP = {
     'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
     'しゃ': 'sya', 'しゅ': 'syu', 'しょ': 'syo',
@@ -857,14 +860,12 @@ const YOUON_MAP = {
     'ぴゃ': 'pya', 'ぴゅ': 'pyu', 'ぴょ': 'pyo'
 };
 
-// 小文字マップ（L/X シリーズ）- 1パターンに統一
 const SMALL_CHAR_MAP = {
     'ぁ': 'xa', 'ぃ': 'xi', 'ぅ': 'xu', 'ぇ': 'xe', 'ぉ': 'xo',
     'ゃ': 'xya', 'ゅ': 'xyu', 'ょ': 'xyo',
     'っ': 'xtu'
 };
 
-// 特殊な組み合わせマップ - 主要なものだけ1パターンに統一
 const SPECIAL_COMBO_MAP = {
     'ふぁ': 'fa', 'ふぃ': 'fi', 'ふぇ': 'fe', 'ふぉ': 'fo',
     'てぃ': 'ti', 'とぅ': 'tu',
@@ -877,12 +878,10 @@ const SPECIAL_COMBO_MAP = {
     'ぐぁ': 'gwa', 'ぐぃ': 'gwi', 'ぐぇ': 'gwe', 'ぐぉ': 'gwo'
 };
 
-// 長音マップ
 const CHOON_MAP = {
     'ー': '-'
 };
 
-// 全マップを統合
 const KANA_MAP = {
     ...SEION_MAP,
     ...DAKUON_MAP,
@@ -892,7 +891,6 @@ const KANA_MAP = {
     ...CHOON_MAP
 };
 
-// 子音マップ（促音「っ」の処理用）
 const CONSONANT_MAP = {
     'か': 'k', 'き': 'k', 'く': 'k', 'け': 'k', 'こ': 'k',
     'さ': 's', 'し': 's', 'す': 's', 'せ': 's', 'そ': 's',
@@ -910,12 +908,10 @@ const CONSONANT_MAP = {
     'ぱ': 'p', 'ぴ': 'p', 'ぷ': 'p', 'ぺ': 'p', 'ぽ': 'p'
 };
 
-// 「ん」の特別処理（1パターンに統一 - 常に「nn」）
 function handleN() {
     return 'nn';
 }
 
-// 促音「っ」の処理（次の子音を重ねる）- 1パターンに統一
 function handleSokuon(nextChar) {
     if (!nextChar) return 'xtu';
     
@@ -937,7 +933,6 @@ function handleSokuon(nextChar) {
     return consonant + nextChar;
 }
 
-// メインのローマ字パターン生成関数（1パターンのみ返す）
 function getRomaPatterns(kana) {
     if (!kana) return [""];
     
@@ -945,7 +940,6 @@ function getRomaPatterns(kana) {
     let i = 0;
     
     while (i < kana.length) {
-        // 3文字の特殊組み合わせをチェック
         let char3 = kana.substring(i, i + 3);
         if (KANA_MAP[char3]) {
             result += KANA_MAP[char3];
@@ -953,7 +947,6 @@ function getRomaPatterns(kana) {
             continue;
         }
         
-        // 2文字の拗音をチェック
         let char2 = kana.substring(i, i + 2);
         if (KANA_MAP[char2]) {
             result += KANA_MAP[char2];
@@ -961,7 +954,6 @@ function getRomaPatterns(kana) {
             continue;
         }
         
-        // 1文字の処理
         let char1 = kana.substring(i, i + 1);
         
         if (char1 === 'ん') {
@@ -1042,7 +1034,7 @@ window.removeFriend = (fid) => {
     remove(ref(db, `users/${fid}/friends/${myId}`)); 
 };
 
-// --- パーティー機能（チーム戦・個別ハンデ対応）---
+// --- パーティー機能 ---
 window.inviteToParty = (fid) => {
     if (!myPartyId) {
         myPartyId = myId;
@@ -1597,45 +1589,42 @@ function equipAccessory(accessoryId) {
     saveAndDisplayData();
 }
 
-// --- ショップシステム ---
+// =========================================
+// スキルショップ（ノーマル/ガチャ分割版）
+// =========================================
+
 window.openShop = () => {
     openScreen("screen-shop");
     renderShop();
 };
 
-window.buySkill = (skillId) => {
-    const skill = SKILL_DB[skillId];
-    if (coins >= skill.cost) {
-        coins -= skill.cost;
-        ownedSkills.push(skillId);
-        equippedSkill = skillId; 
-        saveAndDisplayData();
-        renderShop();
-        if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
-            renderGachaCharacters(getCurrentGachaTabRarity());
-        }
-        sounds.notify.play();
-        alert(`${skill.name} を購入・装備しました！`);
+// ショップのタブ切り替え
+window.switchShopTab = (tabType) => {
+    document.querySelectorAll('.shop-tab').forEach(tab => tab.classList.remove('active'));
+    const targetTab = Array.from(document.querySelectorAll('.shop-tab')).find(tab => 
+        (tabType === 'normal' && tab.textContent.includes('ノーマル')) ||
+        (tabType === 'gacha' && tab.textContent.includes('ガチャ'))
+    );
+    if (targetTab) targetTab.classList.add('active');
+    
+    document.querySelectorAll('.shop-grid').forEach(grid => grid.classList.add('hidden'));
+    if (tabType === 'normal') {
+        el('shop-normal-skills').classList.remove('hidden');
+        renderNormalSkills();
     } else {
-        alert(`コインが足りません！\n必要: ${skill.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
+        el('shop-gacha-skills').classList.remove('hidden');
+        renderGachaSkills();
     }
 };
 
-window.equipSkill = (skillId) => {
-    equippedSkill = skillId;
-    saveAndDisplayData();
-    renderShop();
-    if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
-        renderGachaCharacters(getCurrentGachaTabRarity());
-    }
-};
-
-function renderShop() {
-    const shopList = el("shop-list");
-    if (!shopList) return;
-    shopList.innerHTML = "";
+// ノーマルスキルのレンダリング
+function renderNormalSkills() {
+    const container = el('shop-normal-skills');
+    if (!container) return;
+    container.innerHTML = "";
+    
     Object.values(SKILL_DB).forEach(skill => {
-        if (skill.gacha) return;
+        if (skill.gacha || skill.id === "none") return;
         
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
@@ -1681,7 +1670,7 @@ function renderShop() {
         }
 
         if (!skill.special || (skill.special && isOwned)) {
-            shopList.innerHTML += `
+            container.innerHTML += `
                 <div class="shop-item ${skill.boss ? 'boss-skill-item' : ''} ${skill.training ? 'training-skill-item' : ''} ${skill.special ? 'special-skill-item' : ''}">
                     <h3>${skill.name} ${skill.boss ? '👑' : ''} ${skill.training ? '⚔️' : ''} ${skill.special ? '✨' : ''}</h3>
                     <p style="white-space: pre-wrap;">${skill.desc}</p>
@@ -1694,18 +1683,112 @@ function renderShop() {
     });
 }
 
+// ガチャスキルのレンダリング
+function renderGachaSkills() {
+    const container = el('shop-gacha-skills');
+    if (!container) return;
+    container.innerHTML = "";
+    
+    Object.values(GACHA_CHAR_DB).forEach(char => {
+        const isOwned = ownedSkills.includes(char.id);
+        const isEquipped = equippedSkill === char.id;
+        
+        let buttonHtml = "";
+        if (isEquipped) {
+            buttonHtml = `<button class="shop-btn gacha-btn equipped" disabled>装備中</button>`;
+        } else if (isOwned) {
+            buttonHtml = `<button class="shop-btn gacha-btn" onclick="window.equipGachaCharacter('${char.id}')">装備する</button>`;
+        } else {
+            buttonHtml = `<button class="shop-btn gacha-btn" disabled style="background: #666;">未所持</button>`;
+        }
+        
+        container.innerHTML += `
+            <div class="shop-item gacha-skill">
+                <span class="skill-rarity ${char.rarity.toLowerCase()}">${char.rarity}</span>
+                <h3>${char.name}</h3>
+                <p style="white-space: pre-wrap; font-size: 0.9rem;">${char.desc}</p>
+                <span class="cooldown-text">クールダウン: ${char.cooldown > 0 ? char.cooldown + '秒' : 'パッシブ'}</span>
+                ${buttonHtml}
+            </div>
+        `;
+    });
+}
+
+// ガチャキャラを装備（完全修正版）
+window.equipGachaCharacter = (charId) => {
+    if (!ownedSkills.includes(charId)) {
+        alert("このキャラクターを所持していません");
+        return;
+    }
+    
+    console.log(`Equipping gacha character: ${charId}`);
+    
+    equippedSkill = charId;
+    localStorage.setItem("ramo_equipped", equippedSkill);
+    
+    const userRef = ref(db, `users/${myId}`);
+    update(userRef, { equipped: equippedSkill }).catch(err => console.error("Firebase equip error:", err));
+    
+    if (gameActive) {
+        setupSkillUI();
+    }
+    
+    // 両方のタブの表示を更新
+    renderGachaSkills();
+    renderNormalSkills();
+    
+    // ガチャ画面の表示も更新
+    if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
+        renderGachaCharacters(getCurrentGachaTabRarity());
+    }
+    
+    sounds.notify.play();
+    alert(`${GACHA_CHAR_DB[charId]?.name || charId}を装備しました！`);
+    
+    saveAndDisplayData();
+};
+
+window.buySkill = (skillId) => {
+    const skill = SKILL_DB[skillId];
+    if (coins >= skill.cost) {
+        coins -= skill.cost;
+        ownedSkills.push(skillId);
+        equippedSkill = skillId; 
+        saveAndDisplayData();
+        renderNormalSkills();
+        renderGachaSkills();
+        if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
+            renderGachaCharacters(getCurrentGachaTabRarity());
+        }
+        sounds.notify.play();
+        alert(`${skill.name} を購入・装備しました！`);
+    } else {
+        alert(`コインが足りません！\n必要: ${skill.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
+    }
+};
+
+window.equipSkill = (skillId) => {
+    equippedSkill = skillId;
+    saveAndDisplayData();
+    renderNormalSkills();
+    renderGachaSkills();
+    if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
+        renderGachaCharacters(getCurrentGachaTabRarity());
+    }
+};
+
 window.unlockBossSkill = (skillId) => {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
         equippedSkill = skillId;
         saveAndDisplayData();
-        renderShop();
+        renderNormalSkills();
         alert(`${SKILL_DB[skillId].name} を解除しました！`);
     }
 };
 
 // =========================================
-// ガチャ機能（装備バグ完全修正版）
+// ガチャ機能
 // =========================================
 
 window.openGacha = () => {
@@ -1742,7 +1825,6 @@ window.switchGachaTab = (rarity) => {
     renderGachaCharacters(rarity);
 };
 
-// ガチャキャラクターの装備処理（完全修正版）
 window.handleGachaCharClick = (event) => {
     const target = event.target.closest('.gacha-char-item');
     if (!target) return;
@@ -1758,7 +1840,7 @@ window.handleGachaCharClick = (event) => {
         return;
     }
     
-    equipGachaCharacter(charId);
+    window.equipGachaCharacter(charId);
 };
 
 function renderGachaCharacters(rarity) {
@@ -1801,51 +1883,6 @@ function renderGachaCharacters(rarity) {
             equippedNameEl.innerText = "なし";
         }
     }
-}
-
-// ガチャキャラを装備（完全修正版）
-function equipGachaCharacter(charId) {
-    if (!ownedSkills.includes(charId)) {
-        alert("このキャラクターを所持していません");
-        return;
-    }
-    
-    console.log(`Equipping gacha character: ${charId}`);
-    
-    // 装備スキルを設定
-    equippedSkill = charId;
-    
-    // ローカルストレージに保存
-    localStorage.setItem("ramo_equipped", equippedSkill);
-    
-    // Firebaseに保存
-    const userRef = ref(db, `users/${myId}`);
-    update(userRef, { equipped: equippedSkill }).catch(err => console.error("Firebase equip error:", err));
-    
-    // スキルUIを更新
-    if (gameActive) {
-        setupSkillUI();
-    }
-    
-    // UIを強制的に更新
-    renderGachaCharacters(getCurrentGachaTabRarity());
-    
-    // ショップ画面が表示されていれば更新
-    if (el("screen-shop") && !el("screen-shop").classList.contains("hidden")) {
-        renderShop();
-    }
-    
-    // 装備中表示を更新
-    const equippedNameEl = el("gacha-equipped-name");
-    if (equippedNameEl) {
-        equippedNameEl.innerText = GACHA_CHAR_DB[charId]?.name || charId;
-    }
-    
-    sounds.notify.play();
-    alert(`${GACHA_CHAR_DB[charId]?.name || charId}を装備しました！`);
-    
-    // データ保存
-    saveAndDisplayData();
 }
 
 window.drawGacha = async (type) => {
@@ -1893,6 +1930,7 @@ window.drawGacha = async (type) => {
     updateGachaCoinDisplay();
     showGachaResult(results);
     renderGachaCharacters(getCurrentGachaTabRarity());
+    renderGachaSkills(); // ショップのガチャスキル一覧も更新
 };
 
 function showGachaResult(results) {
@@ -1918,12 +1956,7 @@ function showGachaResult(results) {
     setTimeout(() => resultDiv.classList.add("hidden"), 4000);
 }
 
-window.openGachaSkillShop = () => {
-    openScreen("screen-shop");
-    renderShop();
-};
-
-// --- デバッグモード（w + l + 8）---
+// --- デバッグモード ---
 window.addEventListener("keydown", (e) => {
     if (e.key.toLowerCase() === 'w') debugKeys.w = true;
     if (e.key.toLowerCase() === 'l') debugKeys.l = true;
@@ -2115,7 +2148,6 @@ function nextQuestion() {
     let q = currentWords[randomIdx];
     el("q-ja").innerText = q;
     let patterns = getRomaPatterns(q);
-    // 最初のパターンを使用（1パターンに統一済み）
     currentRoma = patterns[0]; 
     romaIdx = 0; 
     renderRoma();
@@ -2128,7 +2160,6 @@ function renderRoma() {
     if (todoEl) todoEl.innerText = currentRoma.substring(romaIdx);
 }
 
-// 偽物タイピング用の表示更新
 function renderFakeRoma() {
     const fakeDoneEl = document.getElementById('fake-q-done');
     const fakeTodoEl = document.getElementById('fake-q-todo');
@@ -2141,7 +2172,6 @@ function renderFakeRoma() {
 function processCorrectType() {
     const myHandicap = getMyHandicap();
     
-    // ハンデチェック
     if (myHandicap === "no_type_10" && timer > duration - 10) {
         sounds.miss.play();
         return;
@@ -2217,6 +2247,10 @@ function updateProgressBar(currentScore) {
     el("progress-score").innerText = currentScore.toLocaleString();
 }
 
+// =========================================
+// ストーリーモード制御（完全修正版）
+// =========================================
+
 function storyClear() {
     const stageData = currentStage.chapter === 1 ? STORY_STAGES.chapter1[currentStage.stage - 1] :
                      currentStage.chapter === 2 ? STORY_STAGES.chapter2[currentStage.stage - 1] :
@@ -2224,74 +2258,41 @@ function storyClear() {
     
     let earnedCoins = stageData.reward;
     
+    // 進捗を更新（次のステージを解放）
     if (currentStage.chapter === 1) {
-        if (storyProgress.chapter1 < currentStage.stage) storyProgress.chapter1 = currentStage.stage;
+        if (storyProgress.chapter1 < currentStage.stage) {
+            storyProgress.chapter1 = currentStage.stage;
+        }
     } else if (currentStage.chapter === 2) {
-        if (storyProgress.chapter2 < currentStage.stage) storyProgress.chapter2 = currentStage.stage;
+        if (storyProgress.chapter2 < currentStage.stage) {
+            storyProgress.chapter2 = currentStage.stage;
+        }
     } else {
-        if (storyProgress.chapter3 < currentStage.stage) storyProgress.chapter3 = currentStage.stage;
+        if (storyProgress.chapter3 < currentStage.stage) {
+            storyProgress.chapter3 = currentStage.stage;
+        }
     }
     
-    if (myPartyId) {
-        get(ref(db, `parties/${myPartyId}/members`)).then(snap => {
-            const members = snap.val();
-            if (!members) return;
-            
-            const memberCount = Object.keys(members).length;
-            const updates = {};
-            Object.keys(members).forEach(memberId => {
-                updates[`users/${memberId}/story_progress/chapter${currentStage.chapter}`] = currentStage.stage;
-            });
-            update(ref(db), updates);
-            
-            earnedCoins = Math.floor(earnedCoins / memberCount);
-            coins += earnedCoins;
-            
-            if (stageData.boss) giveBossSkillToAll(stageData.skill, members);
-            
-            saveAndDisplayData();
-            endGame();
-        });
-    } else {
-        coins += earnedCoins;
-        if (stageData.boss) giveBossSkill(stageData.skill);
-        saveAndDisplayData();
-        endGame();
+    // ボスステージクリア時はスキルを獲得
+    if (stageData.boss) {
+        giveBossSkill(stageData.skill);
     }
+    
+    coins += earnedCoins;
+    saveAndDisplayData();
+    
+    // クリアメッセージを表示
+    alert(`🎉 ステージクリア！\n獲得コイン: ${earnedCoins}🪙`);
+    
+    endGame();
 }
 
 function giveBossSkill(skillId) {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
         equippedSkill = skillId;
-        saveAndDisplayData();
         alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
     }
-}
-
-function giveBossSkillToAll(skillId, members) {
-    if (!ownedSkills.includes(skillId)) {
-        ownedSkills.push(skillId);
-        equippedSkill = skillId;
-        alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
-    }
-    
-    Object.keys(members).forEach(memberId => {
-        if (memberId !== myId) {
-            const memberRef = ref(db, `users/${memberId}`);
-            get(memberRef).then(memberSnap => {
-                const memberData = memberSnap.val() || {};
-                const memberSkills = memberData.skills || [];
-                if (!memberSkills.includes(skillId)) {
-                    memberSkills.push(skillId);
-                    update(ref(db, `users/${memberId}`), { 
-                        skills: memberSkills,
-                        equipped: skillId
-                    });
-                }
-            });
-        }
-    });
 }
 
 function canType() {
@@ -2499,7 +2500,7 @@ function endGame() {
     let earnedCoins = Math.floor(score / 10);
     let isWinner = false;
 
-    if (!isStoryMode) {
+    if (!isStoryMode && !trainingMode) {
         if (equippedSkill === "fundraiser") earnedCoins *= 2;
         if (equippedSkill === "godfundraiser") earnedCoins *= 4;
     }
@@ -2515,7 +2516,7 @@ function endGame() {
                     isWinner = true;
                 }
 
-                if (earnedCoins > 0 && !isStoryMode) {
+                if (earnedCoins > 0 && !isStoryMode && !trainingMode) {
                     coins += earnedCoins;
                     saveAndDisplayData();
                 }
@@ -2561,20 +2562,7 @@ function endGame() {
                     const avgScore = Math.floor(totalScore / Object.keys(val).length);
                     coinText = `チーム平均スコア: ${avgScore.toLocaleString()} pts`;
                 } else if (trainingMode) {
-                    const targetScore = trainingType === 1 ? 45000 : 50000;
-                    if (score >= targetScore) {
-                        const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
-                        if (!ownedSkills.includes(skillId)) {
-                            ownedSkills.push(skillId);
-                            equippedSkill = skillId;
-                            saveAndDisplayData();
-                            coinText = "🎉 修行クリア！新スキル獲得！";
-                        } else {
-                            coinText = "修行クリア！（既にスキル獲得済み）";
-                        }
-                    } else {
-                        coinText = "修行失敗...また挑戦しよう";
-                    }
+                    coinText = handleTrainingResult();
                 } else {
                     coinText = isWinner ? `勝利ボーナス！ +${earnedCoins.toLocaleString()} 🪙` : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
                 }
@@ -2596,37 +2584,8 @@ function endGame() {
         }
         
         if (trainingMode) {
-            const targetScore = trainingType === 1 ? 45000 : 50000;
-            if (score >= targetScore) {
-                const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
-                if (!ownedSkills.includes(skillId)) {
-                    ownedSkills.push(skillId);
-                    equippedSkill = skillId;
-                    saveAndDisplayData();
-                    el("ranking-box").innerHTML = `
-                        <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                        <div class="ranking-row" style="color: #00FF00;">
-                            <span>🎉 修行クリア！</span>
-                            <span>${skillId === "swordsman" ? "剣士" : "ハッカー修行人"}を獲得！</span>
-                        </div>
-                    `;
-                } else {
-                    el("ranking-box").innerHTML = `
-                        <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                        <div class="ranking-row" style="color: #FFD700;">
-                            <span>修行クリア！（既にスキル獲得済み）</span>
-                        </div>
-                    `;
-                }
-            } else {
-                el("ranking-box").innerHTML = `
-                    <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                    <div class="ranking-row" style="color: #FF0000;">
-                        <span>❌ 修行失敗</span>
-                        <span>目標: ${targetScore.toLocaleString()} pts</span>
-                    </div>
-                `;
-            }
+            const resultText = handleTrainingResult();
+            el("ranking-box").innerHTML = resultText;
         } else {
             el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>`; 
             let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
@@ -2640,6 +2599,149 @@ function endGame() {
     if (trainingMode) {
         updateTrainingStatus();
     }
+}
+
+// =========================================
+// 修行モード制御（完全修正版）
+// =========================================
+
+function handleTrainingResult() {
+    const targetScore = trainingType === 1 ? 45000 : 50000;
+    const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
+    
+    if (score >= targetScore) {
+        if (!ownedSkills.includes(skillId)) {
+            ownedSkills.push(skillId);
+            equippedSkill = skillId;
+            
+            if (trainingType === 1) {
+                trainingCompleted.training1 = true;
+            } else {
+                trainingCompleted.training2 = true;
+            }
+            
+            saveAndDisplayData();
+            return `
+                <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+                <div class="ranking-row" style="color: #00FF00;">
+                    <span>🎉 修行クリア！</span>
+                    <span>${trainingType === 1 ? "剣士" : "ハッカー修行人"}を獲得！</span>
+                </div>
+            `;
+        } else {
+            if (trainingType === 1) {
+                trainingCompleted.training1 = true;
+            } else {
+                trainingCompleted.training2 = true;
+            }
+            saveAndDisplayData();
+            return `
+                <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+                <div class="ranking-row" style="color: #FFD700;">
+                    <span>修行クリア！（既にスキル獲得済み）</span>
+                </div>
+            `;
+        }
+    } else {
+        return `
+            <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+            <div class="ranking-row" style="color: #FF0000;">
+                <span>❌ 修行失敗</span>
+                <span>目標: ${targetScore.toLocaleString()} pts</span>
+            </div>
+        `;
+    }
+}
+
+window.openTraining = () => {
+    if (myPartyId || isMatchmaking) {
+        alert("パーティー中・マッチング待機中は修行できません");
+        return;
+    }
+    // 修行のクリア状態を読み込み
+    const savedTraining = JSON.parse(localStorage.getItem("ramo_training_completed")) || { training1: false, training2: false };
+    trainingCompleted = savedTraining;
+    openScreen("screen-training");
+    updateTrainingStatus();
+};
+
+function updateTrainingStatus() {
+    const status1 = el("training-1-status");
+    const status2 = el("training-2-status");
+    const card1 = document.querySelector('[data-training="1"]');
+    const card2 = document.querySelector('[data-training="2"]');
+    
+    if (status1) {
+        const isCompleted = ownedSkills.includes("swordsman") || trainingCompleted.training1;
+        status1.innerText = isCompleted ? "✓ クリア済み" : "未クリア";
+        status1.style.color = isCompleted ? "var(--accent-green)" : "var(--accent-red)";
+        if (card1) {
+            if (isCompleted) {
+                card1.classList.add('completed-card');
+            } else {
+                card1.classList.remove('completed-card');
+            }
+        }
+    }
+    if (status2) {
+        const isCompleted = ownedSkills.includes("hacker_trainee") || trainingCompleted.training2;
+        status2.innerText = isCompleted ? "✓ クリア済み" : "未クリア";
+        status2.style.color = isCompleted ? "var(--accent-green)" : "var(--accent-red)";
+        if (card2) {
+            if (isCompleted) {
+                card2.classList.add('completed-card');
+            } else {
+                card2.classList.remove('completed-card');
+            }
+        }
+    }
+}
+
+window.startTraining = (type) => {
+    if (myPartyId || isMatchmaking) return;
+    
+    trainingMode = true;
+    trainingType = type;
+    trainingScore = type === 1 ? 45000 : 50000;
+    
+    const diffs = ["easy", "normal", "hard"];
+    const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
+    currentWords = WORD_DB[randomDiff];
+    
+    isStoryMode = true;
+    storyTargetScore = trainingScore;
+    
+    const progressBar = el("story-progress-bar");
+    if (progressBar) {
+        progressBar.classList.remove("hidden");
+        const targetEl = el("progress-target");
+        if (targetEl) targetEl.innerText = storyTargetScore.toLocaleString();
+        updateProgressBar(0);
+    }
+    
+    openScreen("screen-play");
+    startGame(60);
+};
+
+function trainingAttack() {
+    showCutEffect();
+    score = Math.max(0, score - 200);
+    setStun(1000);
+    el("stat-score").innerText = score.toLocaleString();
+    showBattleAlert("⚔️ 修行の攻撃！200スコア減少！", "#FF0000");
+}
+
+function trainingStatusAttack() {
+    if (Math.random() < 0.5) {
+        setStun(3000);
+        setTimeout(() => {
+            if (Math.random() < 0.5) startPoison(10000);
+            else showBloodEffect(10000);
+        }, 3000);
+    } else {
+        createHackerTabs();
+    }
+    showBattleAlert("⚠️ 修行の特殊攻撃！", "#FF00FF");
 }
 
 // --- スキル・バトルエフェクト処理 ---
@@ -4220,17 +4322,10 @@ function selectPuzzleDot(index) {
 }
 
 // =========================================
-// ストーリーモード制御（第3章ロック機能完全修正版）
+// ストーリーモード制御（完全修正版）
 // =========================================
 
-// 進捗スコア管理用変数
-let storyProgressScore = {
-    chapter1: 0,  // 0-7
-    chapter2: 0,  // 0-7  
-    chapter3: 0   // 0-10
-};
-
-// ストーリーモードの進捗を取得
+// 進捗管理関数
 function getStoryProgress() {
     return {
         chapter1: storyProgress.chapter1 || 0,
@@ -4239,25 +4334,19 @@ function getStoryProgress() {
     };
 }
 
-// ステージが解放可能かチェック
 function isStageUnlocked(chapter, stage) {
     const progress = getStoryProgress();
     
-    // 第1章
     if (chapter === 1) {
         return stage <= progress.chapter1 + 1;
     }
     
-    // 第2章
     if (chapter === 2) {
-        // 第1章をクリアしているか
         if (progress.chapter1 < 7) return false;
         return stage <= progress.chapter2 + 1;
     }
     
-    // 第3章
     if (chapter === 3) {
-        // 第2章をクリアしているか
         if (progress.chapter2 < 7) return false;
         return stage <= progress.chapter3 + 1;
     }
@@ -4265,7 +4354,6 @@ function isStageUnlocked(chapter, stage) {
     return false;
 }
 
-// ステージがクリア済みかチェック
 function isStageCompleted(chapter, stage) {
     const progress = getStoryProgress();
     
@@ -4280,7 +4368,6 @@ function isStageCompleted(chapter, stage) {
     return false;
 }
 
-// 現在のステージかチェック
 function isCurrentStage(chapter, stage) {
     const progress = getStoryProgress();
     
@@ -4295,7 +4382,6 @@ function isCurrentStage(chapter, stage) {
     return false;
 }
 
-// 章がロックされているかチェック
 function isChapterLocked(chapter) {
     const progress = getStoryProgress();
     
@@ -4378,17 +4464,14 @@ function renderStoryMap() {
         });
     }
 
-    // 第3章（完全修正版）
+    // 第3章
     const map3 = el("story-map-3");
     if (map3) {
         map3.innerHTML = "";
         STORY_STAGES.chapter3.forEach((stage, index) => {
             const stageNum = index + 1;
             
-            // 第2章をクリアしていないと第3章全体がロック
             const chapterLocked = progress.chapter2 < 7;
-            
-            // 解放条件：第2章クリア済み かつ 前のステージをクリア済み
             const isUnlocked = !chapterLocked && (stageNum <= progress.chapter3 + 1);
             const isLocked = !isUnlocked;
             const isCompleted = !chapterLocked && progress.chapter3 >= stageNum;
@@ -4408,7 +4491,6 @@ function renderStoryMap() {
         });
     }
     
-    // 章タブのクリックイベント
     document.querySelectorAll('.chapter-tab').forEach(tab => {
         tab.onclick = () => {
             const chapter = parseInt(tab.dataset.chapter);
@@ -4439,7 +4521,6 @@ function updateChapterLocks() {
 }
 
 function selectStage(chapter, stage) {
-    // 厳密なロックチェック
     if (!isStageUnlocked(chapter, stage)) {
         alert("前のステージをクリアしてください");
         return;
@@ -4605,83 +4686,6 @@ window.executeDodge = () => {
     if (window.dodgeCallback) window.dodgeCallback(true);
 };
 
-// --- 修行モード ---
-window.openTraining = () => {
-    if (myPartyId || isMatchmaking) {
-        alert("パーティー中・マッチング待機中は修行できません");
-        return;
-    }
-    openScreen("screen-training");
-    updateTrainingStatus();
-};
-
-function updateTrainingStatus() {
-    const status1 = el("training-1-status");
-    const status2 = el("training-2-status");
-    
-    if (status1) {
-        status1.innerText = ownedSkills.includes("swordsman") ? "✓ クリア済み" : "未クリア";
-        status1.style.color = ownedSkills.includes("swordsman") ? "var(--accent-green)" : "var(--accent-red)";
-    }
-    if (status2) {
-        status2.innerText = ownedSkills.includes("hacker_trainee") ? "✓ クリア済み" : "未クリア";
-        status2.style.color = ownedSkills.includes("hacker_trainee") ? "var(--accent-green)" : "var(--accent-red)";
-    }
-}
-
-window.startTraining = (type) => {
-    if (myPartyId || isMatchmaking) return;
-    if (type === 1 && ownedSkills.includes("swordsman")) {
-        if (!confirm("既にクリア済みです。もう一度挑戦しますか？")) return;
-    }
-    if (type === 2 && ownedSkills.includes("hacker_trainee")) {
-        if (!confirm("既にクリア済みです。もう一度挑戦しますか？")) return;
-    }
-    
-    trainingMode = true;
-    trainingType = type;
-    trainingScore = type === 1 ? 45000 : 50000;
-    
-    const diffs = ["easy", "normal", "hard"];
-    const randomDiff = diffs[Math.floor(Math.random() * diffs.length)];
-    currentWords = WORD_DB[randomDiff];
-    
-    isStoryMode = true;
-    storyTargetScore = trainingScore;
-    
-    const progressBar = el("story-progress-bar");
-    if (progressBar) {
-        progressBar.classList.remove("hidden");
-        const targetEl = el("progress-target");
-        if (targetEl) targetEl.innerText = storyTargetScore.toLocaleString();
-        updateProgressBar(0);
-    }
-    
-    openScreen("screen-play");
-    startGame(60);
-};
-
-function trainingAttack() {
-    showCutEffect();
-    score = Math.max(0, score - 200);
-    setStun(1000);
-    el("stat-score").innerText = score.toLocaleString();
-    showBattleAlert("⚔️ 修行の攻撃！200スコア減少！", "#FF0000");
-}
-
-function trainingStatusAttack() {
-    if (Math.random() < 0.5) {
-        setStun(3000);
-        setTimeout(() => {
-            if (Math.random() < 0.5) startPoison(10000);
-            else showBloodEffect(10000);
-        }, 3000);
-    } else {
-        createHackerTabs();
-    }
-    showBattleAlert("⚠️ 修行の特殊攻撃！", "#FF00FF");
-}
-
 // --- モード制御 ---
 window.openSingleSelect = () => {
     if (myPartyId || isMatchmaking || trainingMode) return; 
@@ -4784,6 +4788,7 @@ get(userRef).then(snap => {
         if(data.skills !== undefined) ownedSkills = data.skills;
         if(data.equipped !== undefined) equippedSkill = data.equipped;
         if(data.story_progress !== undefined) storyProgress = data.story_progress;
+        if(data.training_completed !== undefined) trainingCompleted = data.training_completed;
         if(data.skin !== undefined) skinData = data.skin;
         if(data.accessory !== undefined) equippedAccessory = data.accessory;
         if(data.tysm_used !== undefined) tysmUsed = data.tysm_used;
@@ -4799,6 +4804,7 @@ get(userRef).then(snap => {
         localStorage.setItem("ramo_daily_code", dailyCode);
         localStorage.setItem("ramo_daily_date", dailyCodeDate);
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+        localStorage.setItem("ramo_training_completed", JSON.stringify(trainingCompleted));
     }
     saveAndDisplayData();
     updateTrainingStatus();
@@ -4810,6 +4816,7 @@ update(userRef, {
     status: "online", 
     partyId: null, 
     story_progress: storyProgress,
+    training_completed: trainingCompleted,
     skin: skinData,
     accessory: equippedAccessory,
     tysm_used: tysmUsed,
@@ -4835,4 +4842,10 @@ checkDailyCode();
 startCodeTimer();
 updateProfileFace();
 
+// 初期表示
 window.goHome();
+
+// スキルショップの初期タブを設定
+if (el('screen-shop') && !el('screen-shop').classList.contains('hidden')) {
+    window.switchShopTab('normal');
+}
