@@ -473,7 +473,7 @@ body, html {
 
 /* パーティーリスト - 修正済み */
 .list-section:last-of-type {
-    flex: 2;  /* 1.5 → 2 に拡大 */
+    flex: 1.5;  /* 1.5 に拡大 */
 }
 
 .panel-title { 
