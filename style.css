@@ -367,17 +367,17 @@ body, html {
     width: 400px;  /* 380px → 400px に拡大 */
     background: var(--panel-bg); 
     border-left: 1px solid var(--glass); 
-    padding: 20px 15px;  /* 上下のパディングを増加 */
+    padding: 20px 10px;  /* 上下のパディングを増加 */
     display: flex; 
     flex-direction: column; 
-    gap: 20px;  /* 15px → 20px に増加 */
+    gap: 15px;  /* 15px */
     height: 100vh;
 }
 
 .side-panel { 
     background: var(--glass); 
     border-radius: 15px; 
-    padding: 18px;  /* 15px → 18px に増加 */
+    padding: 15px;  /* 15px */
     border: 1px solid rgba(255,255,255,0.05);
     display: flex;
     flex-direction: column;
