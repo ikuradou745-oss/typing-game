@@ -320,9 +320,9 @@
                     <div id="shop-gacha-skills" class="shop-grid hidden"></div>
                 </div>
 
-                <!-- メインメニューに戻るボタン - 位置を上に調整 -->
-                <div class="shop-footer-buttons" style="margin-top: 20px; display: flex; justify-content: center;">
-                    <button class="action-btn gray-btn" style="max-width: 300px; padding: 15px;" onclick="window.goHome()">メインメニューに戻る</button>
+                <!-- メインメニューに戻るボタン - 位置を上に調整（修正済み） -->
+                <div class="shop-footer-buttons" style="margin-top: 15px; display: flex; justify-content: center;">
+                    <button class="action-btn gray-btn" style="max-width: 300px; padding: 15px 25px;" onclick="window.goHome()">メインメニューに戻る</button>
                 </div>
             </div>
 
@@ -532,7 +532,7 @@
                 </div>
             </section>
 
-            <section class="side-panel list-section" style="flex: 2; min-height: 0;">
+            <section class="side-panel list-section" style="flex: 3; min-height: 0;">  <!-- flex: 2.5 → 3 に変更（高くして見やすく） -->
                 <div class="panel-title">フレンド</div>
                 <div class="friend-add-box">
                     <input type="text" id="friend-code-input" placeholder="コードを入力">
@@ -541,7 +541,7 @@
                 <div id="friend-list-ui" class="side-scroll" style="max-height: none;"></div>
             </section>
 
-            <section class="side-panel list-section" style="flex: 1.5; min-height: 0;">
+            <section class="side-panel list-section" style="flex: 2; min-height: 0;">  <!-- flex: 1.5 → 2 に変更（高くして見やすく） -->
                 <div class="panel-title" id="party-label">パーティー (未参加)</div>
                 <div id="party-list-ui" class="side-scroll"></div>
                 <div id="party-actions" class="hidden">
