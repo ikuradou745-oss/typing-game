@@ -1,12 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V20.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V21.0 (完全修正版)
 // 修正内容:
-// 1. ローマ字変換を1パターンに統一
-// 2. ストーリーモードの進捗管理を完全修正（3-1クリア後3-2解放）
-// 3. 修行モードのクリアフラグ管理を修正
-// 4. ガチャスキルとノーマルスキルをショップで分けて表示
-// 5. スキル装備機能の安定性向上
+// 1. ストーリーモードの進捗管理を完全修正（3-1クリア後3-2解放）
+// 2. 修行モードのクリアフラグ管理を修正（スキル獲得・次へ進める）
+// 3. デバッグモードのお金増減機能を修正
+// 4. スキルショップの表示改善
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1595,6 +1594,11 @@ function equipAccessory(accessoryId) {
 
 window.openShop = () => {
     openScreen("screen-shop");
+    // デバッグ用に自分のコードを表示
+    const debugMyCode = el("debug-my-code");
+    if (debugMyCode) {
+        debugMyCode.innerText = myId;
+    }
     renderShop();
 };
 
@@ -1956,7 +1960,10 @@ function showGachaResult(results) {
     setTimeout(() => resultDiv.classList.add("hidden"), 4000);
 }
 
-// --- デバッグモード ---
+// =========================================
+// デバッグモード（完全修正版）
+// =========================================
+
 window.addEventListener("keydown", (e) => {
     if (e.key.toLowerCase() === 'w') debugKeys.w = true;
     if (e.key.toLowerCase() === 'l') debugKeys.l = true;
@@ -1978,12 +1985,18 @@ function showDebugInput() {
     const code = prompt("デバッグコードを入力してください:");
     if (code === "1x4x5f") {
         el("debug-overlay").classList.remove("hidden");
+        // 自分のコードを表示
+        const debugMyCode = el("debug-my-code");
+        if (debugMyCode) {
+            debugMyCode.innerText = myId;
+        }
     }
     debugActive = false;
 }
 
+// デバッグ実行関数（完全修正版）
 window.executeDebug = async () => {
-    const friendCode = el("debug-friend-code").value;
+    const friendCode = el("debug-friend-code").value.trim();
     const operation = el("debug-operation").value;
     const amount = parseInt(el("debug-amount").value) || 0;
     
@@ -1992,32 +2005,71 @@ window.executeDebug = async () => {
         return;
     }
     
+    console.log(`Debug: friendCode=${friendCode}, operation=${operation}, amount=${amount}`);
+    
     if (friendCode === myId) {
+        // 自分のコインを変更
+        let oldCoins = coins;
         switch(operation) {
-            case "add": coins += amount; break;
-            case "subtract": coins = Math.max(0, coins - amount); break;
-            case "set": coins = Math.max(0, amount); break;
+            case "add":
+                coins += amount;
+                break;
+            case "subtract":
+                coins = Math.max(0, coins - amount);
+                break;
+            case "set":
+                coins = Math.max(0, amount);
+                break;
         }
-        saveAndDisplayData();
-        alert(`自分のコインを変更しました: ${coins.toLocaleString()}🪙`);
-    } else {
-        const userRef = ref(db, `users/${friendCode}`);
-        const snap = await get(userRef);
+        console.log(`自分のコイン変更: ${oldCoins} → ${coins}`);
         
-        if (snap.exists()) {
-            const userData = snap.val();
-            let newCoins = userData.coins || 0;
+        // 即座にローカルストレージに保存
+        localStorage.setItem("ramo_coins", coins);
+        
+        // UIを更新
+        saveAndDisplayData();
+        
+        // Firebaseにも保存
+        const userRef = ref(db, `users/${myId}`);
+        await update(userRef, { coins: coins }).catch(err => {
+            console.error("Firebase update error:", err);
+            alert("Firebase保存エラー: " + err.message);
+        });
+        
+        alert(`✅ 自分のコインを変更しました\n💰 ${oldCoins.toLocaleString()} → ${coins.toLocaleString()} 🪙`);
+    } else {
+        // フレンドのコインを変更
+        try {
+            const userRef = ref(db, `users/${friendCode}`);
+            const snap = await get(userRef);
             
-            switch(operation) {
-                case "add": newCoins += amount; break;
-                case "subtract": newCoins = Math.max(0, newCoins - amount); break;
-                case "set": newCoins = Math.max(0, amount); break;
+            if (snap.exists()) {
+                const userData = snap.val();
+                let newCoins = userData.coins || 0;
+                const oldCoins = newCoins;
+                
+                switch(operation) {
+                    case "add":
+                        newCoins += amount;
+                        break;
+                    case "subtract":
+                        newCoins = Math.max(0, newCoins - amount);
+                        break;
+                    case "set":
+                        newCoins = Math.max(0, amount);
+                        break;
+                }
+                
+                console.log(`フレンド(${friendCode})のコイン変更: ${oldCoins} → ${newCoins}`);
+                
+                await update(userRef, { coins: newCoins });
+                alert(`✅ ユーザー ${friendCode} のコインを変更しました\n💰 ${oldCoins.toLocaleString()} → ${newCoins.toLocaleString()} 🪙`);
+            } else {
+                alert(`❌ ユーザー ${friendCode} が見つかりません`);
             }
-            
-            await update(userRef, { coins: newCoins });
-            alert(`ユーザー ${friendCode} のコインを変更しました: ${newCoins.toLocaleString()}🪙`);
-        } else {
-            alert("指定されたユーザーが見つかりません");
+        } catch (err) {
+            console.error("Debug error:", err);
+            alert("エラーが発生しました: " + err.message);
         }
     }
     
@@ -2262,14 +2314,17 @@ function storyClear() {
     if (currentStage.chapter === 1) {
         if (storyProgress.chapter1 < currentStage.stage) {
             storyProgress.chapter1 = currentStage.stage;
+            console.log(`ストーリー進捗更新: 第1章 ${currentStage.stage} クリア`);
         }
     } else if (currentStage.chapter === 2) {
         if (storyProgress.chapter2 < currentStage.stage) {
             storyProgress.chapter2 = currentStage.stage;
+            console.log(`ストーリー進捗更新: 第2章 ${currentStage.stage} クリア`);
         }
     } else {
         if (storyProgress.chapter3 < currentStage.stage) {
             storyProgress.chapter3 = currentStage.stage;
+            console.log(`ストーリー進捗更新: 第3章 ${currentStage.stage} クリア`);
         }
     }
     
@@ -2291,6 +2346,7 @@ function giveBossSkill(skillId) {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
         equippedSkill = skillId;
+        saveAndDisplayData();
         alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
     }
 }
@@ -2621,6 +2677,7 @@ function handleTrainingResult() {
             }
             
             saveAndDisplayData();
+            console.log(`修行クリア: ${skillId} を獲得`);
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
                 <div class="ranking-row" style="color: #00FF00;">
@@ -2635,6 +2692,7 @@ function handleTrainingResult() {
                 trainingCompleted.training2 = true;
             }
             saveAndDisplayData();
+            console.log(`修行クリア (既にスキル獲得済み)`);
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
                 <div class="ranking-row" style="color: #FFD700;">
@@ -2643,6 +2701,7 @@ function handleTrainingResult() {
             `;
         }
     } else {
+        console.log(`修行失敗: ${score} / ${targetScore}`);
         return `
             <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
             <div class="ranking-row" style="color: #FF0000;">
@@ -4399,6 +4458,7 @@ window.openStoryMode = () => {
     get(ref(db, `users/${myId}/story_progress`)).then(snap => {
         if (snap.exists()) {
             storyProgress = snap.val();
+            console.log("ストーリー進捗を読み込み:", storyProgress);
         }
         openScreen("screen-story");
         renderStoryMap();
@@ -4415,6 +4475,7 @@ function renderStoryMap() {
     updateChapterLocks();
     
     const progress = getStoryProgress();
+    console.log("現在のストーリー進捗:", progress);
     
     // 第1章
     const map1 = el("story-map-1");
@@ -4778,6 +4839,12 @@ const idDisplay = el("my-id-display");
 if (idDisplay) idDisplay.innerText = myId;
 const nameInput = el("my-name-input");
 if (nameInput) nameInput.value = myName;
+
+// デバッグ用に自分のコードを表示
+const debugMyCode = el("debug-my-code");
+if (debugMyCode) {
+    debugMyCode.innerText = myId;
+}
 
 const userRef = ref(db, `users/${myId}`);
 
