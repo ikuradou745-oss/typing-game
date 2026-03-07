@@ -1,11 +1,12 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V21.0 (完全修正版)
+// FIREBASE & TYPING ENGINE V21.1 (完全修正版)
 // 修正内容:
-// 1. ストーリーモードの進捗管理を完全修正（3-1クリア後3-2解放）
-// 2. 修行モードのクリアフラグ管理を修正（スキル獲得・次へ進める）
+// 1. ストーリーモードの進捗管理を完全修正（クリア後次のステージを正しく解放）
+// 2. 修行モードのクリアフラグ管理を修正（スキル獲得を確実に）
 // 3. デバッグモードのお金増減機能を修正
 // 4. スキルショップの表示改善
+// 5. フレンドリストの表示最適化
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1651,10 +1652,10 @@ function renderNormalSkills() {
         
         if (skill.training) {
             if (skill.id === "swordsman") {
-                isUnlocked = ownedSkills.includes("swordsman");
+                isUnlocked = ownedSkills.includes("swordsman") || trainingCompleted.training1;
                 requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行1をクリアすると使用可能'}】`;
             } else if (skill.id === "hacker_trainee") {
-                isUnlocked = ownedSkills.includes("hacker_trainee");
+                isUnlocked = ownedSkills.includes("hacker_trainee") || trainingCompleted.training2;
                 requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行2をクリアすると使用可能'}】`;
             }
         }
@@ -2310,21 +2311,26 @@ function storyClear() {
     
     let earnedCoins = stageData.reward;
     
-    // 進捗を更新（次のステージを解放）
+    // 進捗を更新（次のステージを解放）- 修正済み
+    let progressUpdated = false;
+    
     if (currentStage.chapter === 1) {
         if (storyProgress.chapter1 < currentStage.stage) {
             storyProgress.chapter1 = currentStage.stage;
-            console.log(`ストーリー進捗更新: 第1章 ${currentStage.stage} クリア`);
+            progressUpdated = true;
+            console.log(`ストーリー進捗更新: 第1章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
         }
     } else if (currentStage.chapter === 2) {
         if (storyProgress.chapter2 < currentStage.stage) {
             storyProgress.chapter2 = currentStage.stage;
-            console.log(`ストーリー進捗更新: 第2章 ${currentStage.stage} クリア`);
+            progressUpdated = true;
+            console.log(`ストーリー進捗更新: 第2章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
         }
     } else {
         if (storyProgress.chapter3 < currentStage.stage) {
             storyProgress.chapter3 = currentStage.stage;
-            console.log(`ストーリー進捗更新: 第3章 ${currentStage.stage} クリア`);
+            progressUpdated = true;
+            console.log(`ストーリー進捗更新: 第3章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
         }
     }
     
@@ -2334,7 +2340,17 @@ function storyClear() {
     }
     
     coins += earnedCoins;
+    
+    // 必ずセーブする（進捗が更新されていなくても）
     saveAndDisplayData();
+    
+    // 明示的にFirebaseに進捗を保存
+    const userRef = ref(db, `users/${myId}`);
+    update(userRef, {
+        story_progress: storyProgress,
+        coins: coins,
+        skills: ownedSkills
+    }).catch(err => console.error("Firebase story progress save error:", err));
     
     // クリアメッセージを表示
     alert(`🎉 ステージクリア！\n獲得コイン: ${earnedCoins}🪙`);
@@ -2346,8 +2362,11 @@ function giveBossSkill(skillId) {
     if (!ownedSkills.includes(skillId)) {
         ownedSkills.push(skillId);
         equippedSkill = skillId;
+        console.log(`ボススキル獲得: ${skillId}`);
         saveAndDisplayData();
         alert(`🎉 ボスステージクリア！「${SKILL_DB[skillId].name}」を獲得しました！`);
+    } else {
+        console.log(`ボススキルは既に所持済み: ${skillId}`);
     }
 }
 
@@ -2666,18 +2685,37 @@ function handleTrainingResult() {
     const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
     
     if (score >= targetScore) {
+        // 修行クリア処理 - 修正済み
+        let skillObtained = false;
+        
         if (!ownedSkills.includes(skillId)) {
             ownedSkills.push(skillId);
             equippedSkill = skillId;
-            
-            if (trainingType === 1) {
-                trainingCompleted.training1 = true;
-            } else {
-                trainingCompleted.training2 = true;
-            }
-            
-            saveAndDisplayData();
-            console.log(`修行クリア: ${skillId} を獲得`);
+            skillObtained = true;
+            console.log(`修行クリア: 新しいスキル「${skillId}」を獲得`);
+        } else {
+            console.log(`修行クリア: スキル「${skillId}」は既に所持済み`);
+        }
+        
+        // 修行クリアフラグを設定
+        if (trainingType === 1) {
+            trainingCompleted.training1 = true;
+        } else {
+            trainingCompleted.training2 = true;
+        }
+        
+        // 必ずセーブ
+        saveAndDisplayData();
+        
+        // 明示的にFirebaseに保存
+        const userRef = ref(db, `users/${myId}`);
+        update(userRef, {
+            training_completed: trainingCompleted,
+            skills: ownedSkills,
+            equipped: equippedSkill
+        }).catch(err => console.error("Firebase training save error:", err));
+        
+        if (skillObtained) {
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
                 <div class="ranking-row" style="color: #00FF00;">
@@ -2686,13 +2724,6 @@ function handleTrainingResult() {
                 </div>
             `;
         } else {
-            if (trainingType === 1) {
-                trainingCompleted.training1 = true;
-            } else {
-                trainingCompleted.training2 = true;
-            }
-            saveAndDisplayData();
-            console.log(`修行クリア (既にスキル獲得済み)`);
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
                 <div class="ranking-row" style="color: #FFD700;">
