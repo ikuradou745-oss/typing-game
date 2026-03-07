@@ -364,20 +364,20 @@ body, html {
    サイドバー (フレンドリスト拡大版) - 修正済み
    ========================================= */
 #sidebar { 
-    width: 300px;  /* 380px → 400px に拡大 */
+    width: 400px;  /* 380px → 400px に拡大 */
     background: var(--panel-bg); 
     border-left: 1px solid var(--glass); 
-    padding: 20px 10px;  /* 上下のパディングを増加 */
+    padding: 20px 15px;  /* 上下のパディングを増加 */
     display: flex; 
     flex-direction: column; 
-    gap: 15px;  /* 15px */
+    gap: 20px;  /* 15px → 20px に増加 */
     height: 100vh;
 }
 
 .side-panel { 
     background: var(--glass); 
     border-radius: 15px; 
-    padding: 15px;  /* 15px */
+    padding: 18px;  /* 15px → 18px に増加 */
     border: 1px solid rgba(255,255,255,0.05);
     display: flex;
     flex-direction: column;
@@ -392,12 +392,12 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;  /* 10px → 12px に増加 */
+    gap: 12px;  /* 10px → 12px に増加 */
 }
 
 .profile-face-container {
-    width: 70px;  /* 70px */
-    height: 70px;  /* 70px */
+    width: 80px;  /* 70px → 80px に拡大 */
+    height: 80px;  /* 70px → 80px に拡大 */
     margin: 0 auto 15px auto;  /* 下部マージンを増加 */
     position: relative;
     background: #1a1a2a;
@@ -468,20 +468,20 @@ body, html {
 
 /* フレンドリストを特に大きく - 修正済み */
 .list-section:first-of-type {
-    flex: 2.5;  /* 2.5 */
+    flex: 3;  /* 2.5 → 3 に拡大 */
 }
 
 /* パーティーリスト - 修正済み */
 .list-section:last-of-type {
-    flex: 1.5;  /* 1.5 に拡大 */
+    flex: 2;  /* 1.5 → 2 に拡大 */
 }
 
 .panel-title { 
     font-weight: 900; 
     color: var(--accent-blue); 
-    margin-bottom: 15px;  /* 15px */
+    margin-bottom: 18px;  /* 15px → 18px に増加 */
     border-left: 5px solid var(--accent-blue); 
-    padding-left: 10px;  /* 10px */
+    padding-left: 12px;  /* 10px → 12px に増加 */
     font-size: 1.2rem;  /* フォントサイズ追加 */
     flex-shrink: 0;
 }
