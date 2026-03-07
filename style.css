@@ -26,6 +26,8 @@
     --story-available: #00f2ff;
     --training-completed: #00ff00;
     --training-uncompleted: #ff4444;
+    --skill-obtained: #ffd700;
+    --skill-not-obtained: #ff4444;
 }
 
 * { box-sizing: border-box; }
@@ -359,23 +361,23 @@ body, html {
 }
 
 /* =========================================
-   サイドバー (フレンドリスト拡大版)
+   サイドバー (フレンドリスト拡大版) - 修正済み
    ========================================= */
 #sidebar { 
-    width: 380px; 
+    width: 400px;  /* 380px → 400px に拡大 */
     background: var(--panel-bg); 
     border-left: 1px solid var(--glass); 
-    padding: 15px; 
+    padding: 20px 15px;  /* 上下のパディングを増加 */
     display: flex; 
     flex-direction: column; 
-    gap: 15px; 
+    gap: 20px;  /* 15px → 20px に増加 */
     height: 100vh;
 }
 
 .side-panel { 
     background: var(--glass); 
     border-radius: 15px; 
-    padding: 15px; 
+    padding: 18px;  /* 15px → 18px に増加 */
     border: 1px solid rgba(255,255,255,0.05);
     display: flex;
     flex-direction: column;
@@ -390,13 +392,13 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 12px;  /* 10px → 12px に増加 */
 }
 
 .profile-face-container {
-    width: 70px;
-    height: 70px;
-    margin: 0 auto 10px auto;
+    width: 80px;  /* 70px → 80px に拡大 */
+    height: 80px;  /* 70px → 80px に拡大 */
+    margin: 0 auto 15px auto;  /* 下部マージンを増加 */
     position: relative;
     background: #1a1a2a;
     border-radius: 50%;
@@ -424,7 +426,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.2rem;
+    font-size: 2.5rem;  /* 2.2rem → 2.5rem に拡大 */
     color: #000;
     text-shadow: 0 0 5px rgba(255,255,255,0.5);
 }
@@ -438,7 +440,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.2rem;
+    font-size: 2.5rem;  /* 2.2rem → 2.5rem に拡大 */
     pointer-events: none;
     text-shadow: 0 0 10px gold;
 }
@@ -464,54 +466,78 @@ body, html {
     flex-direction: column;
 }
 
-/* フレンドリストを特に大きく */
+/* フレンドリストを特に大きく - 修正済み */
 .list-section:first-of-type {
-    flex: 2.5;  /* フレンドリストを2.5倍に拡大 */
+    flex: 3;  /* 2.5 → 3 に拡大 */
 }
 
-/* パーティーリスト */
+/* パーティーリスト - 修正済み */
 .list-section:last-of-type {
-    flex: 1.5;  /* パーティーリストを1.5倍に */
+    flex: 2;  /* 1.5 → 2 に拡大 */
 }
 
 .panel-title { 
     font-weight: 900; 
     color: var(--accent-blue); 
-    margin-bottom: 15px; 
+    margin-bottom: 18px;  /* 15px → 18px に増加 */
     border-left: 5px solid var(--accent-blue); 
-    padding-left: 10px;
+    padding-left: 12px;  /* 10px → 12px に増加 */
+    font-size: 1.2rem;  /* フォントサイズ追加 */
     flex-shrink: 0;
 }
 
 .side-scroll { 
     flex: 1;
     overflow-y: auto; 
-    padding-right: 5px;
-    margin-top: 10px;
-    max-height: none;  /* 高さ制限を解除 */
+    padding-right: 8px;  /* 5px → 8px に増加 */
+    margin-top: 15px;  /* 10px → 15px に増加 */
+    max-height: none;
 }
 
 /* スクロールバーのカスタマイズ */
-.side-scroll::-webkit-scrollbar { width: 5px; }
+.side-scroll::-webkit-scrollbar { width: 6px; }  /* 5px → 6px に拡大 */
 .side-scroll::-webkit-scrollbar-track { background: transparent; }
 .side-scroll::-webkit-scrollbar-thumb { background: var(--accent-blue); border-radius: 10px; }
 
 /* フォーム要素 */
-input[type="text"], .cyber-select { background: #000; border: 1px solid var(--accent-blue); color: #fff; padding: 10px; width: 100%; border-radius: 5px; font-family: inherit; }
+input[type="text"], .cyber-select { 
+    background: #000; 
+    border: 1px solid var(--accent-blue); 
+    color: #fff; 
+    padding: 12px;  /* 10px → 12px に増加 */
+    width: 100%; 
+    border-radius: 6px;  /* 5px → 6px に増加 */
+    font-family: inherit; 
+    font-size: 0.95rem;  /* フォントサイズ追加 */
+}
 input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-shadow: 0 0 10px var(--accent-gold); }
 
-.code-display { margin-top: 10px; font-size: 0.9rem; color: var(--accent-purple); background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; text-align: center; }
-.friend-add-box { display: flex; gap: 5px; flex-shrink: 0; }
+.code-display { 
+    margin-top: 12px;  /* 10px → 12px に増加 */
+    font-size: 1rem;  /* 0.9rem → 1rem に拡大 */
+    color: var(--accent-purple); 
+    background: rgba(0,0,0,0.3); 
+    padding: 8px;  /* 5px → 8px に増加 */
+    border-radius: 6px;  /* 5px → 6px に増加 */
+    text-align: center; 
+    width: 100%;
+}
+.friend-add-box { 
+    display: flex; 
+    gap: 8px;  /* 5px → 8px に増加 */
+    flex-shrink: 0; 
+    margin-bottom: 5px;
+}
 
 /* フレンドアイテム - アクセサリー表示対応 */
 .friend-item { 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    padding: 10px; 
+    padding: 12px;  /* 10px → 12px に増加 */
     background: rgba(0,0,0,0.3); 
-    margin-bottom: 10px; 
-    border-radius: 8px; 
+    margin-bottom: 12px;  /* 10px → 12px に増加 */
+    border-radius: 10px;  /* 8px → 10px に増加 */
     border: 1px solid transparent; 
     transition: 0.2s;
 }
@@ -519,16 +545,16 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .friend-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;  /* 8px → 10px に増加 */
     flex: 1;
 }
 
 .friend-face {
     display: flex;
     align-items: center;
-    gap: 2px;
-    font-size: 1.3rem;
-    min-width: 50px;
+    gap: 4px;  /* 2px → 4px に増加 */
+    font-size: 1.5rem;  /* 1.3rem → 1.5rem に拡大 */
+    min-width: 60px;  /* 50px → 60px に拡大 */
 }
 
 .friend-face span {
@@ -536,24 +562,25 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 .friend-name {
-    font-size: 0.95rem;
+    font-size: 1rem;  /* 0.95rem → 1rem に拡大 */
     word-break: break-word;
-    max-width: 120px;
+    max-width: 140px;  /* 120px → 140px に拡大 */
+    font-weight: 500;
 }
 
 .friend-actions {
     display: flex;
-    gap: 5px;
+    gap: 8px;  /* 5px → 8px に増加 */
     flex-shrink: 0;
 }
 
 .friend-item:hover { border-color: var(--accent-blue); background: rgba(0, 242, 255, 0.1); }
 .status-dot { 
-    width: 8px; 
-    height: 8px; 
+    width: 10px;  /* 8px → 10px に拡大 */
+    height: 10px;  /* 8px → 10px に拡大 */
     border-radius: 50%; 
     display: inline-block; 
-    margin-right: 5px; 
+    margin-right: 8px;  /* 5px → 8px に増加 */
 }
 .online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
 .offline { background: var(--accent-red); }
@@ -719,20 +746,20 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     color: white;
 }
 
-/* ショップのフッターボタン - 位置調整 */
+/* ショップのフッターボタン - 位置調整（修正済み） */
 .shop-footer-buttons {
-    margin-top: 20px;
+    margin-top: 10px;  /* 20px → 10px に減らしてボタンを上げる */
     display: flex;
     justify-content: center;
     position: relative;
     z-index: 20;
-    padding: 10px 0;
+    padding: 8px 0;  /* 10px 0 → 8px 0 に調整 */
 }
 
 .shop-footer-buttons .action-btn {
     max-width: 300px;
-    padding: 15px 30px;
-    font-size: 1.2rem;
+    padding: 12px 25px;  /* 15px 30px → 12px 25px に減らしてコンパクトに */
+    font-size: 1.1rem;  /* 1.2rem → 1.1rem に少し小さく */
 }
 
 /* スキルUI */
@@ -2971,4 +2998,41 @@ body.swaying .stat-box {
     flex: 1;
     padding: 15px;
     font-size: 1.1rem;
+}
+
+/* =========================================
+   ストーリーモード スキル獲得表示（追加）
+   ========================================= */
+.skill-obtained {
+    color: var(--skill-obtained);
+    font-weight: bold;
+    text-shadow: 0 0 10px var(--skill-obtained);
+}
+
+.skill-not-obtained {
+    color: var(--skill-not-obtained);
+    font-weight: bold;
+    text-shadow: 0 0 10px var(--skill-not-obtained);
+}
+
+/* 修行モード クリア表示強化 */
+.training-card.cleared {
+    border-color: var(--training-completed);
+    background: linear-gradient(145deg, #1a3a1a, #0a2a0a);
+    position: relative;
+}
+
+.training-card.cleared::after {
+    content: "✓ クリア済み";
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--training-completed);
+    color: #000;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    box-shadow: 0 0 15px var(--training-completed);
+    z-index: 10;
 }
