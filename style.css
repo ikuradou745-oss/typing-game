@@ -361,23 +361,23 @@ body, html {
 }
 
 /* =========================================
-   サイドバー (フレンドリスト拡大版) - 修正済み
+   サイドバー (フレンドリスト超拡大版) - 完全修正
    ========================================= */
 #sidebar { 
-    width: 400px;  /* 380px → 400px に拡大 */
+    width: 450px;  /* 400px → 450px にさらに拡大 */
     background: var(--panel-bg); 
     border-left: 1px solid var(--glass); 
-    padding: 20px 15px;  /* 上下のパディングを増加 */
+    padding: 20px 15px;
     display: flex; 
     flex-direction: column; 
-    gap: 20px;  /* 15px → 20px に増加 */
+    gap: 20px;
     height: 100vh;
 }
 
 .side-panel { 
     background: var(--glass); 
     border-radius: 15px; 
-    padding: 18px;  /* 15px → 18px に増加 */
+    padding: 18px;
     border: 1px solid rgba(255,255,255,0.05);
     display: flex;
     flex-direction: column;
@@ -392,13 +392,13 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;  /* 10px → 12px に増加 */
+    gap: 12px;
 }
 
 .profile-face-container {
-    width: 80px;  /* 70px → 80px に拡大 */
-    height: 80px;  /* 70px → 80px に拡大 */
-    margin: 0 auto 15px auto;  /* 下部マージンを増加 */
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 15px auto;
     position: relative;
     background: #1a1a2a;
     border-radius: 50%;
@@ -426,7 +426,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.5rem;  /* 2.2rem → 2.5rem に拡大 */
+    font-size: 2.5rem;
     color: #000;
     text-shadow: 0 0 5px rgba(255,255,255,0.5);
 }
@@ -440,7 +440,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.5rem;  /* 2.2rem → 2.5rem に拡大 */
+    font-size: 2.5rem;
     pointer-events: none;
     text-shadow: 0 0 10px gold;
 }
@@ -458,7 +458,7 @@ body, html {
 .skin-color-10 { background: #6a4a2a; }
 .skin-color-gold { background: linear-gradient(135deg, #ffd700, #b8860b); }
 
-/* フレンドリストを拡大 */
+/* フレンドリストを超拡大 */
 .list-section {
     flex: 1;
     min-height: 0;
@@ -466,36 +466,36 @@ body, html {
     flex-direction: column;
 }
 
-/* フレンドリストを特に大きく - 修正済み */
+/* フレンドリストを超大きく - 修正済み */
 .list-section:first-of-type {
-    flex: 3;  /* 2.5 → 3 に拡大 */
+    flex: 4;  /* 3 → 4 に超拡大 */
 }
 
-/* パーティーリスト - 修正済み */
+/* パーティーリスト - 超拡大 */
 .list-section:last-of-type {
-    flex: 2;  /* 1.5 → 2 に拡大 */
+    flex: 3;  /* 2 → 3 に超拡大 */
 }
 
 .panel-title { 
     font-weight: 900; 
     color: var(--accent-blue); 
-    margin-bottom: 18px;  /* 15px → 18px に増加 */
+    margin-bottom: 18px;
     border-left: 5px solid var(--accent-blue); 
-    padding-left: 12px;  /* 10px → 12px に増加 */
-    font-size: 1.2rem;  /* フォントサイズ追加 */
+    padding-left: 12px;
+    font-size: 1.3rem;  /* 1.2rem → 1.3rem に拡大 */
     flex-shrink: 0;
 }
 
 .side-scroll { 
     flex: 1;
     overflow-y: auto; 
-    padding-right: 8px;  /* 5px → 8px に増加 */
-    margin-top: 15px;  /* 10px → 15px に増加 */
+    padding-right: 8px;
+    margin-top: 15px;
     max-height: none;
 }
 
 /* スクロールバーのカスタマイズ */
-.side-scroll::-webkit-scrollbar { width: 6px; }  /* 5px → 6px に拡大 */
+.side-scroll::-webkit-scrollbar { width: 8px; }  /* 6px → 8px に拡大 */
 .side-scroll::-webkit-scrollbar-track { background: transparent; }
 .side-scroll::-webkit-scrollbar-thumb { background: var(--accent-blue); border-radius: 10px; }
 
@@ -504,40 +504,40 @@ input[type="text"], .cyber-select {
     background: #000; 
     border: 1px solid var(--accent-blue); 
     color: #fff; 
-    padding: 12px;  /* 10px → 12px に増加 */
+    padding: 12px;
     width: 100%; 
-    border-radius: 6px;  /* 5px → 6px に増加 */
+    border-radius: 6px;
     font-family: inherit; 
-    font-size: 0.95rem;  /* フォントサイズ追加 */
+    font-size: 1rem;  /* 0.95rem → 1rem に拡大 */
 }
 input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-shadow: 0 0 10px var(--accent-gold); }
 
 .code-display { 
-    margin-top: 12px;  /* 10px → 12px に増加 */
-    font-size: 1rem;  /* 0.9rem → 1rem に拡大 */
+    margin-top: 12px;
+    font-size: 1.1rem;  /* 1rem → 1.1rem に拡大 */
     color: var(--accent-purple); 
     background: rgba(0,0,0,0.3); 
-    padding: 8px;  /* 5px → 8px に増加 */
-    border-radius: 6px;  /* 5px → 6px に増加 */
+    padding: 8px;
+    border-radius: 6px;
     text-align: center; 
     width: 100%;
 }
 .friend-add-box { 
     display: flex; 
-    gap: 8px;  /* 5px → 8px に増加 */
+    gap: 8px;
     flex-shrink: 0; 
     margin-bottom: 5px;
 }
 
-/* フレンドアイテム - アクセサリー表示対応 */
+/* フレンドアイテム - 名前表示エリアを大幅拡大 */
 .friend-item { 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    padding: 12px;  /* 10px → 12px に増加 */
+    padding: 15px;  /* 12px → 15px に拡大 */
     background: rgba(0,0,0,0.3); 
-    margin-bottom: 12px;  /* 10px → 12px に増加 */
-    border-radius: 10px;  /* 8px → 10px に増加 */
+    margin-bottom: 15px;  /* 12px → 15px に拡大 */
+    border-radius: 12px;  /* 10px → 12px に拡大 */
     border: 1px solid transparent; 
     transition: 0.2s;
 }
@@ -545,16 +545,17 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .friend-left {
     display: flex;
     align-items: center;
-    gap: 10px;  /* 8px → 10px に増加 */
+    gap: 15px;  /* 10px → 15px に拡大 */
     flex: 1;
+    min-width: 0;  /* テキスト折り返し用 */
 }
 
 .friend-face {
     display: flex;
     align-items: center;
-    gap: 4px;  /* 2px → 4px に増加 */
-    font-size: 1.5rem;  /* 1.3rem → 1.5rem に拡大 */
-    min-width: 60px;  /* 50px → 60px に拡大 */
+    gap: 5px;  /* 4px → 5px に拡大 */
+    font-size: 1.8rem;  /* 1.5rem → 1.8rem に拡大 */
+    min-width: 70px;  /* 60px → 70px に拡大 */
 }
 
 .friend-face span {
@@ -562,25 +563,27 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 .friend-name {
-    font-size: 1rem;  /* 0.95rem → 1rem に拡大 */
+    font-size: 1.2rem;  /* 1rem → 1.2rem に大幅拡大 */
     word-break: break-word;
-    max-width: 140px;  /* 120px → 140px に拡大 */
-    font-weight: 500;
+    max-width: 220px;  /* 140px → 220px に大幅拡大 */
+    font-weight: 600;
+    line-height: 1.4;
+    flex: 1;
 }
 
 .friend-actions {
     display: flex;
-    gap: 8px;  /* 5px → 8px に増加 */
+    gap: 10px;  /* 8px → 10px に拡大 */
     flex-shrink: 0;
 }
 
 .friend-item:hover { border-color: var(--accent-blue); background: rgba(0, 242, 255, 0.1); }
 .status-dot { 
-    width: 10px;  /* 8px → 10px に拡大 */
-    height: 10px;  /* 8px → 10px に拡大 */
+    width: 12px;  /* 10px → 12px に拡大 */
+    height: 12px;  /* 10px → 12px に拡大 */
     border-radius: 50%; 
     display: inline-block; 
-    margin-right: 8px;  /* 5px → 8px に増加 */
+    margin-right: 10px;  /* 8px → 10px に拡大 */
 }
 .online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
 .offline { background: var(--accent-red); }
@@ -748,18 +751,18 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 
 /* ショップのフッターボタン - 位置調整（修正済み） */
 .shop-footer-buttons {
-    margin-top: 10px;  /* 20px → 10px に減らしてボタンを上げる */
+    margin-top: 10px;
     display: flex;
     justify-content: center;
     position: relative;
     z-index: 20;
-    padding: 8px 0;  /* 10px 0 → 8px 0 に調整 */
+    padding: 8px 0;
 }
 
 .shop-footer-buttons .action-btn {
     max-width: 300px;
-    padding: 12px 25px;  /* 15px 30px → 12px 25px に減らしてコンパクトに */
-    font-size: 1.1rem;  /* 1.2rem → 1.1rem に少し小さく */
+    padding: 12px 25px;
+    font-size: 1.1rem;
 }
 
 /* スキルUI */
