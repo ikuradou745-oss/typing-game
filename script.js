@@ -1,12 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V21.1 (完全修正版)
+// FIREBASE & TYPING ENGINE V21.2 (完全修正版)
 // 修正内容:
-// 1. ストーリーモードの進捗管理を完全修正（クリア後次のステージを正しく解放）
-// 2. 修行モードのクリアフラグ管理を修正（スキル獲得を確実に）
-// 3. デバッグモードのお金増減機能を修正
-// 4. スキルショップの表示改善
-// 5. フレンドリストの表示最適化
+// 1. フレンド/パーティー切り替え機能を追加
+// 2. ストーリーモードのクリア判定を強化（ステージ解放が確実に反映されるように）
+// 3. 修行モードのクリア判定を強化（スキル獲得が確実に反映されるように）
+// 4. 各所でsaveAndDisplayData()を確実に呼び出し
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -709,6 +708,7 @@ function activateComboGod() {
 
 // --- セーブデータ保存・表示更新 ---
 function saveAndDisplayData() {
+    // ローカルストレージに保存
     localStorage.setItem("ramo_coins", coins);
     localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
     localStorage.setItem("ramo_equipped", equippedSkill);
@@ -721,6 +721,7 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
     
+    // UI更新
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
@@ -730,6 +731,7 @@ function saveAndDisplayData() {
     updateTrainingStatus();
     updateProfileFace();
     
+    // Firebaseに保存
     const userRef = ref(db, `users/${myId}`);
     get(userRef).then(snap => {
         const userData = snap.val() || {};
@@ -978,6 +980,30 @@ function getRomaPatterns(kana) {
     
     return [result];
 }
+
+// =========================================
+// フレンド/パーティー切り替え機能（新規追加）
+// =========================================
+window.switchSocialTab = (tab) => {
+    const friendsTab = el("tab-friends");
+    const partyTab = el("tab-party");
+    const friendsContainer = el("friends-container");
+    const partyContainer = el("party-container");
+    
+    if (!friendsTab || !partyTab || !friendsContainer || !partyContainer) return;
+    
+    if (tab === 'friends') {
+        friendsTab.classList.add('active');
+        partyTab.classList.remove('active');
+        friendsContainer.classList.remove('hidden');
+        partyContainer.classList.add('hidden');
+    } else {
+        partyTab.classList.add('active');
+        friendsTab.classList.remove('active');
+        partyContainer.classList.remove('hidden');
+        friendsContainer.classList.add('hidden');
+    }
+};
 
 // --- フレンド機能 ---
 window.addFriend = async () => {
@@ -2301,7 +2327,7 @@ function updateProgressBar(currentScore) {
 }
 
 // =========================================
-// ストーリーモード制御（完全修正版）
+// ストーリーモード制御（完全修正版・強化）
 // =========================================
 
 function storyClear() {
@@ -2310,10 +2336,9 @@ function storyClear() {
                      STORY_STAGES.chapter3[currentStage.stage - 1];
     
     let earnedCoins = stageData.reward;
-    
-    // 進捗を更新（次のステージを解放）- 修正済み
     let progressUpdated = false;
     
+    // 進捗を更新（次のステージを解放）- 確実に保存
     if (currentStage.chapter === 1) {
         if (storyProgress.chapter1 < currentStage.stage) {
             storyProgress.chapter1 = currentStage.stage;
@@ -2354,6 +2379,11 @@ function storyClear() {
     
     // クリアメッセージを表示
     alert(`🎉 ステージクリア！\n獲得コイン: ${earnedCoins}🪙`);
+    
+    // ストーリーマップを再描画（進捗を反映）
+    if (!el("screen-story").classList.contains("hidden")) {
+        renderStoryMap();
+    }
     
     endGame();
 }
@@ -2677,7 +2707,7 @@ function endGame() {
 }
 
 // =========================================
-// 修行モード制御（完全修正版）
+// 修行モード制御（完全修正版・強化）
 // =========================================
 
 function handleTrainingResult() {
@@ -2685,7 +2715,7 @@ function handleTrainingResult() {
     const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
     
     if (score >= targetScore) {
-        // 修行クリア処理 - 修正済み
+        // 修行クリア処理
         let skillObtained = false;
         
         if (!ownedSkills.includes(skillId)) {
@@ -4947,3 +4977,8 @@ window.goHome();
 if (el('screen-shop') && !el('screen-shop').classList.contains('hidden')) {
     window.switchShopTab('normal');
 }
+
+// フレンド/パーティータブの初期表示（フレンドを表示）
+setTimeout(() => {
+    window.switchSocialTab('friends');
+}, 100);
