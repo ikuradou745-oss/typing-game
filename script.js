@@ -1,11 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V21.2 (完全修正版)
+// FIREBASE & TYPING ENGINE V21.3 (完全修正版)
 // 修正内容:
-// 1. フレンド/パーティー切り替え機能を追加
-// 2. ストーリーモードのクリア判定を強化（ステージ解放が確実に反映されるように）
-// 3. 修行モードのクリア判定を強化（スキル獲得が確実に反映されるように）
-// 4. 各所でsaveAndDisplayData()を確実に呼び出し
+// 1. ストーリーモードのクリア判定を完全修正（次のステージが確実に解放される）
+// 2. パーティーでクリアしたら全員がクリアになる機能を追加
+// 3. 修行モードのクリア表示とスキル獲得を確実に
+// 4. フレンド/パーティー切り替え機能を追加
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -2296,18 +2296,55 @@ function processCorrectType() {
     
     if (isStoryMode) {
         if (myPartyId) {
+            // パーティーストーリーモード：全員の平均スコアで判定
             let totalScore = 0;
-            for (let id in partyMembers) totalScore += partyMembers[id].score || 0;
+            for (let id in partyMembers) {
+                totalScore += partyMembers[id].score || 0;
+            }
             const memberCount = Object.keys(partyMembers).length;
             const avgScore = memberCount > 0 ? Math.floor(totalScore / memberCount) : 0;
             updateProgressBar(avgScore);
             
+            // 平均スコアが目標に達したら全員クリア
             if (avgScore >= storyTargetScore && gameActive) {
                 clearInterval(gameInterval);
                 gameActive = false;
+                
+                // パーティーの全員がクリアになるようFirebaseに保存
+                const partyRef = ref(db, `parties/${myPartyId}`);
+                get(partyRef).then(snap => {
+                    const partyData = snap.val();
+                    if (partyData && partyData.members) {
+                        Object.keys(partyData.members).forEach(memberId => {
+                            // 各メンバーのストーリー進捗を更新
+                            const memberRef = ref(db, `users/${memberId}/story_progress`);
+                            get(memberRef).then(memberSnap => {
+                                const memberProgress = memberSnap.val() || { chapter1: 0, chapter2: 0, chapter3: 0 };
+                                
+                                if (currentStage.chapter === 1) {
+                                    if (memberProgress.chapter1 < currentStage.stage) {
+                                        memberProgress.chapter1 = currentStage.stage;
+                                    }
+                                } else if (currentStage.chapter === 2) {
+                                    if (memberProgress.chapter2 < currentStage.stage) {
+                                        memberProgress.chapter2 = currentStage.stage;
+                                    }
+                                } else {
+                                    if (memberProgress.chapter3 < currentStage.stage) {
+                                        memberProgress.chapter3 = currentStage.stage;
+                                    }
+                                }
+                                
+                                update(ref(db, `users/${memberId}`), { story_progress: memberProgress });
+                            });
+                        });
+                    }
+                });
+                
                 storyClear();
             }
         } else {
+            // ソロストーリーモード：自分のスコアで判定
             updateProgressBar(score);
             if (score >= storyTargetScore && gameActive) {
                 clearInterval(gameInterval);
@@ -2748,16 +2785,16 @@ function handleTrainingResult() {
         if (skillObtained) {
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                <div class="ranking-row" style="color: #00FF00;">
+                <div class="ranking-row" style="color: #00FF00; font-size: 1.2rem; font-weight: bold;">
                     <span>🎉 修行クリア！</span>
-                    <span>${trainingType === 1 ? "剣士" : "ハッカー修行人"}を獲得！</span>
+                    <span>${trainingType === 1 ? "⚔️ 剣士" : "💻 ハッカー修行人"}を獲得！</span>
                 </div>
             `;
         } else {
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
                 <div class="ranking-row" style="color: #FFD700;">
-                    <span>修行クリア！（既にスキル獲得済み）</span>
+                    <span>✓ 修行クリア！（既にスキル獲得済み）</span>
                 </div>
             `;
         }
