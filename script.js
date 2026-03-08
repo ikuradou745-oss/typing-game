@@ -1,11 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V21.3 (完全修正版)
+// FIREBASE & TYPING ENGINE V21.4 (完全修正版)
 // 修正内容:
-// 1. ストーリーモードのクリア判定を完全修正（次のステージが確実に解放される）
-// 2. パーティーでクリアしたら全員がクリアになる機能を追加
-// 3. 修行モードのクリア表示とスキル獲得を確実に
-// 4. フレンド/パーティー切り替え機能を追加
+// 1. 偽物タイピングを修正（打てるように、騙されたらスタン）
+// 2. スキル封印・血状態でもタイピング可能に
+// 3. ストーリーモードの進捗管理を完全修正
+// 4. 修行モードのクリア表示とスキル獲得を確実に
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -982,7 +982,7 @@ function getRomaPatterns(kana) {
 }
 
 // =========================================
-// フレンド/パーティー切り替え機能（新規追加）
+// フレンド/パーティー切り替え機能
 // =========================================
 window.switchSocialTab = (tab) => {
     const friendsTab = el("tab-friends");
@@ -2248,17 +2248,19 @@ function renderFakeRoma() {
     }
 }
 
-function processCorrectType() {
+function processCorrectType(isFake = false) {
     const myHandicap = getMyHandicap();
     
-    if (myHandicap === "no_type_10" && timer > duration - 10) {
-        sounds.miss.play();
-        return;
-    }
-    
-    if (myHandicap === "half_time" && timer > duration / 2) {
-        sounds.miss.play();
-        return;
+    if (!isFake) {
+        if (myHandicap === "no_type_10" && timer > duration - 10) {
+            sounds.miss.play();
+            return;
+        }
+        
+        if (myHandicap === "half_time" && timer > duration / 2) {
+            sounds.miss.play();
+            return;
+        }
     }
     
     if (myHandicap === "skill_seal") {
@@ -2268,7 +2270,7 @@ function processCorrectType() {
     romaIdx++;
     let scoreIncrease = (10 + combo) * comboMultiplier;
     
-    if (myHandicap === "score_half") scoreIncrease = Math.floor(scoreIncrease / 2);
+    if (!isFake && myHandicap === "score_half") scoreIncrease = Math.floor(scoreIncrease / 2);
     
     score += scoreIncrease; 
     combo += 1 * comboMultiplier; 
@@ -2375,24 +2377,30 @@ function storyClear() {
     let earnedCoins = stageData.reward;
     let progressUpdated = false;
     
-    // 進捗を更新（次のステージを解放）- 確実に保存
+    // 進捗を更新（次のステージを解放）- 既にクリア済みの場合は増やさない
     if (currentStage.chapter === 1) {
         if (storyProgress.chapter1 < currentStage.stage) {
             storyProgress.chapter1 = currentStage.stage;
             progressUpdated = true;
             console.log(`ストーリー進捗更新: 第1章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
+        } else {
+            console.log(`第1章 ${currentStage.stage} は既にクリア済みです`);
         }
     } else if (currentStage.chapter === 2) {
         if (storyProgress.chapter2 < currentStage.stage) {
             storyProgress.chapter2 = currentStage.stage;
             progressUpdated = true;
             console.log(`ストーリー進捗更新: 第2章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
+        } else {
+            console.log(`第2章 ${currentStage.stage} は既にクリア済みです`);
         }
     } else {
         if (storyProgress.chapter3 < currentStage.stage) {
             storyProgress.chapter3 = currentStage.stage;
             progressUpdated = true;
             console.log(`ストーリー進捗更新: 第3章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
+        } else {
+            console.log(`第3章 ${currentStage.stage} は既にクリア済みです`);
         }
     }
     
@@ -2437,19 +2445,26 @@ function giveBossSkill(skillId) {
     }
 }
 
+// 修正: スキル封印と血状態でもタイピング可能に
 function canType() {
     const myHandicap = getMyHandicap();
     if (myHandicap === "no_type_10" && timer > duration - 10) return false;
     if (myHandicap === "half_time" && timer > duration / 2) return false;
-    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0 && !mazeActive && !hackingActive && !bleedingActive && !fakeTypingActive;
+    
+    // スキル封印中（skillSealed）と血状態（bleedingActive）でもタイピング可能
+    // スタン、妨害、迷路、ハッキング、偽物タイピング中のみ不可
+    return gameActive && !isStunned && !isJamming && hackerTabsActive === 0 && !mazeActive && !hackingActive && !fakeTypingActive;
 }
 
 window.addEventListener("keydown", e => {
     if (!gameActive) return;
     if (hackerTabsActive > 0) return;
+    
+    // スキル封印中でも警告は表示するが、タイピングは可能
     if (skillSealed) {
+        // タイピングは許可するが、警告は表示
         showBattleAlert("🔒 スキル封印中！", "#ff0000");
-        return;
+        // ここでreturnしない（タイピングを許可）
     }
 
     if (e.code === "Space") { 
@@ -2474,12 +2489,17 @@ window.addEventListener("keydown", e => {
     }
     
     if (fakeTypingActive) {
+        // 偽物タイピング中は通常のタイピングと同じ処理
         if (e.key === fakeTypingRoma[fakeTypingIdx]) {
             fakeTypingIdx++;
             renderFakeRoma();
+            
+            // 偽物タイピングでもスコアとコンボを増やす
+            processCorrectType(true);
+            
             if (fakeTypingIdx >= fakeTypingRoma.length) {
                 clearFakeTyping();
-                setStun(5000);
+                setStun(5000); // 5秒スタン
                 showLaughEffect();
                 sounds.laugh.play();
                 showBattleAlert("😂 偽物を打ってしまった！5秒スタン！", "#ff0000");
@@ -2493,7 +2513,7 @@ window.addEventListener("keydown", e => {
     if (!canType()) return;
 
     if (e.key.toLowerCase() === currentRoma[romaIdx].toLowerCase()) {
-        processCorrectType();
+        processCorrectType(false);
     } else if (!["Shift","Alt","Control","Space","1","2","3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
         combo = 0; 
         sounds.miss.currentTime = 0; sounds.miss.play();
@@ -2782,18 +2802,29 @@ function handleTrainingResult() {
             equipped: equippedSkill
         }).catch(err => console.error("Firebase training save error:", err));
         
+        // 修行クリアの表示を大きく見やすく
+        const skillName = trainingType === 1 ? "⚔️ 剣士" : "💻 ハッカー修行人";
+        const message = skillObtained 
+            ? `🎉 修行クリア！\n${skillName}を獲得しました！` 
+            : `✓ 修行クリア！（既に${skillName}を獲得済み）`;
+        
+        // アラートで表示
+        setTimeout(() => {
+            alert(message);
+        }, 500);
+        
         if (skillObtained) {
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                <div class="ranking-row" style="color: #00FF00; font-size: 1.2rem; font-weight: bold;">
-                    <span>🎉 修行クリア！</span>
-                    <span>${trainingType === 1 ? "⚔️ 剣士" : "💻 ハッカー修行人"}を獲得！</span>
+                <div class="ranking-row" style="color: #00FF00; font-size: 1.5rem; font-weight: bold; text-align: center; padding: 20px;">
+                    <span>🎉 修行クリア！ 🎉</span><br>
+                    <span style="font-size: 1.2rem;">${skillName}を獲得！</span>
                 </div>
             `;
         } else {
             return `
                 <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                <div class="ranking-row" style="color: #FFD700;">
+                <div class="ranking-row" style="color: #FFD700; font-size: 1.3rem; text-align: center; padding: 15px;">
                     <span>✓ 修行クリア！（既にスキル獲得済み）</span>
                 </div>
             `;
@@ -2802,8 +2833,8 @@ function handleTrainingResult() {
         console.log(`修行失敗: ${score} / ${targetScore}`);
         return `
             <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-            <div class="ranking-row" style="color: #FF0000;">
-                <span>❌ 修行失敗</span>
+            <div class="ranking-row" style="color: #FF0000; font-size: 1.3rem; text-align: center; padding: 15px;">
+                <span>❌ 修行失敗</span><br>
                 <span>目標: ${targetScore.toLocaleString()} pts</span>
             </div>
         `;
@@ -3528,7 +3559,7 @@ function startAutoTypeEngine(durationMs, intervalMs) {
     clearInterval(autoTypeTimer);
     autoTypeTimer = setInterval(() => {
         if (!gameActive || isJamming || isStunned || hackerTabsActive > 0 || invincibleActive || fakeTypingActive) return;
-        processCorrectType();
+        processCorrectType(false);
     }, intervalMs);
     
     setTimeout(() => clearInterval(autoTypeTimer), durationMs);
