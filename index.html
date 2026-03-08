@@ -532,16 +532,24 @@
                 </div>
             </section>
 
-            <section class="side-panel list-section" style="flex: 3; min-height: 0;">  <!-- flex: 2.5 → 3 に変更（高くして見やすく） -->
+            <!-- フレンド/パーティー切り替えタブ -->
+            <div class="social-tabs">
+                <button class="social-tab active" id="tab-friends" onclick="window.switchSocialTab('friends')">👥 フレンド</button>
+                <button class="social-tab" id="tab-party" onclick="window.switchSocialTab('party')">🎮 パーティー</button>
+            </div>
+
+            <!-- フレンドリストコンテナ（初期表示） -->
+            <section class="side-panel list-section" id="friends-container">
                 <div class="panel-title">フレンド</div>
                 <div class="friend-add-box">
                     <input type="text" id="friend-code-input" placeholder="コードを入力">
                     <button class="btn-invite btn-s" onclick="window.addFriend()">追加</button>
                 </div>
-                <div id="friend-list-ui" class="side-scroll" style="max-height: none;"></div>
+                <div id="friend-list-ui" class="side-scroll"></div>
             </section>
 
-            <section class="side-panel list-section" style="flex: 2; min-height: 0;">  <!-- flex: 1.5 → 2 に変更（高くして見やすく） -->
+            <!-- パーティーリストコンテナ（初期非表示） -->
+            <section class="side-panel list-section hidden" id="party-container">
                 <div class="panel-title" id="party-label">パーティー (未参加)</div>
                 <div id="party-list-ui" class="side-scroll"></div>
                 <div id="party-actions" class="hidden">
