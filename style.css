@@ -28,6 +28,9 @@
     --training-uncompleted: #ff4444;
     --skill-obtained: #ffd700;
     --skill-not-obtained: #ff4444;
+    --clear-code-bg: rgba(0, 0, 0, 0.98);
+    --clear-code-border: #FFD700;
+    --unlock-bg: rgba(0, 0, 0, 0.95);
 }
 
 * { box-sizing: border-box; }
@@ -114,6 +117,289 @@ body, html {
     background: var(--accent-gold);
     border-color: white;
     box-shadow: 0 0 30px var(--accent-gold);
+}
+
+/* =========================================
+   クリアコード表示エリア（新規追加）
+   ========================================= */
+#clear-code-display {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
+    background: var(--clear-code-bg);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.5s ease;
+    backdrop-filter: blur(5px);
+}
+
+.clear-code-container {
+    background: var(--panel-bg);
+    border: 4px solid var(--clear-code-border);
+    border-radius: 40px;
+    padding: 40px;
+    min-width: 500px;
+    max-width: 600px;
+    box-shadow: 0 0 80px var(--clear-code-border);
+    animation: glowPulse 2s infinite;
+}
+
+@keyframes glowPulse {
+    0% { box-shadow: 0 0 60px var(--clear-code-border); }
+    50% { box-shadow: 0 0 100px var(--clear-code-border); }
+    100% { box-shadow: 0 0 60px var(--clear-code-border); }
+}
+
+.clear-code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.clear-code-header h3 {
+    color: var(--clear-code-border);
+    font-size: 2.2rem;
+    margin: 0;
+    text-shadow: 0 0 25px var(--clear-code-border);
+}
+
+.clear-code-close {
+    width: 45px;
+    height: 45px;
+    background: var(--accent-red);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.clear-code-close:hover {
+    transform: scale(1.1);
+    background: #ff5555;
+    box-shadow: 0 0 20px var(--accent-red);
+}
+
+.clear-code-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.clear-code-message {
+    color: var(--text-white);
+    font-size: 1.3rem;
+    text-align: center;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 15px;
+    border-radius: 15px;
+    border: 1px dashed var(--clear-code-border);
+}
+
+.clear-code-box {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    border: 3px solid var(--clear-code-border);
+    border-radius: 20px;
+    padding: 25px;
+}
+
+.clear-code-box span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 3rem;
+    color: var(--clear-code-border);
+    text-shadow: 0 0 25px var(--clear-code-border);
+    letter-spacing: 8px;
+    background: rgba(0,0,0,0.8);
+    padding: 10px 20px;
+    border-radius: 15px;
+}
+
+.clear-code-copy {
+    background: var(--accent-green);
+    color: #000;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 15px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+    white-space: nowrap;
+}
+
+.clear-code-copy:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px var(--accent-green);
+}
+
+.clear-code-copy:active {
+    transform: scale(0.95);
+}
+
+.clear-code-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    color: var(--accent-red);
+    text-shadow: 0 0 20px var(--accent-red);
+    text-align: center;
+    background: rgba(255, 49, 49, 0.1);
+    padding: 15px;
+    border-radius: 15px;
+    border: 2px solid var(--accent-red);
+    animation: timerPulse 1s infinite;
+}
+
+@keyframes timerPulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+.clear-code-note {
+    color: #aaa;
+    font-size: 1rem;
+    text-align: center;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+}
+
+/* =========================================
+   ステージ解放コード入力UI（新規追加）
+   ========================================= */
+#stage-unlock-ui,
+#skill-unlock-ui {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--unlock-bg);
+    z-index: 25000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+
+.unlock-container {
+    background: var(--panel-bg);
+    border: 4px solid var(--accent-purple);
+    border-radius: 40px;
+    padding: 40px;
+    min-width: 450px;
+    max-width: 500px;
+    box-shadow: 0 0 80px var(--accent-purple);
+}
+
+.unlock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.unlock-header h3 {
+    color: var(--accent-purple);
+    font-size: 2rem;
+    margin: 0;
+    text-shadow: 0 0 20px var(--accent-purple);
+}
+
+.unlock-close {
+    width: 40px;
+    height: 40px;
+    background: var(--accent-red);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.unlock-close:hover {
+    transform: scale(1.1);
+    background: #ff5555;
+    box-shadow: 0 0 20px var(--accent-red);
+}
+
+.unlock-content {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.unlock-stage-info,
+.unlock-skill-info {
+    color: var(--accent-gold);
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-align: center;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 15px;
+    border-radius: 20px;
+    border: 2px dashed var(--accent-gold);
+}
+
+.unlock-input-section {
+    display: flex;
+    gap: 15px;
+}
+
+.unlock-input-section input {
+    flex: 1;
+    background: #000;
+    border: 3px solid var(--accent-purple);
+    color: white;
+    padding: 18px;
+    border-radius: 20px;
+    font-size: 1.3rem;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    text-align: center;
+    letter-spacing: 3px;
+}
+
+.unlock-input-section input:focus {
+    outline: none;
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 20px var(--accent-gold);
+}
+
+.unlock-input-section button {
+    padding: 18px 30px;
+    font-size: 1.2rem;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.unlock-note {
+    color: #aaa;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid var(--glass);
 }
 
 /* コード入力UI */
@@ -283,6 +569,73 @@ body, html {
 .special-reward {
     color: var(--accent-gold);
     font-size: 1rem;
+}
+
+/* =========================================
+   ストーリーモード用コードボタン（新規追加）
+   ========================================= */
+.story-code-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    margin: 20px 0;
+    padding: 15px;
+    background: var(--panel-bg);
+    border-radius: 30px;
+    border: 2px solid var(--accent-gold);
+}
+
+.story-code-btn {
+    background: linear-gradient(135deg, var(--accent-purple), #8a2be2);
+    border: 2px solid white;
+    color: white;
+    padding: 12px 25px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 0 15px var(--accent-purple);
+}
+
+.story-code-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px var(--accent-purple);
+    border-color: var(--accent-gold);
+}
+
+/* =========================================
+   修行モード用コードボタン（新規追加）
+   ========================================= */
+.training-code-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin: 20px 0 30px 0;
+    padding: 15px 25px;
+    background: var(--panel-bg);
+    border-radius: 40px;
+    border: 2px solid var(--accent-green);
+}
+
+.training-code-btn {
+    background: linear-gradient(135deg, var(--accent-green), #00b300);
+    border: 2px solid white;
+    color: #000;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 0 15px var(--accent-green);
+}
+
+.training-code-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px var(--accent-green);
+    border-color: var(--accent-gold);
 }
 
 /* プレイ画面 - タイピング文字表示の改善 */
