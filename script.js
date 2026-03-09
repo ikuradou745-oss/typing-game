@@ -1,8 +1,8 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V22.2 (コード入力システム完全版・バグ修正)
+// FIREBASE & TYPING ENGINE V22.3 (コード入力システム完全版・バグ修正)
 // 修正内容:
-// 1. ストーリーモード3-1のコード入力バグ修正（正しいステージのみ解放）
+// 1. ストーリーモード3-3のバグ修正（正しいステージのみ解放）
 // 2. 修行モードのコード表示バグ修正
 // 3. 最強自動入力の速度を10倍に強化（0.005秒間隔）
 // =========================================
@@ -601,9 +601,20 @@ window.submitStageUnlockCode = () => {
     // ステージ解放処理
     if (chapter === 3) {
         // 前のステージがクリアされているかチェック（stage-1 が解放済みであること）
+        // 修正: 正確な条件 - 前のステージがクリアされていること
         if (storyProgress.chapter3 < stage - 1) {
             alert("前のステージを先に解放してください");
             input.value = "";
+            return;
+        }
+        
+        // すでに解放済みかチェック
+        if (storyProgress.chapter3 >= stage) {
+            alert("このステージは既に解放されています");
+            input.value = "";
+            ui.classList.add("hidden");
+            delete clearCodes[code];
+            localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
             return;
         }
         
@@ -612,10 +623,8 @@ window.submitStageUnlockCode = () => {
         clearCodes[code] = clearCodeData;
         localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         
-        // ステージ解放（stage を解放。ただし、すでに解放済みの場合は更新しない）
-        if (storyProgress.chapter3 < stage) {
-            storyProgress.chapter3 = stage;
-        }
+        // ステージ解放（stage のみを解放 - 複数ステージは解放しない）
+        storyProgress.chapter3 = stage;
         saveAndDisplayData();
         
         // Firebaseに保存
@@ -1054,15 +1063,17 @@ window.submitCode = async () => {
                 // ステージ解放
                 if (storyProgress.chapter3 < codeData.target - 1) {
                     alert("前のステージを先に解放してください");
+                } else if (storyProgress.chapter3 >= codeData.target) {
+                    alert("このステージは既に解放されています");
+                    delete clearCodes[input];
+                    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
                 } else {
                     codeData.used = true;
                     clearCodes[input] = codeData;
                     localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
                     
-                    // 正しいステージのみを解放
-                    if (storyProgress.chapter3 < codeData.target) {
-                        storyProgress.chapter3 = codeData.target;
-                    }
+                    // 正しいステージのみを解放（複数ステージを解放しない）
+                    storyProgress.chapter3 = codeData.target;
                     saveAndDisplayData();
                     
                     const userRef = ref(db, `users/${myId}`);
