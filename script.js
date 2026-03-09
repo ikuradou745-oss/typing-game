@@ -1,12 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V22.0 (コード入力システム完全実装版)
+// FIREBASE & TYPING ENGINE V22.1 (コード入力システム完全版)
 // 修正内容:
-// 1. 第三章ステージクリア時に8桁のランダムコードを表示（3分間有効）
-// 2. コード入力で次のステージを解放するシステム
-// 3. 3-10クリア時・修行クリア時にスキル獲得コードを表示
-// 4. コード入力でスキルを獲得するシステム
-// 5. 修行クリア状態の確実な表示
+// 1. 第三章クリア時のコード表示バグ修正
+// 2. ストーリーモードコード入力ボタン表示修正
+// 3. 最強自動入力スキル(TYSM1045)追加
+// 4. コード入力システム改善
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -69,7 +68,7 @@ let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
 let dailyCodeDate = localStorage.getItem("ramo_daily_date") || new Date().toDateString();
 let codeTimer = null;
 
-// クリアコード関連（新規追加）
+// クリアコード関連
 let clearCodes = JSON.parse(localStorage.getItem("ramo_clear_codes")) || {};
 let clearCodeTimer = null;
 let currentClearCode = null;
@@ -80,6 +79,7 @@ let currentClearCodeTarget = null; // 対象のステージ or スキルID
 let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
 let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
 let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
+let tysm1045Used = localStorage.getItem("ramo_tysm1045_used") === "true"; // 新規追加
 
 // コンボアップの神スキル
 let comboGodActive = false;
@@ -306,6 +306,16 @@ const NEW_SKILLS = {
         desc: "【タブ追加/キー:1】CT35秒: 消せるタブを10個出す\n【画面操作/キー:2】CT25秒: 画面を2回転＆くらくら（3秒）\n【偽物タイピング/キー:3】CT200秒: 偽物タイピングを表示\n【StarterGui/キー:Space】CT5000秒: ハッキング＆ウイルス表示、5秒後スキル封印10秒＆コンボ半減",
         training: true,
         trainingLevel: 2
+    },
+    // 新規追加：最強自動入力（隠しコード用）
+    ultimateAutoType: {
+        id: "ultimateAutoType",
+        name: "最強自動入力",
+        cost: 0,
+        cooldown: 120,
+        desc: "【スペースキー】120秒間、0.05秒間隔で超高速自動入力を実行",
+        special: true,
+        hidden: true
     }
 };
 
@@ -423,7 +433,7 @@ let effectTimers = {
 // パーティーメンバー情報キャッシュ
 let partyMembers = {};
 
-// --- クリアコード生成関数（新規追加）---
+// --- クリアコード生成関数 ---
 function generateClearCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
@@ -433,14 +443,19 @@ function generateClearCode() {
     return code;
 }
 
-// クリアコード表示（新規追加）
+// クリアコード表示（修正版：確実に表示されるように）
 function showClearCode(code, type, target) {
+    console.log(`showClearCode called: code=${code}, type=${type}, target=${target}`);
+    
     const display = el("clear-code-display");
     const codeValue = el("clear-code-value");
     const messageEl = el("clear-code-message");
     const timerEl = el("clear-code-timer");
     
-    if (!display || !codeValue || !messageEl || !timerEl) return;
+    if (!display || !codeValue || !messageEl || !timerEl) {
+        console.error("Clear code elements not found!");
+        return;
+    }
     
     currentClearCode = code;
     currentClearCodeType = type;
@@ -451,7 +466,8 @@ function showClearCode(code, type, target) {
         message = `🎉 ステージ 3-${target} クリア！\n次のステージ解放コード`;
     } else if (type === 'skill') {
         const skillName = target === 'invincible_man' ? '無敵マン' : 
-                         target === 'swordsman' ? '剣士' : 'ハッカー修行人';
+                         target === 'swordsman' ? '剣士' : 
+                         target === 'hacker_trainee' ? 'ハッカー修行人' : 'スキル';
         message = `🎉 クリア！\n「${skillName}」スキル獲得コード`;
     } else if (type === 'training') {
         const skillName = target === 'swordsman' ? '剣士' : 'ハッカー修行人';
@@ -473,9 +489,11 @@ function showClearCode(code, type, target) {
     
     startClearCodeTimer(expiryTime);
     
+    // 確実に表示
     display.classList.remove("hidden");
     
-    // 自動的に閉じない（ユーザーが閉じるまで）
+    // デバッグ用
+    console.log("Clear code displayed:", code);
 }
 
 function startClearCodeTimer(expiryTime) {
@@ -516,7 +534,7 @@ window.copyClearCode = () => {
     });
 };
 
-// ステージ解放コード入力UI（新規追加）
+// ステージ解放コード入力UI
 window.openStageUnlockUI = (chapter, stage) => {
     if (chapter !== 3) return;
     
@@ -619,7 +637,7 @@ window.submitStageUnlockCode = () => {
     }
 };
 
-// スキル獲得コード入力UI（新規追加）
+// スキル獲得コード入力UI
 window.openSkillUnlockUI = (skillId) => {
     const ui = el("skill-unlock-ui");
     const info = el("unlock-skill-info");
@@ -823,6 +841,7 @@ async function loadCodeStatusFromFirebase() {
             if (data.tysm_used !== undefined) tysmUsed = data.tysm_used;
             if (data.byramo_used !== undefined) byramoUsed = data.byramo_used;
             if (data.yuseSyazai2_used !== undefined) yuseSyazai2Used = data.yuseSyazai2_used;
+            if (data.tysm1045_used !== undefined) tysm1045Used = data.tysm1045_used;
             if (data.daily_code) dailyCode = data.daily_code;
             if (data.daily_code_date) dailyCodeDate = data.daily_code_date;
             if (data.used_codes) usedCodes = data.used_codes;
@@ -831,6 +850,7 @@ async function loadCodeStatusFromFirebase() {
             localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
             localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
             localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
+            localStorage.setItem("ramo_tysm1045_used", tysm1045Used.toString());
             localStorage.setItem("ramo_daily_code", dailyCode);
             localStorage.setItem("ramo_daily_date", dailyCodeDate);
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
@@ -858,6 +878,7 @@ async function resetAllData() {
         tysm_used: false,
         byramo_used: false,
         yuseSyazai2_used: false,
+        tysm1045_used: false,
         daily_code: dailyCode,
         daily_code_date: dailyCodeDate,
         used_codes: [],
@@ -875,6 +896,7 @@ async function resetAllData() {
     tysmUsed = false;
     byramoUsed = false;
     yuseSyazai2Used = false;
+    tysm1045Used = false;
     usedCodes = [];
     clearCodes = {};
     
@@ -887,6 +909,37 @@ window.submitCode = async () => {
     if (!input) return;
     
     await loadCodeStatusFromFirebase();
+    
+    // 隠しコード：最強自動入力
+    if (input === "TYSM1045") {
+        if (tysm1045Used) {
+            alert("このコードは既に使用済みです！");
+        } else {
+            if (!ownedSkills.includes("ultimateAutoType")) {
+                ownedSkills.push("ultimateAutoType");
+                tysm1045Used = true;
+                usedCodes.push("TYSM1045");
+                
+                localStorage.setItem("ramo_tysm1045_used", "true");
+                localStorage.setItem("ramo_skills", JSON.stringify(ownedSkills));
+                localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+                
+                const userRef = ref(db, `users/${myId}`);
+                await update(userRef, {
+                    tysm1045_used: true,
+                    skills: ownedSkills,
+                    used_codes: usedCodes
+                });
+                
+                sounds.notify.play();
+                alert(`🎉 隠しコード TYSM1045 入力成功！\n「最強自動入力」スキルを獲得しました！`);
+                saveAndDisplayData();
+            }
+        }
+        el("code-input").value = "";
+        closeCodeUI();
+        return;
+    }
     
     if (input === "BA3") {
         if (confirm("本当にすべてのデータをリセットしますか？")) {
@@ -991,7 +1044,78 @@ window.submitCode = async () => {
             saveAndDisplayData();
         }
     } else {
-        alert("無効なコードです");
+        // クリアコードのチェック（8桁の場合）
+        if (input.length === 8 && clearCodes[input] && !clearCodes[input].used && Date.now() <= clearCodes[input].expiry) {
+            const codeData = clearCodes[input];
+            
+            if (codeData.type === 'stage') {
+                // ステージ解放
+                if (storyProgress.chapter3 < codeData.target - 1) {
+                    alert("前のステージを先に解放してください");
+                } else {
+                    codeData.used = true;
+                    clearCodes[input] = codeData;
+                    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+                    
+                    storyProgress.chapter3 = codeData.target;
+                    saveAndDisplayData();
+                    
+                    const userRef = ref(db, `users/${myId}`);
+                    update(userRef, { story_progress: storyProgress }).catch(err => console.error("Firebase save error:", err));
+                    
+                    alert(`🎉 ステージ 3-${codeData.target} が解放されました！`);
+                    sounds.notify.play();
+                    
+                    if (!el("screen-story").classList.contains("hidden")) {
+                        renderStoryMap();
+                    }
+                    
+                    delete clearCodes[input];
+                    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+                }
+            } 
+            else if (codeData.type === 'skill' || codeData.type === 'training') {
+                // スキル獲得
+                if (!ownedSkills.includes(codeData.target)) {
+                    ownedSkills.push(codeData.target);
+                    equippedSkill = codeData.target;
+                    
+                    if (codeData.target === "swordsman") {
+                        trainingCompleted.training1 = true;
+                    } else if (codeData.target === "hacker_trainee") {
+                        trainingCompleted.training2 = true;
+                    }
+                    
+                    codeData.used = true;
+                    clearCodes[input] = codeData;
+                    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+                    
+                    saveAndDisplayData();
+                    
+                    const userRef = ref(db, `users/${myId}`);
+                    update(userRef, { 
+                        skills: ownedSkills,
+                        equipped: equippedSkill,
+                        training_completed: trainingCompleted
+                    }).catch(err => console.error("Firebase save error:", err));
+                    
+                    const skillName = SKILL_DB[codeData.target]?.name || codeData.target;
+                    alert(`🎉 「${skillName}」スキルを獲得しました！`);
+                    sounds.notify.play();
+                    
+                    if (!el("screen-training").classList.contains("hidden")) {
+                        updateTrainingStatus();
+                    }
+                    
+                    delete clearCodes[input];
+                    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+                } else {
+                    alert("このスキルは既に所持しています");
+                }
+            }
+        } else {
+            alert("無効なコードです");
+        }
     }
     
     el("code-input").value = "";
@@ -1033,6 +1157,28 @@ function activateComboGod() {
     }, 7000);
 }
 
+// --- 最強自動入力スキル発動（新規追加）---
+function activateUltimateAutoType() {
+    if (!ownedSkills.includes("ultimateAutoType")) {
+        alert("「最強自動入力」スキルを所持していません");
+        return;
+    }
+    
+    if (cooldowns.space > 0) {
+        showBattleAlert(`⏳ クールダウン中 (残り${cooldowns.space}秒)`, "#FFA500");
+        return;
+    }
+    
+    showBattleAlert("⚡ 最強自動入力発動！120秒間超高速タイピング！", "#00FFFF");
+    sounds.notify.play();
+    
+    // 0.05秒間隔（20回/秒）の超高速自動入力
+    startAutoTypeEngine(120000, 50);
+    
+    // クールダウン設定
+    startSpecificCooldown("space", 120);
+}
+
 // --- セーブデータ保存・表示更新 ---
 function saveAndDisplayData() {
     // ローカルストレージに保存
@@ -1048,6 +1194,7 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
+    localStorage.setItem("ramo_tysm1045_used", tysm1045Used.toString());
     
     // UI更新
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
@@ -1090,11 +1237,13 @@ function updateStoryProgressDisplay() {
         progressChapter3.innerText = `${displayValue}/10`;
     }
     
-    // 第三章コード入力ボタンの表示制御（新規追加）
+    // 第三章コード入力ボタンの表示制御
     if (storyProgress.chapter3 !== undefined) {
-        for (let stage = 2; stage <= 10; stage++) {
+        // 各ステージの解放ボタン
+        for (let stage = 2; stage <= 9; stage++) {
             const btn = el(`story-unlock-3-${stage}`);
             if (btn) {
+                // 前のステージをクリア済みで、次のステージが未解放の場合に表示
                 if (storyProgress.chapter3 >= stage - 1 && storyProgress.chapter3 < stage) {
                     btn.style.display = "inline-block";
                 } else {
@@ -2098,7 +2247,7 @@ function renderGachaSkills() {
     });
 }
 
-// ガチャキャラを装備（完全修正版）
+// ガチャキャラを装備
 window.equipGachaCharacter = (charId) => {
     if (!ownedSkills.includes(charId)) {
         alert("このキャラクターを所持していません");
@@ -2768,11 +2917,13 @@ function storyClear() {
         if (!stageData.boss) {
             // 通常ステージ：ステージ解放コードを表示
             const clearCode = generateClearCode();
+            console.log(`Generated clear code for stage 3-${currentStage.stage + 1}: ${clearCode}`);
             showClearCode(clearCode, 'stage', currentStage.stage + 1);
             alert(`🎉 ステージ 3-${currentStage.stage} クリア！\n次のステージ解放コードが表示されました。`);
         } else {
             // ボスステージ：スキル獲得コードを表示
             const clearCode = generateClearCode();
+            console.log(`Generated skill code for invincible_man: ${clearCode}`);
             showClearCode(clearCode, 'skill', stageData.skill);
             alert(`🎉 ステージ 3-10 クリア！\n「無敵マン」スキル獲得コードが表示されました。`);
         }
@@ -2828,6 +2979,8 @@ window.addEventListener("keydown", e => {
         e.preventDefault(); 
         if (equippedSkill === "comboGod") {
             activateComboGod();
+        } else if (equippedSkill === "ultimateAutoType") {
+            activateUltimateAutoType();
         } else {
             window.activateSkill("space");
         }
@@ -3131,9 +3284,8 @@ function handleTrainingResult() {
     if (score >= targetScore) {
         // 修行クリア：コードを表示（自動でスキル獲得はしない）
         const clearCode = generateClearCode();
+        console.log(`Generated training code for ${skillId}: ${clearCode}`);
         showClearCode(clearCode, 'training', skillId);
-        
-        console.log(`修行クリア: コード ${clearCode} を表示 (スキル: ${skillId})`);
         
         return `
             <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
@@ -3266,7 +3418,7 @@ function setupSkillUI() {
         
         if (skill.id === "fundraiser" || skill.id === "godfundraiser") {
             // パッシブ
-        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4" || skill.id === "invincible_man" || skill.id === "swordsman" || skill.id === "hacker_trainee") {
+        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4" || skill.id === "invincible_man" || skill.id === "swordsman" || skill.id === "hacker_trainee" || skill.id === "ultimateAutoType") {
             el("in-game-skill-btn").classList.add("hidden");
             if (skill.id === "hacker") {
                 key1.classList.remove("hidden"); key1.innerText = "1: タブ追加 (30s)";
@@ -3290,6 +3442,8 @@ function setupSkillUI() {
                 key2.classList.remove("hidden"); key2.innerText = "2: 画面操作 (25s)";
                 key3.classList.remove("hidden"); key3.innerText = "3: 偽物タイピング (200s)";
                 keySpace.classList.remove("hidden"); keySpace.innerText = "Space: StarterGui (5000s)";
+            } else if (skill.id === "ultimateAutoType") {
+                keySpace.classList.remove("hidden"); keySpace.innerText = "Space: 最強自動入力 (120s)";
             }
         } else if (skill.id === "comboGod") {
             el("in-game-skill-btn").classList.remove("hidden");
@@ -3351,6 +3505,9 @@ function updateCooldownText() {
         let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]偽物タイピングOK";
         let ks = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]StarterGuiOK";
         txt = `${k1} | ${k2} | ${k3} | ${ks}`;
+    } else if (skill.id === "ultimateAutoType") {
+        let ks = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]最強自動入力OK";
+        txt = ks;
     } else if (skill.gacha) {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     } else {
@@ -3441,7 +3598,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -3452,12 +3609,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType") {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType") {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -3610,6 +3767,10 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOpponents("starter_gui", 5000, 0);
             showBattleAlert("💻 StarterGui発動！", "#ff00ff");
             startSpecificCooldown("space", 5000);
+        }
+        else if (skill.id === "ultimateAutoType") {
+            activateUltimateAutoType();
+            return;
         }
         else if (skill.gacha) {
             if (skill.id === "paintballer") {
@@ -5303,6 +5464,7 @@ get(userRef).then(snap => {
         if(data.tysm_used !== undefined) tysmUsed = data.tysm_used;
         if(data.byramo_used !== undefined) byramoUsed = data.byramo_used;
         if(data.yuseSyazai2_used !== undefined) yuseSyazai2Used = data.yuseSyazai2_used;
+        if(data.tysm1045_used !== undefined) tysm1045Used = data.tysm1045_used;
         if(data.daily_code) dailyCode = data.daily_code;
         if(data.daily_code_date) dailyCodeDate = data.daily_code_date;
         if(data.used_codes) usedCodes = data.used_codes;
@@ -5311,6 +5473,7 @@ get(userRef).then(snap => {
         localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
         localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
         localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
+        localStorage.setItem("ramo_tysm1045_used", tysm1045Used.toString());
         localStorage.setItem("ramo_daily_code", dailyCode);
         localStorage.setItem("ramo_daily_date", dailyCodeDate);
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
@@ -5333,6 +5496,7 @@ update(userRef, {
     tysm_used: tysmUsed,
     byramo_used: byramoUsed,
     yuseSyazai2_used: yuseSyazai2Used,
+    tysm1045_used: tysm1045Used,
     daily_code: dailyCode,
     daily_code_date: dailyCodeDate,
     used_codes: usedCodes,
