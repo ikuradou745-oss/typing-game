@@ -16,6 +16,61 @@
         🔐
     </div>
 
+    <!-- クリアコード表示エリア（新規追加：ストーリーモード・修行モードクリア時に表示） -->
+    <div id="clear-code-display" class="clear-code-display hidden">
+        <div class="clear-code-container">
+            <div class="clear-code-header">
+                <h3>🎫 クリアコード</h3>
+                <button class="clear-code-close" onclick="window.hideClearCode()">✖</button>
+            </div>
+            <div class="clear-code-content">
+                <div class="clear-code-message" id="clear-code-message"></div>
+                <div class="clear-code-box" id="clear-code-box">
+                    <span id="clear-code-value">????????</span>
+                    <button class="clear-code-copy" onclick="window.copyClearCode()">📋 コピー</button>
+                </div>
+                <div class="clear-code-timer" id="clear-code-timer">残り時間: 03:00</div>
+                <div class="clear-code-note">※このコードは3分間有効です。次のステージ解放に使用してください。</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ステージ解放コード入力UI（新規追加：第三章用） -->
+    <div id="stage-unlock-ui" class="stage-unlock-ui hidden">
+        <div class="unlock-container">
+            <div class="unlock-header">
+                <h3>🔓 ステージ解放コード入力</h3>
+                <button class="unlock-close" onclick="window.closeStageUnlockUI()">✖</button>
+            </div>
+            <div class="unlock-content">
+                <div class="unlock-stage-info" id="unlock-stage-info">3-2 解放コード</div>
+                <div class="unlock-input-section">
+                    <input type="text" id="stage-unlock-code" placeholder="8桁のコードを入力" maxlength="8" autocomplete="off">
+                    <button class="btn-invite" onclick="window.submitStageUnlockCode()">入力</button>
+                </div>
+                <div class="unlock-note">※クリア時に表示されたコードを入力してください（3分以内）</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- スキル獲得コード入力UI（新規追加：3-10・修行用） -->
+    <div id="skill-unlock-ui" class="skill-unlock-ui hidden">
+        <div class="unlock-container">
+            <div class="unlock-header">
+                <h3>✨ スキル獲得コード入力</h3>
+                <button class="unlock-close" onclick="window.closeSkillUnlockUI()">✖</button>
+            </div>
+            <div class="unlock-content">
+                <div class="unlock-skill-info" id="unlock-skill-info">無敵マン スキル</div>
+                <div class="unlock-input-section">
+                    <input type="text" id="skill-unlock-code" placeholder="8桁のコードを入力" maxlength="8" autocomplete="off">
+                    <button class="btn-invite" onclick="window.submitSkillUnlockCode()">入力</button>
+                </div>
+                <div class="unlock-note">※クリア時に表示されたコードを入力してください（3分以内）</div>
+            </div>
+        </div>
+    </div>
+
     <!-- コード入力UI -->
     <div id="code-ui" class="hidden">
         <div class="code-container">
@@ -161,7 +216,7 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面（第3章ロック機能強化・進捗表示追加） -->
+            <!-- ストーリーモード画面（第三章コード入力ボタン追加） -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
@@ -170,11 +225,24 @@
                     <button class="chapter-tab" data-chapter="3" id="chapter3-tab">第3章</button>
                 </div>
                 
-                <!-- 進捗状況表示エリア（追加） -->
+                <!-- 進捗状況表示エリア -->
                 <div class="story-progress-summary" id="story-progress-summary">
                     <div class="progress-item">第1章: <span id="progress-chapter1">0/7</span></div>
                     <div class="progress-item">第2章: <span id="progress-chapter2">0/7</span></div>
                     <div class="progress-item">第3章: <span id="progress-chapter3">0/10</span></div>
+                </div>
+                
+                <!-- 第三章用コード入力ボタン（新規追加） -->
+                <div class="story-code-buttons" id="story-code-buttons">
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 2)" id="story-unlock-3-2" style="display: none;">🔓 3-2 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 3)" id="story-unlock-3-3" style="display: none;">🔓 3-3 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 4)" id="story-unlock-3-4" style="display: none;">🔓 3-4 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 5)" id="story-unlock-3-5" style="display: none;">🔓 3-5 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 6)" id="story-unlock-3-6" style="display: none;">🔓 3-6 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 7)" id="story-unlock-3-7" style="display: none;">🔓 3-7 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 8)" id="story-unlock-3-8" style="display: none;">🔓 3-8 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 9)" id="story-unlock-3-9" style="display: none;">🔓 3-9 解放コード入力</button>
+                    <button class="story-code-btn" onclick="window.openSkillUnlockUI('invincible_man')" id="story-skill-3-10" style="display: none;">✨ 無敵マンスキル獲得コード入力</button>
                 </div>
                 
                 <div id="story-chapter-1" class="story-chapter active">
@@ -225,7 +293,36 @@
                 </div>
             </div>
 
-            <!-- スキルガチャ画面（パーティー中でも使用可能・ガチャスキル装備対応） -->
+            <!-- 修行モード画面（スキル獲得コード入力ボタン追加） -->
+            <div id="screen-training" class="screen hidden">
+                <h2 class="title-glow" style="color: #00FF00;">TRAINING</h2>
+                
+                <!-- 修行用コード入力ボタン（新規追加） -->
+                <div class="training-code-buttons">
+                    <button class="training-code-btn" onclick="window.openSkillUnlockUI('swordsman')" id="training-skill-1">⚔️ 剣士スキル獲得コード入力</button>
+                    <button class="training-code-btn" onclick="window.openSkillUnlockUI('hacker_trainee')" id="training-skill-2">💻 ハッカー修行人スキル獲得コード入力</button>
+                </div>
+                
+                <div class="training-container">
+                    <div class="training-card" onclick="window.startTraining(1)" data-training="1">
+                        <h3>修行1 - 剣士への道</h3>
+                        <p>目標: 45000スコア (60秒)</p>
+                        <p>特殊: 10~15秒ごとに攻撃が来る</p>
+                        <p class="training-reward">報酬: 剣士スキル</p>
+                        <div class="training-status" id="training-1-status">未クリア</div>
+                    </div>
+                    <div class="training-card" onclick="window.startTraining(2)" data-training="2">
+                        <h3>修行2 - ハッカー修行</h3>
+                        <p>目標: 50000スコア (60秒)</p>
+                        <p>特殊: タブ追加・異常状態攻撃</p>
+                        <p class="training-reward">報酬: ハッカー修行人スキル</p>
+                        <div class="training-status" id="training-2-status">未クリア</div>
+                    </div>
+                </div>
+                <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
+            </div>
+
+            <!-- スキルガチャ画面 -->
             <div id="screen-gacha" class="screen hidden">
                 <h2 class="title-glow" style="color: #FF69B4;">SKILL GACHA</h2>
                 <div class="gacha-coin-display">所持コイン: <span id="gacha-coin-amount">0</span> 🪙</div>
@@ -281,29 +378,7 @@
                 </div>
             </div>
 
-            <!-- 修行モード画面 -->
-            <div id="screen-training" class="screen hidden">
-                <h2 class="title-glow" style="color: #00FF00;">TRAINING</h2>
-                <div class="training-container">
-                    <div class="training-card" onclick="window.startTraining(1)" data-training="1">
-                        <h3>修行1 - 剣士への道</h3>
-                        <p>目標: 45000スコア (60秒)</p>
-                        <p>特殊: 10~15秒ごとに攻撃が来る</p>
-                        <p class="training-reward">報酬: 剣士スキル</p>
-                        <div class="training-status" id="training-1-status">未クリア</div>
-                    </div>
-                    <div class="training-card" onclick="window.startTraining(2)" data-training="2">
-                        <h3>修行2 - ハッカー修行</h3>
-                        <p>目標: 50000スコア (60秒)</p>
-                        <p>特殊: タブ追加・異常状態攻撃</p>
-                        <p class="training-reward">報酬: ハッカー修行人スキル</p>
-                        <div class="training-status" id="training-2-status">未クリア</div>
-                    </div>
-                </div>
-                <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
-            </div>
-
-            <!-- スキルショップ画面（パーティー中でも使用可能）- ノーマル/ガチャ切り替え対応 -->
+            <!-- スキルショップ画面 -->
             <div id="screen-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
@@ -320,7 +395,7 @@
                     <div id="shop-gacha-skills" class="shop-grid hidden"></div>
                 </div>
 
-                <!-- メインメニューに戻るボタン - 位置を上に調整（修正済み） -->
+                <!-- メインメニューに戻るボタン -->
                 <div class="shop-footer-buttons" style="margin-top: 15px; display: flex; justify-content: center;">
                     <button class="action-btn gray-btn" style="max-width: 300px; padding: 15px 25px;" onclick="window.goHome()">メインメニューに戻る</button>
                 </div>
@@ -336,7 +411,7 @@
                 </div>
             </div>
 
-            <!-- バトルセットアップ画面（ハンデ5種類対応） -->
+            <!-- バトルセットアップ画面 -->
             <div id="screen-battle-setup" class="screen hidden">
                 <h2 class="title-glow">BATTLE SETUP</h2>
                 <div class="setup-panel">
@@ -579,7 +654,7 @@
         </div>
     </div>
 
-    <!-- ハッキング画面オーバーレイ（5秒後にタイピング可能になるよう構造修正） -->
+    <!-- ハッキング画面オーバーレイ -->
     <div id="hacking-overlay" class="hidden">
         <div class="hacking-screen">
             <div class="hacking-text">ハッキング！しかもウイルスあり！</div>
