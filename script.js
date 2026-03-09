@@ -1,11 +1,12 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V21.4 (完全修正版)
+// FIREBASE & TYPING ENGINE V22.0 (コード入力システム完全実装版)
 // 修正内容:
-// 1. 偽物タイピングを修正（打てるように、騙されたらスタン）
-// 2. スキル封印・血状態でもタイピング可能に
-// 3. ストーリーモードの進捗管理を完全修正
-// 4. 修行モードのクリア表示とスキル獲得を確実に
+// 1. 第三章ステージクリア時に8桁のランダムコードを表示（3分間有効）
+// 2. コード入力で次のステージを解放するシステム
+// 3. 3-10クリア時・修行クリア時にスキル獲得コードを表示
+// 4. コード入力でスキルを獲得するシステム
+// 5. 修行クリア状態の確実な表示
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -67,6 +68,13 @@ let usedCodes = JSON.parse(localStorage.getItem("ramo_used_codes")) || [];
 let dailyCode = localStorage.getItem("ramo_daily_code") || generateDailyCode();
 let dailyCodeDate = localStorage.getItem("ramo_daily_date") || new Date().toDateString();
 let codeTimer = null;
+
+// クリアコード関連（新規追加）
+let clearCodes = JSON.parse(localStorage.getItem("ramo_clear_codes")) || {};
+let clearCodeTimer = null;
+let currentClearCode = null;
+let currentClearCodeType = null; // 'stage', 'skill', 'training'
+let currentClearCodeTarget = null; // 対象のステージ or スキルID
 
 // 特殊コード使用フラグ
 let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
@@ -415,6 +423,321 @@ let effectTimers = {
 // パーティーメンバー情報キャッシュ
 let partyMembers = {};
 
+// --- クリアコード生成関数（新規追加）---
+function generateClearCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+// クリアコード表示（新規追加）
+function showClearCode(code, type, target) {
+    const display = el("clear-code-display");
+    const codeValue = el("clear-code-value");
+    const messageEl = el("clear-code-message");
+    const timerEl = el("clear-code-timer");
+    
+    if (!display || !codeValue || !messageEl || !timerEl) return;
+    
+    currentClearCode = code;
+    currentClearCodeType = type;
+    currentClearCodeTarget = target;
+    
+    let message = "";
+    if (type === 'stage') {
+        message = `🎉 ステージ 3-${target} クリア！\n次のステージ解放コード`;
+    } else if (type === 'skill') {
+        const skillName = target === 'invincible_man' ? '無敵マン' : 
+                         target === 'swordsman' ? '剣士' : 'ハッカー修行人';
+        message = `🎉 クリア！\n「${skillName}」スキル獲得コード`;
+    } else if (type === 'training') {
+        const skillName = target === 'swordsman' ? '剣士' : 'ハッカー修行人';
+        message = `🎉 修行クリア！\n「${skillName}」スキル獲得コード`;
+    }
+    
+    messageEl.innerText = message;
+    codeValue.innerText = code;
+    
+    // 3分間のカウントダウン開始
+    const expiryTime = Date.now() + 180000; // 3分後
+    clearCodes[code] = {
+        type: type,
+        target: target,
+        expiry: expiryTime,
+        used: false
+    };
+    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+    
+    startClearCodeTimer(expiryTime);
+    
+    display.classList.remove("hidden");
+    
+    // 自動的に閉じない（ユーザーが閉じるまで）
+}
+
+function startClearCodeTimer(expiryTime) {
+    if (clearCodeTimer) clearInterval(clearCodeTimer);
+    
+    clearCodeTimer = setInterval(() => {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.floor((expiryTime - now) / 1000));
+        
+        const timerEl = el("clear-code-timer");
+        if (timerEl) {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            timerEl.innerText = `残り時間: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (remaining <= 0) {
+                timerEl.innerText = "残り時間: 00:00 (期限切れ)";
+                clearInterval(clearCodeTimer);
+            }
+        }
+    }, 1000);
+}
+
+window.hideClearCode = () => {
+    const display = el("clear-code-display");
+    if (display) display.classList.add("hidden");
+    if (clearCodeTimer) clearInterval(clearCodeTimer);
+};
+
+window.copyClearCode = () => {
+    const codeValue = el("clear-code-value");
+    if (!codeValue) return;
+    
+    navigator.clipboard.writeText(codeValue.innerText).then(() => {
+        alert("コードをコピーしました！");
+    }).catch(() => {
+        alert("コピーに失敗しました。手動でコピーしてください。");
+    });
+};
+
+// ステージ解放コード入力UI（新規追加）
+window.openStageUnlockUI = (chapter, stage) => {
+    if (chapter !== 3) return;
+    
+    const ui = el("stage-unlock-ui");
+    const info = el("unlock-stage-info");
+    
+    if (!ui || !info) return;
+    
+    info.innerText = `3-${stage} 解放コード`;
+    ui.dataset.chapter = chapter;
+    ui.dataset.stage = stage;
+    ui.classList.remove("hidden");
+};
+
+window.closeStageUnlockUI = () => {
+    const ui = el("stage-unlock-ui");
+    const input = document.getElementById("stage-unlock-code");
+    if (input) input.value = "";
+    if (ui) ui.classList.add("hidden");
+};
+
+window.submitStageUnlockCode = () => {
+    const input = document.getElementById("stage-unlock-code");
+    const ui = el("stage-unlock-ui");
+    
+    if (!input || !ui) return;
+    
+    const code = input.value.trim().toUpperCase();
+    const chapter = parseInt(ui.dataset.chapter);
+    const stage = parseInt(ui.dataset.stage);
+    
+    if (!code || code.length !== 8) {
+        alert("8桁のコードを入力してください");
+        return;
+    }
+    
+    // コードの有効性チェック
+    const clearCodeData = clearCodes[code];
+    if (!clearCodeData) {
+        alert("無効なコードです");
+        input.value = "";
+        return;
+    }
+    
+    if (clearCodeData.used) {
+        alert("このコードは既に使用されています");
+        input.value = "";
+        return;
+    }
+    
+    if (Date.now() > clearCodeData.expiry) {
+        alert("コードの有効期限が切れています（3分経過）");
+        delete clearCodes[code];
+        localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+        input.value = "";
+        return;
+    }
+    
+    if (clearCodeData.type !== 'stage' || clearCodeData.target !== stage) {
+        alert("このコードは対象のステージ解放用ではありません");
+        input.value = "";
+        return;
+    }
+    
+    // ステージ解放処理
+    if (chapter === 3) {
+        if (storyProgress.chapter3 < stage - 1) {
+            alert("前のステージを先に解放してください");
+            input.value = "";
+            return;
+        }
+        
+        // コードを使用済みに
+        clearCodeData.used = true;
+        clearCodes[code] = clearCodeData;
+        localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+        
+        // ステージ解放
+        storyProgress.chapter3 = stage;
+        saveAndDisplayData();
+        
+        // Firebaseに保存
+        const userRef = ref(db, `users/${myId}`);
+        update(userRef, { story_progress: storyProgress }).catch(err => console.error("Firebase save error:", err));
+        
+        alert(`🎉 ステージ 3-${stage} が解放されました！`);
+        sounds.notify.play();
+        
+        // UIを閉じてマップを再描画
+        input.value = "";
+        ui.classList.add("hidden");
+        
+        if (!el("screen-story").classList.contains("hidden")) {
+            renderStoryMap();
+        }
+        
+        // コード削除
+        delete clearCodes[code];
+        localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+    }
+};
+
+// スキル獲得コード入力UI（新規追加）
+window.openSkillUnlockUI = (skillId) => {
+    const ui = el("skill-unlock-ui");
+    const info = el("unlock-skill-info");
+    
+    if (!ui || !info) return;
+    
+    let skillName = "";
+    if (skillId === "invincible_man") skillName = "無敵マン";
+    else if (skillId === "swordsman") skillName = "剣士";
+    else if (skillId === "hacker_trainee") skillName = "ハッカー修行人";
+    
+    info.innerText = `${skillName} スキル獲得コード`;
+    ui.dataset.skillId = skillId;
+    ui.classList.remove("hidden");
+};
+
+window.closeSkillUnlockUI = () => {
+    const ui = el("skill-unlock-ui");
+    const input = document.getElementById("skill-unlock-code");
+    if (input) input.value = "";
+    if (ui) ui.classList.add("hidden");
+};
+
+window.submitSkillUnlockCode = () => {
+    const input = document.getElementById("skill-unlock-code");
+    const ui = el("skill-unlock-ui");
+    
+    if (!input || !ui) return;
+    
+    const code = input.value.trim().toUpperCase();
+    const skillId = ui.dataset.skillId;
+    
+    if (!code || code.length !== 8) {
+        alert("8桁のコードを入力してください");
+        return;
+    }
+    
+    // コードの有効性チェック
+    const clearCodeData = clearCodes[code];
+    if (!clearCodeData) {
+        alert("無効なコードです");
+        input.value = "";
+        return;
+    }
+    
+    if (clearCodeData.used) {
+        alert("このコードは既に使用されています");
+        input.value = "";
+        return;
+    }
+    
+    if (Date.now() > clearCodeData.expiry) {
+        alert("コードの有効期限が切れています（3分経過）");
+        delete clearCodes[code];
+        localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+        input.value = "";
+        return;
+    }
+    
+    if (clearCodeData.type !== 'skill' && clearCodeData.type !== 'training') {
+        alert("このコードはスキル獲得用ではありません");
+        input.value = "";
+        return;
+    }
+    
+    if (clearCodeData.target !== skillId) {
+        alert("このコードは対象のスキル用ではありません");
+        input.value = "";
+        return;
+    }
+    
+    // スキル獲得処理
+    if (!ownedSkills.includes(skillId)) {
+        ownedSkills.push(skillId);
+        equippedSkill = skillId;
+    }
+    
+    // 修行クリアフラグも設定
+    if (skillId === "swordsman") {
+        trainingCompleted.training1 = true;
+    } else if (skillId === "hacker_trainee") {
+        trainingCompleted.training2 = true;
+    }
+    
+    // コードを使用済みに
+    clearCodeData.used = true;
+    clearCodes[code] = clearCodeData;
+    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+    
+    // セーブ
+    saveAndDisplayData();
+    
+    // Firebaseに保存
+    const userRef = ref(db, `users/${myId}`);
+    update(userRef, { 
+        skills: ownedSkills,
+        equipped: equippedSkill,
+        training_completed: trainingCompleted
+    }).catch(err => console.error("Firebase save error:", err));
+    
+    const skillName = SKILL_DB[skillId]?.name || skillId;
+    alert(`🎉 「${skillName}」スキルを獲得しました！`);
+    sounds.notify.play();
+    
+    // UIを閉じる
+    input.value = "";
+    ui.classList.add("hidden");
+    
+    // 修行画面を開いている場合は表示を更新
+    if (!el("screen-training").classList.contains("hidden")) {
+        updateTrainingStatus();
+    }
+    
+    // コード削除
+    delete clearCodes[code];
+    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
+};
+
 // --- デイリーコード生成関数 ---
 function generateDailyCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -503,6 +826,7 @@ async function loadCodeStatusFromFirebase() {
             if (data.daily_code) dailyCode = data.daily_code;
             if (data.daily_code_date) dailyCodeDate = data.daily_code_date;
             if (data.used_codes) usedCodes = data.used_codes;
+            if (data.clear_codes) clearCodes = data.clear_codes;
             
             localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
             localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
@@ -510,6 +834,7 @@ async function loadCodeStatusFromFirebase() {
             localStorage.setItem("ramo_daily_code", dailyCode);
             localStorage.setItem("ramo_daily_date", dailyCodeDate);
             localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+            localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         }
     } catch (err) {
         console.error("Firebase code status load error:", err);
@@ -536,6 +861,7 @@ async function resetAllData() {
         daily_code: dailyCode,
         daily_code_date: dailyCodeDate,
         used_codes: [],
+        clear_codes: {},
         lastSeen: Date.now()
     });
     
@@ -550,6 +876,7 @@ async function resetAllData() {
     byramoUsed = false;
     yuseSyazai2Used = false;
     usedCodes = [];
+    clearCodes = {};
     
     saveAndDisplayData();
     alert("すべてのデータをリセットしました。");
@@ -717,6 +1044,7 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_skin", JSON.stringify(skinData));
     localStorage.setItem("ramo_accessory", equippedAccessory);
     localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+    localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
     localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
@@ -744,6 +1072,7 @@ function saveAndDisplayData() {
             skin: skinData,
             accessory: equippedAccessory,
             name: myName,
+            clear_codes: clearCodes,
             lastUpdate: Date.now()
         });
     }).catch(err => console.error("Firebase save error:", err));
@@ -759,6 +1088,30 @@ function updateStoryProgressDisplay() {
     if (progressChapter3) {
         const displayValue = storyProgress.chapter3 !== undefined ? storyProgress.chapter3 : 0;
         progressChapter3.innerText = `${displayValue}/10`;
+    }
+    
+    // 第三章コード入力ボタンの表示制御（新規追加）
+    if (storyProgress.chapter3 !== undefined) {
+        for (let stage = 2; stage <= 10; stage++) {
+            const btn = el(`story-unlock-3-${stage}`);
+            if (btn) {
+                if (storyProgress.chapter3 >= stage - 1 && storyProgress.chapter3 < stage) {
+                    btn.style.display = "inline-block";
+                } else {
+                    btn.style.display = "none";
+                }
+            }
+        }
+        
+        // 3-10スキル獲得ボタン
+        const skillBtn = el("story-skill-3-10");
+        if (skillBtn) {
+            if (storyProgress.chapter3 >= 10 && !ownedSkills.includes("invincible_man")) {
+                skillBtn.style.display = "inline-block";
+            } else {
+                skillBtn.style.display = "none";
+            }
+        }
     }
 }
 
@@ -1671,18 +2024,18 @@ function renderNormalSkills() {
                 isUnlocked = storyProgress.chapter2 >= 7;
                 requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '第2章 2-7 をクリアすると使用可能'}】`;
             } else if (skill.id === "invincible_man") {
-                isUnlocked = storyProgress.chapter3 >= 10;
-                requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '第3章 3-10 をクリアすると使用可能'}】`;
+                isUnlocked = ownedSkills.includes("invincible_man");
+                requirementText = `【条件: ${isUnlocked ? '✓ 獲得済み' : '第3章 3-10 クリアコード入力で獲得'}】`;
             }
         }
         
         if (skill.training) {
             if (skill.id === "swordsman") {
                 isUnlocked = ownedSkills.includes("swordsman") || trainingCompleted.training1;
-                requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行1をクリアすると使用可能'}】`;
+                requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行1クリアコード入力で獲得'}】`;
             } else if (skill.id === "hacker_trainee") {
                 isUnlocked = ownedSkills.includes("hacker_trainee") || trainingCompleted.training2;
-                requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行2をクリアすると使用可能'}】`;
+                requirementText = `【条件: ${isUnlocked ? '✓ クリア済み' : '修行2クリアコード入力で獲得'}】`;
             }
         }
         
@@ -2366,7 +2719,7 @@ function updateProgressBar(currentScore) {
 }
 
 // =========================================
-// ストーリーモード制御（完全修正版・強化）
+// ストーリーモード制御（完全修正版・コード入力システム対応）
 // =========================================
 
 function storyClear() {
@@ -2375,59 +2728,63 @@ function storyClear() {
                      STORY_STAGES.chapter3[currentStage.stage - 1];
     
     let earnedCoins = stageData.reward;
-    let progressUpdated = false;
     
-    // 進捗を更新（次のステージを解放）- 既にクリア済みの場合は増やさない
-    if (currentStage.chapter === 1) {
-        if (storyProgress.chapter1 < currentStage.stage) {
-            storyProgress.chapter1 = currentStage.stage;
-            progressUpdated = true;
-            console.log(`ストーリー進捗更新: 第1章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
-        } else {
-            console.log(`第1章 ${currentStage.stage} は既にクリア済みです`);
+    // 第1章・第2章は従来通り進捗を更新
+    if (currentStage.chapter === 1 || currentStage.chapter === 2) {
+        if (currentStage.chapter === 1) {
+            if (storyProgress.chapter1 < currentStage.stage) {
+                storyProgress.chapter1 = currentStage.stage;
+            }
+        } else if (currentStage.chapter === 2) {
+            if (storyProgress.chapter2 < currentStage.stage) {
+                storyProgress.chapter2 = currentStage.stage;
+            }
         }
-    } else if (currentStage.chapter === 2) {
-        if (storyProgress.chapter2 < currentStage.stage) {
-            storyProgress.chapter2 = currentStage.stage;
-            progressUpdated = true;
-            console.log(`ストーリー進捗更新: 第2章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
-        } else {
-            console.log(`第2章 ${currentStage.stage} は既にクリア済みです`);
+        
+        // ボスステージクリア時はスキルを獲得
+        if (stageData.boss) {
+            giveBossSkill(stageData.skill);
         }
-    } else {
-        if (storyProgress.chapter3 < currentStage.stage) {
-            storyProgress.chapter3 = currentStage.stage;
-            progressUpdated = true;
-            console.log(`ストーリー進捗更新: 第3章 ${currentStage.stage} クリア → 次は ${currentStage.stage + 1} を解放`);
-        } else {
-            console.log(`第3章 ${currentStage.stage} は既にクリア済みです`);
+        
+        coins += earnedCoins;
+        saveAndDisplayData();
+        
+        // Firebaseに保存
+        const userRef = ref(db, `users/${myId}`);
+        update(userRef, {
+            story_progress: storyProgress,
+            coins: coins,
+            skills: ownedSkills
+        }).catch(err => console.error("Firebase story progress save error:", err));
+        
+        alert(`🎉 ステージクリア！\n獲得コイン: ${earnedCoins}🪙`);
+        
+        if (!el("screen-story").classList.contains("hidden")) {
+            renderStoryMap();
         }
-    }
-    
-    // ボスステージクリア時はスキルを獲得
-    if (stageData.boss) {
-        giveBossSkill(stageData.skill);
-    }
-    
-    coins += earnedCoins;
-    
-    // 必ずセーブする（進捗が更新されていなくても）
-    saveAndDisplayData();
-    
-    // 明示的にFirebaseに進捗を保存
-    const userRef = ref(db, `users/${myId}`);
-    update(userRef, {
-        story_progress: storyProgress,
-        coins: coins,
-        skills: ownedSkills
-    }).catch(err => console.error("Firebase story progress save error:", err));
-    
-    // クリアメッセージを表示
-    alert(`🎉 ステージクリア！\n獲得コイン: ${earnedCoins}🪙`);
-    
-    // ストーリーマップを再描画（進捗を反映）
-    if (!el("screen-story").classList.contains("hidden")) {
-        renderStoryMap();
+    } 
+    // 第3章はクリアコードを表示（スキルはコード入力で獲得）
+    else if (currentStage.chapter === 3) {
+        if (!stageData.boss) {
+            // 通常ステージ：ステージ解放コードを表示
+            const clearCode = generateClearCode();
+            showClearCode(clearCode, 'stage', currentStage.stage + 1);
+            alert(`🎉 ステージ 3-${currentStage.stage} クリア！\n次のステージ解放コードが表示されました。`);
+        } else {
+            // ボスステージ：スキル獲得コードを表示
+            const clearCode = generateClearCode();
+            showClearCode(clearCode, 'skill', stageData.skill);
+            alert(`🎉 ステージ 3-10 クリア！\n「無敵マン」スキル獲得コードが表示されました。`);
+        }
+        
+        coins += earnedCoins;
+        saveAndDisplayData();
+        
+        // Firebaseに保存（コインのみ）
+        const userRef = ref(db, `users/${myId}`);
+        update(userRef, {
+            coins: coins
+        }).catch(err => console.error("Firebase coin save error:", err));
     }
     
     endGame();
@@ -2764,7 +3121,7 @@ function endGame() {
 }
 
 // =========================================
-// 修行モード制御（完全修正版・強化）
+// 修行モード制御（完全修正版・コード入力システム対応）
 // =========================================
 
 function handleTrainingResult() {
@@ -2772,63 +3129,19 @@ function handleTrainingResult() {
     const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
     
     if (score >= targetScore) {
-        // 修行クリア処理
-        let skillObtained = false;
+        // 修行クリア：コードを表示（自動でスキル獲得はしない）
+        const clearCode = generateClearCode();
+        showClearCode(clearCode, 'training', skillId);
         
-        if (!ownedSkills.includes(skillId)) {
-            ownedSkills.push(skillId);
-            equippedSkill = skillId;
-            skillObtained = true;
-            console.log(`修行クリア: 新しいスキル「${skillId}」を獲得`);
-        } else {
-            console.log(`修行クリア: スキル「${skillId}」は既に所持済み`);
-        }
+        console.log(`修行クリア: コード ${clearCode} を表示 (スキル: ${skillId})`);
         
-        // 修行クリアフラグを設定
-        if (trainingType === 1) {
-            trainingCompleted.training1 = true;
-        } else {
-            trainingCompleted.training2 = true;
-        }
-        
-        // 必ずセーブ
-        saveAndDisplayData();
-        
-        // 明示的にFirebaseに保存
-        const userRef = ref(db, `users/${myId}`);
-        update(userRef, {
-            training_completed: trainingCompleted,
-            skills: ownedSkills,
-            equipped: equippedSkill
-        }).catch(err => console.error("Firebase training save error:", err));
-        
-        // 修行クリアの表示を大きく見やすく
-        const skillName = trainingType === 1 ? "⚔️ 剣士" : "💻 ハッカー修行人";
-        const message = skillObtained 
-            ? `🎉 修行クリア！\n${skillName}を獲得しました！` 
-            : `✓ 修行クリア！（既に${skillName}を獲得済み）`;
-        
-        // アラートで表示
-        setTimeout(() => {
-            alert(message);
-        }, 500);
-        
-        if (skillObtained) {
-            return `
-                <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                <div class="ranking-row" style="color: #00FF00; font-size: 1.5rem; font-weight: bold; text-align: center; padding: 20px;">
-                    <span>🎉 修行クリア！ 🎉</span><br>
-                    <span style="font-size: 1.2rem;">${skillName}を獲得！</span>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
-                <div class="ranking-row" style="color: #FFD700; font-size: 1.3rem; text-align: center; padding: 15px;">
-                    <span>✓ 修行クリア！（既にスキル獲得済み）</span>
-                </div>
-            `;
-        }
+        return `
+            <div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+            <div class="ranking-row" style="color: #00FF00; font-size: 1.5rem; font-weight: bold; text-align: center; padding: 20px;">
+                <span>🎉 修行クリア！ 🎉</span><br>
+                <span style="font-size: 1.2rem;">スキル獲得コードが表示されました</span>
+            </div>
+        `;
     } else {
         console.log(`修行失敗: ${score} / ${targetScore}`);
         return `
@@ -4993,6 +5306,7 @@ get(userRef).then(snap => {
         if(data.daily_code) dailyCode = data.daily_code;
         if(data.daily_code_date) dailyCodeDate = data.daily_code_date;
         if(data.used_codes) usedCodes = data.used_codes;
+        if(data.clear_codes) clearCodes = data.clear_codes;
         
         localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
         localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
@@ -5000,6 +5314,7 @@ get(userRef).then(snap => {
         localStorage.setItem("ramo_daily_code", dailyCode);
         localStorage.setItem("ramo_daily_date", dailyCodeDate);
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
+        localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         localStorage.setItem("ramo_training_completed", JSON.stringify(trainingCompleted));
     }
     saveAndDisplayData();
@@ -5021,6 +5336,7 @@ update(userRef, {
     daily_code: dailyCode,
     daily_code_date: dailyCodeDate,
     used_codes: usedCodes,
+    clear_codes: clearCodes,
     lastSeen: Date.now()
 }).catch(err => console.error("Firebase update error:", err));
 
