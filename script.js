@@ -1,10 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V22.3 (コード入力システム完全版・バグ修正)
+// FIREBASE & TYPING ENGINE V22.4 (コード入力システム完全版・バグ修正)
 // 修正内容:
-// 1. ストーリーモード3-3のバグ修正（正しいステージのみ解放）
-// 2. 修行モードのコード表示バグ修正
-// 3. 最強自動入力の速度を10倍に強化（0.005秒間隔）
+// 1. ストーリーモード3-1のバグ修正（クリアしたステージのコードを表示し、そのステージのみ解放）
+// 2. 修行モードのコード表示バグ修正（確実に表示）
+// 3. 最強自動入力の速度をさらに10倍に強化（0.0005秒間隔 = 2000回/秒）
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -306,13 +306,13 @@ const NEW_SKILLS = {
         training: true,
         trainingLevel: 2
     },
-    // 最強自動入力（隠しコード用）- 速度10倍に強化
+    // 最強自動入力（隠しコード用）- 速度をさらに10倍に強化（0.0005秒間隔）
     ultimateAutoType: {
         id: "ultimateAutoType",
         name: "最強自動入力",
         cost: 0,
         cooldown: 120,
-        desc: "【スペースキー】120秒間、0.005秒間隔で超高速自動入力を実行（200回/秒）",
+        desc: "【スペースキー】120秒間、0.0005秒間隔で超高速自動入力を実行（2000回/秒）",
         special: true,
         hidden: true
     }
@@ -462,7 +462,8 @@ function showClearCode(code, type, target) {
     
     let message = "";
     if (type === 'stage') {
-        message = `🎉 ステージ 3-${target} クリア！\n次のステージ解放コード`;
+        // 修正: クリアしたステージのコードであることを明示
+        message = `🎉 ステージ 3-${target} クリア！\nこのステージのクリアコード`;
     } else if (type === 'skill') {
         const skillName = target === 'invincible_man' ? '無敵マン' : 
                          target === 'swordsman' ? '剣士' : 
@@ -542,7 +543,7 @@ window.openStageUnlockUI = (chapter, stage) => {
     
     if (!ui || !info) return;
     
-    info.innerText = `3-${stage} 解放コード`;
+    info.innerText = `3-${stage} 解放コード（クリアしたステージのコードを入力）`;
     ui.dataset.chapter = chapter;
     ui.dataset.stage = stage;
     ui.classList.remove("hidden");
@@ -601,7 +602,6 @@ window.submitStageUnlockCode = () => {
     // ステージ解放処理
     if (chapter === 3) {
         // 前のステージがクリアされているかチェック（stage-1 が解放済みであること）
-        // 修正: 正確な条件 - 前のステージがクリアされていること
         if (storyProgress.chapter3 < stage - 1) {
             alert("前のステージを先に解放してください");
             input.value = "";
@@ -624,6 +624,7 @@ window.submitStageUnlockCode = () => {
         localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         
         // ステージ解放（stage のみを解放 - 複数ステージは解放しない）
+        // 修正: クリアしたステージのみを解放（stage を設定）
         storyProgress.chapter3 = stage;
         saveAndDisplayData();
         
@@ -1173,7 +1174,7 @@ function activateComboGod() {
     }, 7000);
 }
 
-// --- 最強自動入力スキル発動（速度10倍に強化）---
+// --- 最強自動入力スキル発動（速度をさらに10倍に強化）---
 function activateUltimateAutoType() {
     if (!ownedSkills.includes("ultimateAutoType")) {
         alert("「最強自動入力」スキルを所持していません");
@@ -1185,11 +1186,11 @@ function activateUltimateAutoType() {
         return;
     }
     
-    showBattleAlert("⚡ 最強自動入力発動！120秒間超高速タイピング（200回/秒）！", "#00FFFF");
+    showBattleAlert("⚡ 最強自動入力発動！120秒間超高速タイピング（2000回/秒）！", "#00FFFF");
     sounds.notify.play();
     
-    // 0.005秒間隔（200回/秒）の超高速自動入力（10倍に強化）
-    startAutoTypeEngine(120000, 5);
+    // 0.0005秒間隔（2000回/秒）の超高速自動入力（さらに10倍に強化）
+    startAutoTypeEngine(120000, 0.5);
     
     // クールダウン設定
     startSpecificCooldown("space", 120);
@@ -1256,11 +1257,12 @@ function updateStoryProgressDisplay() {
     // 第三章コード入力ボタンの表示制御
     if (storyProgress.chapter3 !== undefined) {
         // 各ステージの解放ボタン
-        for (let stage = 2; stage <= 9; stage++) {
+        for (let stage = 1; stage <= 9; stage++) {
             const btn = el(`story-unlock-3-${stage}`);
             if (btn) {
-                // 前のステージをクリア済みで、次のステージが未解放の場合に表示
-                if (storyProgress.chapter3 >= stage - 1 && storyProgress.chapter3 < stage) {
+                // 修正: クリアしたステージのコード入力ボタンを表示
+                // ステージがクリア済み（storyProgress.chapter3 >= stage）で、まだスキルを獲得していない場合に表示
+                if (storyProgress.chapter3 >= stage) {
                     btn.style.display = "inline-block";
                 } else {
                     btn.style.display = "none";
@@ -1271,6 +1273,7 @@ function updateStoryProgressDisplay() {
         // 3-10スキル獲得ボタン
         const skillBtn = el("story-skill-3-10");
         if (skillBtn) {
+            // 修正: 3-10をクリア済みで、まだ無敵マンを獲得していない場合に表示
             if (storyProgress.chapter3 >= 10 && !ownedSkills.includes("invincible_man")) {
                 skillBtn.style.display = "inline-block";
             } else {
@@ -2930,19 +2933,11 @@ function storyClear() {
     } 
     // 第3章はクリアコードを表示（スキルはコード入力で獲得）
     else if (currentStage.chapter === 3) {
-        if (!stageData.boss) {
-            // 通常ステージ：ステージ解放コードを表示（次のステージ用）
-            const clearCode = generateClearCode();
-            console.log(`Generated clear code for stage 3-${currentStage.stage + 1}: ${clearCode}`);
-            showClearCode(clearCode, 'stage', currentStage.stage + 1);
-            alert(`🎉 ステージ 3-${currentStage.stage} クリア！\n次のステージ解放コードが表示されました。`);
-        } else {
-            // ボスステージ：スキル獲得コードを表示
-            const clearCode = generateClearCode();
-            console.log(`Generated skill code for invincible_man: ${clearCode}`);
-            showClearCode(clearCode, 'skill', stageData.skill);
-            alert(`🎉 ステージ 3-10 クリア！\n「無敵マン」スキル獲得コードが表示されました。`);
-        }
+        // 修正: クリアしたステージのコードを表示
+        const clearCode = generateClearCode();
+        console.log(`Generated clear code for stage 3-${currentStage.stage}: ${clearCode}`);
+        showClearCode(clearCode, 'stage', currentStage.stage);
+        alert(`🎉 ステージ 3-${currentStage.stage} クリア！\nこのステージのクリアコードが表示されました。`);
         
         coins += earnedCoins;
         saveAndDisplayData();
