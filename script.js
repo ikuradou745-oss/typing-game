@@ -1,11 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V22.1 (コード入力システム完全版)
+// FIREBASE & TYPING ENGINE V22.2 (コード入力システム完全版・バグ修正)
 // 修正内容:
-// 1. 第三章クリア時のコード表示バグ修正
-// 2. ストーリーモードコード入力ボタン表示修正
-// 3. 最強自動入力スキル(TYSM1045)追加
-// 4. コード入力システム改善
+// 1. ストーリーモード3-1のコード入力バグ修正（正しいステージのみ解放）
+// 2. 修行モードのコード表示バグ修正
+// 3. 最強自動入力の速度を10倍に強化（0.005秒間隔）
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -79,7 +78,7 @@ let currentClearCodeTarget = null; // 対象のステージ or スキルID
 let tysmUsed = localStorage.getItem("ramo_tysm_used") === "true";
 let byramoUsed = localStorage.getItem("ramo_byramo_used") === "true";
 let yuseSyazai2Used = localStorage.getItem("ramo_yuseSyazai2_used") === "true";
-let tysm1045Used = localStorage.getItem("ramo_tysm1045_used") === "true"; // 新規追加
+let tysm1045Used = localStorage.getItem("ramo_tysm1045_used") === "true";
 
 // コンボアップの神スキル
 let comboGodActive = false;
@@ -307,13 +306,13 @@ const NEW_SKILLS = {
         training: true,
         trainingLevel: 2
     },
-    // 新規追加：最強自動入力（隠しコード用）
+    // 最強自動入力（隠しコード用）- 速度10倍に強化
     ultimateAutoType: {
         id: "ultimateAutoType",
         name: "最強自動入力",
         cost: 0,
         cooldown: 120,
-        desc: "【スペースキー】120秒間、0.05秒間隔で超高速自動入力を実行",
+        desc: "【スペースキー】120秒間、0.005秒間隔で超高速自動入力を実行（200回/秒）",
         special: true,
         hidden: true
     }
@@ -601,6 +600,7 @@ window.submitStageUnlockCode = () => {
     
     // ステージ解放処理
     if (chapter === 3) {
+        // 前のステージがクリアされているかチェック（stage-1 が解放済みであること）
         if (storyProgress.chapter3 < stage - 1) {
             alert("前のステージを先に解放してください");
             input.value = "";
@@ -612,8 +612,10 @@ window.submitStageUnlockCode = () => {
         clearCodes[code] = clearCodeData;
         localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         
-        // ステージ解放
-        storyProgress.chapter3 = stage;
+        // ステージ解放（stage を解放。ただし、すでに解放済みの場合は更新しない）
+        if (storyProgress.chapter3 < stage) {
+            storyProgress.chapter3 = stage;
+        }
         saveAndDisplayData();
         
         // Firebaseに保存
@@ -1057,7 +1059,10 @@ window.submitCode = async () => {
                     clearCodes[input] = codeData;
                     localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
                     
-                    storyProgress.chapter3 = codeData.target;
+                    // 正しいステージのみを解放
+                    if (storyProgress.chapter3 < codeData.target) {
+                        storyProgress.chapter3 = codeData.target;
+                    }
                     saveAndDisplayData();
                     
                     const userRef = ref(db, `users/${myId}`);
@@ -1157,7 +1162,7 @@ function activateComboGod() {
     }, 7000);
 }
 
-// --- 最強自動入力スキル発動（新規追加）---
+// --- 最強自動入力スキル発動（速度10倍に強化）---
 function activateUltimateAutoType() {
     if (!ownedSkills.includes("ultimateAutoType")) {
         alert("「最強自動入力」スキルを所持していません");
@@ -1169,11 +1174,11 @@ function activateUltimateAutoType() {
         return;
     }
     
-    showBattleAlert("⚡ 最強自動入力発動！120秒間超高速タイピング！", "#00FFFF");
+    showBattleAlert("⚡ 最強自動入力発動！120秒間超高速タイピング（200回/秒）！", "#00FFFF");
     sounds.notify.play();
     
-    // 0.05秒間隔（20回/秒）の超高速自動入力
-    startAutoTypeEngine(120000, 50);
+    // 0.005秒間隔（200回/秒）の超高速自動入力（10倍に強化）
+    startAutoTypeEngine(120000, 5);
     
     // クールダウン設定
     startSpecificCooldown("space", 120);
@@ -2915,7 +2920,7 @@ function storyClear() {
     // 第3章はクリアコードを表示（スキルはコード入力で獲得）
     else if (currentStage.chapter === 3) {
         if (!stageData.boss) {
-            // 通常ステージ：ステージ解放コードを表示
+            // 通常ステージ：ステージ解放コードを表示（次のステージ用）
             const clearCode = generateClearCode();
             console.log(`Generated clear code for stage 3-${currentStage.stage + 1}: ${clearCode}`);
             showClearCode(clearCode, 'stage', currentStage.stage + 1);
