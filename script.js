@@ -1,10 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V22.5 (修行モードコードバグ修正)
+// FIREBASE & TYPING ENGINE V23.0 (修行モードコードバグ修正＋鬼ごっこタイピング追加)
 // 修正内容:
-// 1. 修行モードクリア時に正しい修行専用コードを表示するよう修正
-// 2. 修行1クリアで剣士スキル、修行2クリアでハッカー修行人スキルのコードを表示
-// 3. コード入力時に正しくスキルを獲得できるよう修正
+// 1. 修行モードクリア時に修行専用コードが正しく表示されるよう修正
+// 2. ストーリーモードのコード入力ボタン関連の処理を削除
+// 3. 鬼ごっこタイピングモードを追加
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -71,7 +71,7 @@ let codeTimer = null;
 let clearCodes = JSON.parse(localStorage.getItem("ramo_clear_codes")) || {};
 let clearCodeTimer = null;
 let currentClearCode = null;
-let currentClearCodeType = null; // 'stage', 'skill', 'training'
+let currentClearCodeType = null; // 'stage', 'training'（'skill'は削除）
 let currentClearCodeTarget = null; // 対象のステージ or スキルID
 
 // 特殊コード使用フラグ
@@ -209,6 +209,55 @@ let trainingScore = 0;
 let trainingCompleted = {
     training1: false,
     training2: false
+};
+
+// --- 鬼ごっこタイピングモード関連（新規追加）---
+let otagMode = false;
+let otagGameActive = false;
+let otagPlayer = { x: 400, y: 300, stamina: 100, maxStamina: 100, speed: 5, isRunning: false, invisible: false, invisibleTimer: null };
+let otagGhosts = [];
+let otagGenerators = [
+    { id: 1, x: 100, y: 100, active: false, typingActive: false, isMoneyGenerator: false },
+    { id: 2, x: 700, y: 150, active: false, typingActive: false, isMoneyGenerator: false },
+    { id: 3, x: 200, y: 500, active: false, typingActive: false, isMoneyGenerator: false },
+    { id: 4, x: 850, y: 500, active: false, typingActive: false, isMoneyGenerator: true } // 4番目だけお金ジェネレーター
+];
+let otagWalls = [
+    { x: 300, y: 150, width: 100, height: 20 },
+    { x: 500, y: 250, width: 20, height: 100 },
+    { x: 600, y: 450, width: 150, height: 20 }
+];
+let otagTimer = 900; // 15分 = 900秒
+let otagReward = 0;
+let otagDeckSelected = null;
+let otagDeckTimer = 15;
+let otagDeckInterval = null;
+let otagGameInterval = null;
+let otagStaminaInterval = null;
+let otagTypingWords = [];
+let otagTypingCurrentIndex = 0;
+let otagTypingRemaining = 5;
+let otagTypingActive = false;
+let otagTypingCurrentWord = "";
+let otagTypingCurrentRoma = "";
+let otagTypingRomaIdx = 0;
+let otagKeys = { w: false, a: false, s: false, d: false, arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false, space: false };
+let otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
+let otagPlacedTiles = []; // ビルダーのタイル
+
+// 鬼ごっこスキル所有フラグ
+let otagOwnedSkills = {
+    dash: true, // 初期装備
+    netgun: false,
+    builder: false,
+    invisible: false
+};
+
+// デッキスキル
+let otagDeckSkills = {
+    support: false,
+    staminaUp: false,
+    staminaBottle: false
 };
 
 // ストーリーモードのステージデータ（第3章追加・ロック条件強化）
@@ -442,7 +491,7 @@ function generateClearCode() {
     return code;
 }
 
-// クリアコード表示（修正版：確実に表示されるように）
+// クリアコード表示（修正版：修行モード専用コードを確実に表示）
 function showClearCode(code, type, target) {
     console.log(`showClearCode called: code=${code}, type=${type}, target=${target}`);
     
@@ -462,13 +511,7 @@ function showClearCode(code, type, target) {
     
     let message = "";
     if (type === 'stage') {
-        // 修正: クリアしたステージのコードであることを明示
         message = `🎉 ステージ 3-${target} クリア！\nこのステージのクリアコード`;
-    } else if (type === 'skill') {
-        const skillName = target === 'invincible_man' ? '無敵マン' : 
-                         target === 'swordsman' ? '剣士' : 
-                         target === 'hacker_trainee' ? 'ハッカー修行人' : 'スキル';
-        message = `🎉 クリア！\n「${skillName}」スキル獲得コード`;
     } else if (type === 'training') {
         const skillName = target === 'swordsman' ? '剣士' : 'ハッカー修行人';
         message = `🎉 修行クリア！\n「${skillName}」スキル獲得コード`;
@@ -534,7 +577,7 @@ window.copyClearCode = () => {
     });
 };
 
-// ステージ解放コード入力UI
+// ステージ解放コード入力UI（修正：3-1限定ボタン関連を削除）
 window.openStageUnlockUI = (chapter, stage) => {
     if (chapter !== 3) return;
     
@@ -623,8 +666,7 @@ window.submitStageUnlockCode = () => {
         clearCodes[code] = clearCodeData;
         localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         
-        // ステージ解放（stage のみを解放 - 複数ステージは解放しない）
-        // 修正: クリアしたステージのみを解放（stage を設定）
+        // ステージ解放（stage のみを解放）
         storyProgress.chapter3 = stage;
         saveAndDisplayData();
         
@@ -649,7 +691,7 @@ window.submitStageUnlockCode = () => {
     }
 };
 
-// スキル獲得コード入力UI
+// スキル獲得コード入力UI（修正：修行モード用のみ残す）
 window.openSkillUnlockUI = (skillId) => {
     const ui = el("skill-unlock-ui");
     const info = el("unlock-skill-info");
@@ -657,8 +699,7 @@ window.openSkillUnlockUI = (skillId) => {
     if (!ui || !info) return;
     
     let skillName = "";
-    if (skillId === "invincible_man") skillName = "無敵マン";
-    else if (skillId === "swordsman") skillName = "剣士";
+    if (skillId === "swordsman") skillName = "剣士";
     else if (skillId === "hacker_trainee") skillName = "ハッカー修行人";
     
     info.innerText = `${skillName} スキル獲得コード`;
@@ -709,8 +750,8 @@ window.submitSkillUnlockCode = () => {
         return;
     }
     
-    if (clearCodeData.type !== 'skill' && clearCodeData.type !== 'training') {
-        alert("このコードはスキル獲得用ではありません");
+    if (clearCodeData.type !== 'training') {
+        alert("このコードは修行用ではありません");
         input.value = "";
         return;
     }
@@ -1073,7 +1114,7 @@ window.submitCode = async () => {
                     clearCodes[input] = codeData;
                     localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
                     
-                    // 正しいステージのみを解放（複数ステージを解放しない）
+                    // 正しいステージのみを解放
                     storyProgress.chapter3 = codeData.target;
                     saveAndDisplayData();
                     
@@ -1091,8 +1132,8 @@ window.submitCode = async () => {
                     localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
                 }
             } 
-            else if (codeData.type === 'skill' || codeData.type === 'training') {
-                // スキル獲得
+            else if (codeData.type === 'training') {
+                // スキル獲得（修行モード用）
                 if (!ownedSkills.includes(codeData.target)) {
                     ownedSkills.push(codeData.target);
                     equippedSkill = codeData.target;
@@ -1189,7 +1230,7 @@ function activateUltimateAutoType() {
     showBattleAlert("⚡ 最強自動入力発動！120秒間超高速タイピング（2000回/秒）！", "#00FFFF");
     sounds.notify.play();
     
-    // 0.0005秒間隔（2000回/秒）の超高速自動入力（さらに10倍に強化）
+    // 0.0005秒間隔（2000回/秒）の超高速自動入力
     startAutoTypeEngine(120000, 0.5);
     
     // クールダウン設定
@@ -1253,34 +1294,6 @@ function updateStoryProgressDisplay() {
         const displayValue = storyProgress.chapter3 !== undefined ? storyProgress.chapter3 : 0;
         progressChapter3.innerText = `${displayValue}/10`;
     }
-    
-    // 第三章コード入力ボタンの表示制御
-    if (storyProgress.chapter3 !== undefined) {
-        // 各ステージの解放ボタン
-        for (let stage = 1; stage <= 9; stage++) {
-            const btn = el(`story-unlock-3-${stage}`);
-            if (btn) {
-                // 修正: クリアしたステージのコード入力ボタンを表示
-                // ステージがクリア済み（storyProgress.chapter3 >= stage）で、まだスキルを獲得していない場合に表示
-                if (storyProgress.chapter3 >= stage) {
-                    btn.style.display = "inline-block";
-                } else {
-                    btn.style.display = "none";
-                }
-            }
-        }
-        
-        // 3-10スキル獲得ボタン
-        const skillBtn = el("story-skill-3-10");
-        if (skillBtn) {
-            // 修正: 3-10をクリア済みで、まだ無敵マンを獲得していない場合に表示
-            if (storyProgress.chapter3 >= 10 && !ownedSkills.includes("invincible_man")) {
-                skillBtn.style.display = "inline-block";
-            } else {
-                skillBtn.style.display = "none";
-            }
-        }
-    }
 }
 
 function updateProfileFace() {
@@ -1317,7 +1330,7 @@ const WORD_DB = {
 };
 
 function updateButtonStates() {
-    const isBusy = isMatchmaking || trainingMode;
+    const isBusy = isMatchmaking || trainingMode || otagMode;
     const btnSingle = el("btn-single");
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
@@ -1326,15 +1339,17 @@ function updateButtonStates() {
     const btnStory = el("btn-story");
     const btnGacha = el("btn-gacha");
     const btnTraining = el("btn-training");
+    const btnOtag = el("btn-otag");
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
-    if (btnParty) btnParty.disabled = isMatchmaking || trainingMode; 
+    if (btnParty) btnParty.disabled = isMatchmaking || trainingMode || otagMode; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
     if (btnSkin) btnSkin.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy;
     if (btnStory) btnStory.disabled = isBusy;
     if (btnGacha) btnGacha.disabled = isBusy;
     if (btnTraining) btnTraining.disabled = isBusy || myPartyId !== null;
+    if (btnOtag) btnOtag.disabled = isBusy;
 }
 
 window.updateMyName = () => {
@@ -1618,7 +1633,7 @@ onValue(ref(db, `users/${myId}/invite`), snap => {
 });
 
 window.acceptInvite = () => {
-    if (gameActive || isMatchmaking || trainingMode) {
+    if (gameActive || isMatchmaking || trainingMode || otagMode) {
         alert("プレイ中・待機中は参加できません。");
         window.declineInvite();
         return;
@@ -1706,7 +1721,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                 updateHandicapSetupUI();
             }
             
-            if (p.state === "ready_check" && !gameActive) {
+            if (p.state === "ready_check" && !gameActive && !otagMode) {
                 openScreen("screen-play"); 
                 el("ready-overlay").classList.remove("hidden");
                 el("ready-list").innerHTML = Object.values(p.members || {}).map(m => `<div>${m.name}: ${m.ready?'準備完了':'待機中...'}</div>`).join("");
@@ -1714,7 +1729,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                     update(ref(db, `parties/${myPartyId}`), { state: "playing" });
                 }
             }
-            if (p.state === "playing" && !gameActive) {
+            if (p.state === "playing" && !gameActive && !otagMode) {
                 el("ready-overlay").classList.add("hidden");
                 if (p.storyMode) {
                     isStoryMode = true;
@@ -2714,10 +2729,12 @@ function openScreen(id) {
 window.goHome = () => { 
     gameActive = false; 
     trainingMode = false;
+    otagMode = false;
     clearInterval(gameInterval);
     resetSkillState();
     clearHandicapEffects();
     clearFakeTyping();
+    stopOtagGame();
 
     if (myPartyId && myPartyId.startsWith("match_")) {
         window.leaveParty();
@@ -3320,8 +3337,8 @@ function handleTrainingResult() {
 }
 
 window.openTraining = () => {
-    if (myPartyId || isMatchmaking) {
-        alert("パーティー中・マッチング待機中は修行できません");
+    if (myPartyId || isMatchmaking || otagMode) {
+        alert("パーティー中・マッチング待機中・鬼ごっこ中は修行できません");
         return;
     }
     // 修行のクリア状態を読み込み
@@ -3364,7 +3381,7 @@ function updateTrainingStatus() {
 }
 
 window.startTraining = (type) => {
-    if (myPartyId || isMatchmaking) return;
+    if (myPartyId || isMatchmaking || otagMode) return;
     
     trainingMode = true;
     trainingType = type;
@@ -3410,7 +3427,743 @@ function trainingStatusAttack() {
     showBattleAlert("⚠️ 修行の特殊攻撃！", "#FF00FF");
 }
 
-// --- スキル・バトルエフェクト処理 ---
+// =========================================
+// 鬼ごっこタイピングモード（新規追加）
+// =========================================
+
+window.openOtagMode = () => {
+    if (myPartyId || isMatchmaking || trainingMode) {
+        alert("パーティー中・マッチング待機中・修行中は鬼ごっこモードを開けません");
+        return;
+    }
+    otagMode = true;
+    openScreen("screen-otag");
+};
+
+window.startOtagGame = () => {
+    // パーティーリーダーチェック（パーティー参加時）
+    if (myPartyId && !isLeader) {
+        alert("パーティーリーダーのみがゲームを開始できます");
+        return;
+    }
+    
+    // マップ選択（簡易版：固定マップを使用）
+    resetOtagGame();
+    
+    // デッキ選択画面を表示
+    el("otag-deck-select").classList.remove("hidden");
+    startOtagDeckTimer();
+    
+    openScreen("screen-otag-game");
+};
+
+function resetOtagGame() {
+    // プレイヤー初期化
+    otagPlayer = {
+        x: 400,
+        y: 300,
+        stamina: 100,
+        maxStamina: 100,
+        speed: 5,
+        isRunning: false,
+        invisible: false,
+        invisibleTimer: null
+    };
+    
+    // 鬼初期化（4体）
+    otagGhosts = [
+        { id: 1, x: 200, y: 200, speed: 2, target: null, behavior: 'patrol' },
+        { id: 2, x: 600, y: 300, speed: 2, target: null, behavior: 'patrol' },
+        { id: 3, x: 400, y: 500, speed: 2, target: null, behavior: 'patrol' },
+        { id: 4, x: 800, y: 400, speed: 2, target: null, behavior: 'patrol' }
+    ];
+    
+    // ジェネレーターリセット
+    otagGenerators = [
+        { id: 1, x: 100, y: 100, active: false, typingActive: false, isMoneyGenerator: false },
+        { id: 2, x: 700, y: 150, active: false, typingActive: false, isMoneyGenerator: false },
+        { id: 3, x: 200, y: 500, active: false, typingActive: false, isMoneyGenerator: false },
+        { id: 4, x: 850, y: 500, active: false, typingActive: false, isMoneyGenerator: true }
+    ];
+    
+    // タイマーリセット
+    otagTimer = 900; // 15分 = 900秒
+    otagReward = 0;
+    otagDeckSelected = null;
+    otagDeckTimer = 15;
+    otagTypingActive = false;
+    otagPlacedTiles = [];
+    
+    // クールダウンリセット
+    otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
+}
+
+function startOtagDeckTimer() {
+    if (otagDeckInterval) clearInterval(otagDeckInterval);
+    
+    const timerEl = el("otag-deck-timer");
+    if (!timerEl) return;
+    
+    timerEl.innerText = otagDeckTimer;
+    
+    otagDeckInterval = setInterval(() => {
+        otagDeckTimer--;
+        if (timerEl) timerEl.innerText = otagDeckTimer;
+        
+        if (otagDeckTimer <= 0) {
+            clearInterval(otagDeckInterval);
+            // デッキが選択されていない場合はランダム選択
+            if (!otagDeckSelected) {
+                const decks = ['support', 'stamina_up', 'stamina_bottle'];
+                const randomDeck = decks[Math.floor(Math.random() * decks.length)];
+                selectOtagDeck(randomDeck);
+            }
+            // デッキ選択画面を非表示にしてゲーム開始
+            el("otag-deck-select").classList.add("hidden");
+            startOtagMainGame();
+        }
+    }, 1000);
+}
+
+window.selectOtagDeck = (deckType) => {
+    otagDeckSelected = deckType;
+    
+    // デッキ効果を適用
+    if (deckType === 'support') {
+        otagPlayer.maxStamina -= 10;
+        otagPlayer.stamina = Math.min(otagPlayer.stamina, otagPlayer.maxStamina);
+        otagDeckSkills.support = true;
+    } else if (deckType === 'stamina_up') {
+        otagPlayer.maxStamina += 25;
+        otagPlayer.stamina = otagPlayer.maxStamina;
+        otagDeckSkills.staminaUp = true;
+    } else if (deckType === 'stamina_bottle') {
+        otagDeckSkills.staminaBottle = true;
+    }
+    
+    // スタミナ表示更新
+    updateOtagUI();
+};
+
+function startOtagMainGame() {
+    // キー入力イベント設定
+    window.addEventListener("keydown", handleOtagKeyDown);
+    window.addEventListener("keyup", handleOtagKeyUp);
+    
+    // ゲームループ開始
+    if (otagGameInterval) clearInterval(otagGameInterval);
+    otagGameInterval = setInterval(updateOtagGame, 50); // 20fps
+    
+    // スタミナ回復ループ
+    if (otagStaminaInterval) clearInterval(otagStaminaInterval);
+    otagStaminaInterval = setInterval(updateOtagStamina, 100);
+    
+    // 鬼のAIループ
+    setInterval(updateOtagGhosts, 200);
+    
+    // 賞金タイマー
+    setInterval(() => {
+        if (otagTimer > 0) {
+            otagReward += 300;
+            updateOtagUI();
+        }
+    }, 1000);
+}
+
+function handleOtagKeyDown(e) {
+    if (!otagGameActive) return;
+    if (otagTypingActive) return; // タイピング中は移動不可
+    
+    // 移動キー
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+        otagKeys.arrowUp = true;
+        e.preventDefault();
+    }
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+        otagKeys.arrowDown = true;
+        e.preventDefault();
+    }
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+        otagKeys.arrowLeft = true;
+        e.preventDefault();
+    }
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+        otagKeys.arrowRight = true;
+        e.preventDefault();
+    }
+    
+    // ダッシュ（スペースキー）
+    if (e.code === "Space") {
+        if (otagPlayer.stamina > 0) {
+            otagKeys.space = true;
+            otagPlayer.isRunning = true;
+        }
+        e.preventDefault();
+    }
+    
+    // スキル使用
+    if (e.key === '1') activateOtagSkill('dash');
+    if (e.key === '2') activateOtagSkill('netgun');
+    if (e.key === '3') activateOtagSkill('builder');
+    if (e.key === '4') activateOtagSkill('invisible');
+    if (e.key === '5' && otagDeckSkills.support) activateOtagSkill('support');
+    if (e.key === '6' && otagDeckSkills.staminaBottle) activateOtagSkill('staminaBottle');
+    
+    // ジェネレーター起動（Rキー）
+    if (e.key === 'r' || e.key === 'R') {
+        checkOtagGenerator();
+        e.preventDefault();
+    }
+}
+
+function handleOtagKeyUp(e) {
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+        otagKeys.arrowUp = false;
+    }
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+        otagKeys.arrowDown = false;
+    }
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+        otagKeys.arrowLeft = false;
+    }
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+        otagKeys.arrowRight = false;
+    }
+    if (e.code === "Space") {
+        otagKeys.space = false;
+        otagPlayer.isRunning = false;
+    }
+}
+
+function updateOtagGame() {
+    if (!otagGameActive) return;
+    if (otagTypingActive) return;
+    
+    // 移動処理
+    let moveX = 0, moveY = 0;
+    if (otagKeys.arrowUp) moveY -= 1;
+    if (otagKeys.arrowDown) moveY += 1;
+    if (otagKeys.arrowLeft) moveX -= 1;
+    if (otagKeys.arrowRight) moveX += 1;
+    
+    if (moveX !== 0 || moveY !== 0) {
+        // 正規化
+        const length = Math.sqrt(moveX * moveX + moveY * moveY);
+        moveX = moveX / length;
+        moveY = moveY / length;
+        
+        // 速度計算
+        let currentSpeed = otagPlayer.speed;
+        if (otagPlayer.isRunning && otagPlayer.stamina > 0) {
+            currentSpeed *= 1.8; // ダッシュ時80%増加
+        }
+        
+        const newX = otagPlayer.x + moveX * currentSpeed;
+        const newY = otagPlayer.y + moveY * currentSpeed;
+        
+        // 壁との衝突判定
+        if (!checkOtagWallCollision(newX, newY)) {
+            otagPlayer.x = newX;
+            otagPlayer.y = newY;
+        }
+        
+        // ダッシュ中はスタミナ消費
+        if (otagPlayer.isRunning) {
+            otagPlayer.stamina = Math.max(0, otagPlayer.stamina - 1);
+            if (otagPlayer.stamina <= 0) {
+                otagPlayer.isRunning = false;
+            }
+        }
+        
+        // タイル効果チェック
+        checkOtagTileEffect();
+    }
+    
+    // 鬼との衝突判定
+    checkOtagGhostCollision();
+    
+    // プレイヤー位置更新
+    updateOtagPlayerDisplay();
+    updateOtagUI();
+}
+
+function updateOtagStamina() {
+    if (!otagGameActive) return;
+    if (!otagPlayer.isRunning) {
+        // 1.5秒後に回復開始
+        setTimeout(() => {
+            if (!otagPlayer.isRunning) {
+                otagPlayer.stamina = Math.min(otagPlayer.maxStamina, otagPlayer.stamina + 2);
+            }
+        }, 1500);
+    }
+    updateOtagUI();
+}
+
+function updateOtagGhosts() {
+    if (!otagGameActive) return;
+    if (otagPlayer.invisible) return; // 透明中は鬼が追跡しない
+    
+    otagGhosts.forEach(ghost => {
+        // プレイヤーとの距離計算
+        const dx = otagPlayer.x - ghost.x;
+        const dy = otagPlayer.y - ghost.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 近くに来たら追跡開始
+        if (distance < 200) {
+            ghost.behavior = 'chase';
+            ghost.target = { x: otagPlayer.x, y: otagPlayer.y };
+            
+            // 壁を考慮した移動
+            const angle = Math.atan2(dy, dx);
+            const moveX = Math.cos(angle) * ghost.speed;
+            const moveY = Math.sin(angle) * ghost.speed;
+            
+            const newX = ghost.x + moveX;
+            const newY = ghost.y + moveY;
+            
+            if (!checkOtagWallCollisionForGhost(newX, newY)) {
+                ghost.x = newX;
+                ghost.y = newY;
+            }
+        } else {
+            ghost.behavior = 'patrol';
+            // パトロール動作（簡易版）
+            ghost.x += Math.sin(Date.now() * 0.001 + ghost.id) * 0.5;
+            ghost.y += Math.cos(Date.now() * 0.001 + ghost.id) * 0.5;
+        }
+        
+        // 鬼の表示更新
+        updateOtagGhostDisplay(ghost);
+    });
+}
+
+function checkOtagWallCollision(newX, newY) {
+    for (let wall of otagWalls) {
+        if (newX > wall.x - 20 && newX < wall.x + wall.width + 20 &&
+            newY > wall.y - 20 && newY < wall.y + wall.height + 20) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkOtagWallCollisionForGhost(newX, newY) {
+    for (let wall of otagWalls) {
+        if (newX > wall.x - 20 && newX < wall.x + wall.width + 20 &&
+            newY > wall.y - 20 && newY < wall.y + wall.height + 20) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkOtagGhostCollision() {
+    for (let ghost of otagGhosts) {
+        const dx = otagPlayer.x - ghost.x;
+        const dy = otagPlayer.y - ghost.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 40) { // 衝突判定
+            // 透明中は捕まらない
+            if (otagPlayer.invisible) return;
+            
+            // プレイヤー死亡
+            otagPlayerDead();
+            break;
+        }
+    }
+}
+
+function otagPlayerDead() {
+    // デッキスキル「サポート」があれば復活可能
+    if (otagDeckSkills.support) {
+        // 復活処理（簡易版）
+        otagPlayer.x = 400;
+        otagPlayer.y = 300;
+        showBattleAlert("💫 サポートで復活！", "#FF69B4");
+    } else {
+        // ゲームオーバー
+        endOtagGame(false);
+    }
+}
+
+function checkOtagGenerator() {
+    for (let gen of otagGenerators) {
+        const dx = otagPlayer.x - gen.x;
+        const dy = otagPlayer.y - gen.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 50 && !gen.active) {
+            gen.active = true;
+            gen.typingActive = true;
+            otagTypingActive = true;
+            startOtagTyping(gen);
+            break;
+        }
+    }
+}
+
+function startOtagTyping(generator) {
+    // タイピング問題を生成（中級・難問）
+    const difficulties = ['normal', 'hard'];
+    const diff = difficulties[Math.floor(Math.random() * difficulties.length)];
+    const wordList = WORD_DB[diff];
+    
+    otagTypingWords = [];
+    for (let i = 0; i < 5; i++) {
+        const word = wordList[Math.floor(Math.random() * wordList.length)];
+        otagTypingWords.push(word);
+    }
+    otagTypingCurrentIndex = 0;
+    otagTypingRemaining = 5;
+    
+    // UI表示
+    const minigame = el("otag-typing-minigame");
+    const wordEl = el("otag-typing-word");
+    const romaEl = el("otag-typing-roma");
+    const remainingEl = el("otag-typing-remaining");
+    
+    if (minigame && wordEl && romaEl && remainingEl) {
+        minigame.classList.remove("hidden");
+        otagTypingCurrentWord = otagTypingWords[0];
+        wordEl.innerText = otagTypingCurrentWord;
+        const patterns = getRomaPatterns(otagTypingCurrentWord);
+        otagTypingCurrentRoma = patterns[0];
+        romaEl.innerHTML = `<span class="char-done"></span><span class="char-todo">${otagTypingCurrentRoma}</span>`;
+        remainingEl.innerText = otagTypingRemaining;
+    }
+    
+    // タイピングイベント設定
+    window.addEventListener("keydown", handleOtagTyping);
+}
+
+function handleOtagTyping(e) {
+    if (!otagTypingActive) return;
+    
+    const targetChar = otagTypingCurrentRoma[otagTypingRomaIdx];
+    if (!targetChar) return;
+    
+    if (e.key.toLowerCase() === targetChar.toLowerCase()) {
+        otagTypingRomaIdx++;
+        
+        // UI更新
+        const romaEl = el("otag-typing-roma");
+        if (romaEl) {
+            const done = otagTypingCurrentRoma.substring(0, otagTypingRomaIdx);
+            const todo = otagTypingCurrentRoma.substring(otagTypingRomaIdx);
+            romaEl.innerHTML = `<span class="char-done">${done}</span><span class="char-todo">${todo</span>`;
+        }
+        
+        sounds.type.play();
+        
+        // 単語クリア
+        if (otagTypingRomaIdx >= otagTypingCurrentRoma.length) {
+            sounds.correct.play();
+            otagTypingCurrentIndex++;
+            otagTypingRemaining--;
+            
+            const remainingEl = el("otag-typing-remaining");
+            if (remainingEl) remainingEl.innerText = otagTypingRemaining;
+            
+            if (otagTypingRemaining <= 0) {
+                // ジェネレーター完了
+                completeOtagGenerator();
+            } else {
+                // 次の単語
+                otagTypingCurrentWord = otagTypingWords[otagTypingCurrentIndex];
+                const wordEl = el("otag-typing-word");
+                if (wordEl) wordEl.innerText = otagTypingCurrentWord;
+                
+                const patterns = getRomaPatterns(otagTypingCurrentWord);
+                otagTypingCurrentRoma = patterns[0];
+                otagTypingRomaIdx = 0;
+                
+                const romaEl = el("otag-typing-roma");
+                if (romaEl) romaEl.innerHTML = `<span class="char-done"></span><span class="char-todo">${otagTypingCurrentRoma}</span>`;
+            }
+        }
+    } else if (!["Shift","Alt","Control","Space","1","2","3","4","5","6","r","R"].includes(e.key)) {
+        sounds.miss.play();
+    }
+}
+
+function completeOtagGenerator() {
+    otagTypingActive = false;
+    
+    // ジェネレーター効果
+    for (let gen of otagGenerators) {
+        if (gen.typingActive) {
+            gen.active = true;
+            gen.typingActive = false;
+            
+            if (gen.isMoneyGenerator) {
+                otagReward += 10; // お金ジェネレーターは賞金+10
+            } else {
+                otagTimer -= 3; // 時間-3秒
+            }
+            break;
+        }
+    }
+    
+    // UI非表示
+    const minigame = el("otag-typing-minigame");
+    if (minigame) minigame.classList.add("hidden");
+    
+    window.removeEventListener("keydown", handleOtagTyping);
+    updateOtagUI();
+}
+
+window.stopOtagGenerator = () => {
+    otagTypingActive = false;
+    const minigame = el("otag-typing-minigame");
+    if (minigame) minigame.classList.add("hidden");
+    window.removeEventListener("keydown", handleOtagTyping);
+};
+
+function activateOtagSkill(skillType) {
+    if (otagTypingActive) return;
+    
+    const now = Date.now();
+    
+    switch(skillType) {
+        case 'dash':
+            if (otagSkillCooldowns.dash > 0) {
+                showBattleAlert(`⏳ ダッシュクールダウン中`, "#FFA500");
+                return;
+            }
+            otagPlayer.speed = 9; // 80%増加（5→9）
+            otagSkillCooldowns.dash = 20;
+            setTimeout(() => { otagPlayer.speed = 5; }, 2000);
+            startOtagCooldown('dash', 20);
+            break;
+            
+        case 'netgun':
+            if (!otagOwnedSkills.netgun) {
+                showBattleAlert("このスキルを所持していません", "#FF0000");
+                return;
+            }
+            if (otagSkillCooldowns.netgun > 0) {
+                showBattleAlert(`⏳ あみでっぽうクールダウン中`, "#FFA500");
+                return;
+            }
+            // ヒットボックス判定（簡易版：前方の鬼をスタン）
+            for (let ghost of otagGhosts) {
+                const dx = ghost.x - otagPlayer.x;
+                const dy = ghost.y - otagPlayer.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                // 前方判定（簡易版）
+                if (distance < 150 && Math.abs(dy) < 50) {
+                    ghost.stunned = true;
+                    ghost.stunTimer = 5;
+                    ghost.speed *= 0.6; // 40%減速
+                    setTimeout(() => {
+                        ghost.stunned = false;
+                        ghost.speed = 2;
+                    }, 15000); // スタン5秒＋減速10秒 = 15秒
+                }
+            }
+            otagSkillCooldowns.netgun = 100;
+            startOtagCooldown('netgun', 100);
+            break;
+            
+        case 'builder':
+            if (!otagOwnedSkills.builder) {
+                showBattleAlert("このスキルを所持していません", "#FF0000");
+                return;
+            }
+            if (otagSkillCooldowns.builder > 0) {
+                showBattleAlert(`⏳ ビルダークールダウン中`, "#FFA500");
+                return;
+            }
+            // タイル設置
+            otagPlacedTiles.push({
+                x: otagPlayer.x,
+                y: otagPlayer.y,
+                active: true,
+                timer: 20
+            });
+            otagSkillCooldowns.builder = 50;
+            startOtagCooldown('builder', 50);
+            break;
+            
+        case 'invisible':
+            if (!otagOwnedSkills.invisible) {
+                showBattleAlert("このスキルを所持していません", "#FF0000");
+                return;
+            }
+            if (otagSkillCooldowns.invisible > 0) {
+                showBattleAlert(`⏳ 透明クールダウン中`, "#FFA500");
+                return;
+            }
+            otagPlayer.invisible = true;
+            otagPlayer.speed = 6.5; // 30%増加
+            if (otagPlayer.invisibleTimer) clearTimeout(otagPlayer.invisibleTimer);
+            otagPlayer.invisibleTimer = setTimeout(() => {
+                otagPlayer.invisible = false;
+                otagPlayer.speed = 5;
+            }, 6000);
+            otagSkillCooldowns.invisible = 40;
+            startOtagCooldown('invisible', 40);
+            break;
+            
+        case 'support':
+            if (otagSkillCooldowns.support > 0) {
+                showBattleAlert(`⏳ サポートクールダウン中`, "#FFA500");
+                return;
+            }
+            // 復活処理はotagPlayerDeadで処理
+            otagSkillCooldowns.support = 150;
+            startOtagCooldown('support', 150);
+            break;
+            
+        case 'staminaBottle':
+            if (otagSkillCooldowns.staminaBottle > 0) {
+                showBattleAlert(`⏳ スタミナボトルクールダウン中`, "#FFA500");
+                return;
+            }
+            // 範囲内の味方に効果
+            for (let member in partyMembers) {
+                // パーティーメンバー処理（簡易版：自分のみ）
+                otagPlayer.maxStamina += 10;
+                // スタミナ回復速度アップ（簡易実装）
+            }
+            otagPlayer.speed *= 1.3;
+            setTimeout(() => { otagPlayer.speed = 5; }, 5000);
+            otagSkillCooldowns.staminaBottle = 50;
+            startOtagCooldown('staminaBottle', 50);
+            break;
+    }
+}
+
+function startOtagCooldown(skill, seconds) {
+    const interval = setInterval(() => {
+        if (otagSkillCooldowns[skill] > 0) {
+            otagSkillCooldowns[skill]--;
+        } else {
+            clearInterval(interval);
+        }
+    }, 1000);
+}
+
+function checkOtagTileEffect() {
+    for (let tile of otagPlacedTiles) {
+        if (!tile.active) continue;
+        
+        const dx = otagPlayer.x - tile.x;
+        const dy = otagPlayer.y - tile.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 40) {
+            // タイル効果
+            otagPlayer.speed = 7.5; // 50%増加
+            setTimeout(() => {
+                if (otagPlayer.speed > 5) otagPlayer.speed = 5;
+            }, 3000);
+        }
+        
+        // タイル消滅タイマー
+        tile.timer -= 0.05; // 20fpsで更新
+        if (tile.timer <= 0) {
+            tile.active = false;
+        }
+    }
+}
+
+function updateOtagPlayerDisplay() {
+    const playerEl = el("otag-player");
+    if (playerEl) {
+        playerEl.style.left = otagPlayer.x + "px";
+        playerEl.style.top = otagPlayer.y + "px";
+        if (otagPlayer.invisible) {
+            playerEl.style.opacity = "0.3";
+        } else {
+            playerEl.style.opacity = "1";
+        }
+    }
+}
+
+function updateOtagGhostDisplay(ghost) {
+    const ghostEl = el(`otag-ghost-${ghost.id}`);
+    if (ghostEl) {
+        ghostEl.style.left = ghost.x + "px";
+        ghostEl.style.top = ghost.y + "px";
+    }
+}
+
+function updateOtagUI() {
+    const timerEl = el("otag-timer");
+    const staminaEl = el("otag-stamina");
+    const rewardEl = el("otag-reward");
+    
+    if (timerEl) {
+        const minutes = Math.floor(otagTimer / 60);
+        const seconds = otagTimer % 60;
+        timerEl.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    if (staminaEl) {
+        staminaEl.innerText = `${otagPlayer.stamina}/${otagPlayer.maxStamina}`;
+    }
+    if (rewardEl) {
+        rewardEl.innerText = otagReward.toLocaleString();
+    }
+}
+
+function endOtagGame(won) {
+    otagGameActive = false;
+    otagMode = false;
+    
+    if (otagGameInterval) clearInterval(otagGameInterval);
+    if (otagStaminaInterval) clearInterval(otagStaminaInterval);
+    
+    window.removeEventListener("keydown", handleOtagKeyDown);
+    window.removeEventListener("keyup", handleOtagKeyUp);
+    window.removeEventListener("keydown", handleOtagTyping);
+    
+    if (won) {
+        coins += otagReward;
+        alert(`🎉 鬼ごっこクリア！\n獲得コイン: ${otagReward.toLocaleString()}🪙`);
+    } else {
+        alert(`❌ ゲームオーバー...\n獲得コイン: ${otagReward.toLocaleString()}🪙`);
+        coins += Math.floor(otagReward / 2);
+    }
+    
+    saveAndDisplayData();
+    goHome();
+}
+
+function stopOtagGame() {
+    if (otagGameActive) {
+        endOtagGame(false);
+    }
+}
+
+window.selectOtagSkill = (skillId) => {
+    // スキル購入処理
+    if (skillId === 'netgun' && coins >= 100000) {
+        coins -= 100000;
+        otagOwnedSkills.netgun = true;
+        saveAndDisplayData();
+        alert("🎯 あみでっぽうを購入しました！");
+    } else if (skillId === 'builder' && coins >= 500000) {
+        coins -= 500000;
+        otagOwnedSkills.builder = true;
+        saveAndDisplayData();
+        alert("🏗️ ビルダーを購入しました！");
+    } else if (skillId === 'invisible' && coins >= 500000) {
+        coins -= 500000;
+        otagOwnedSkills.invisible = true;
+        saveAndDisplayData();
+        alert("👻 透明を購入しました！");
+    } else {
+        alert("コインが足りません");
+    }
+};
+
+// =========================================
+// スキル・バトルエフェクト処理
+// =========================================
 function setupSkillUI() {
     const actionBox = el("skill-action-box");
     const skillNameText = el("skill-btn-name");
@@ -5067,8 +5820,8 @@ function isChapterLocked(chapter) {
 }
 
 window.openStoryMode = () => {
-    if (isMatchmaking || trainingMode) {
-        alert("マッチング待機中・修行中はストーリーモードを開けません");
+    if (isMatchmaking || trainingMode || otagMode) {
+        alert("マッチング待機中・修行中・鬼ごっこ中はストーリーモードを開けません");
         return;
     }
     get(ref(db, `users/${myId}/story_progress`)).then(snap => {
@@ -5304,8 +6057,8 @@ async function checkPartyProgress() {
 }
 
 window.startStorySolo = () => {
-    if (myPartyId || trainingMode) {
-        alert("パーティー参加中・修行中は一人プレイできません");
+    if (myPartyId || trainingMode || otagMode) {
+        alert("パーティー参加中・修行中・鬼ごっこ中は一人プレイできません");
         return;
     }
     
@@ -5365,19 +6118,19 @@ window.executeDodge = () => {
 
 // --- モード制御 ---
 window.openSingleSelect = () => {
-    if (myPartyId || isMatchmaking || trainingMode) return; 
+    if (myPartyId || isMatchmaking || trainingMode || otagMode) return; 
     openScreen("screen-single-select");
 };
 
 window.startSingle = (diff) => { 
-    if (myPartyId || isMatchmaking || trainingMode) return; 
+    if (myPartyId || isMatchmaking || trainingMode || otagMode) return; 
     currentWords = WORD_DB[diff]; 
     openScreen("screen-play"); 
     startGame(60); 
 };
 
 window.openFriendBattle = () => {
-    if (isMatchmaking || trainingMode) return;
+    if (isMatchmaking || trainingMode || otagMode) return;
     if (!myPartyId) return alert("パーティーに参加していません！");
     if (!isLeader) return alert("リーダー限定です！");
     openScreen("screen-battle-setup");
@@ -5407,7 +6160,7 @@ window.openOnlineMatch = () => {
         updateButtonStates();
         return;
     }
-    if (trainingMode) return alert("修行中は利用できません");
+    if (trainingMode || otagMode) return alert("修行中・鬼ごっこ中は利用できません");
     
     const n = prompt("何人で遊ぶ？ (2-4)");
     if (![2,3,4].includes(Number(n))) return;
