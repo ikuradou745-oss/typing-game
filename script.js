@@ -1,11 +1,13 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V23.1 (バグ修正版)
+// FIREBASE & TYPING ENGINE V23.2 (修正版)
 // 修正内容:
-// 1. 鬼ごっこモードの変数初期化バグを修正
-// 2. タイピング処理の文字列操作バグを修正
-// 3. ゲーム状態管理のバグを修正
-// 4. イベントリスナーの重複登録を防止
+// 1. 修行モードクリア時にコードが表示されないバグを修正
+// 2. 鬼ごっこモードのスキル購入・装備システムを改善
+// 3. 鬼の見た目をスーツケースとグラサンに変更
+// 4. プレイヤーの向きを追加し、あみでっぽうの方向判定を実装
+// 5. マップをスクロール方式に変更（Among Us風）
+// 6. UIの最前面化
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -216,31 +218,34 @@ let trainingCompleted = {
 let otagMode = false;
 let otagGameActive = false;
 let otagPlayer = { 
-    x: 400, 
-    y: 300, 
+    x: 0, // ワールド座標（カメラ基準）
+    y: 0,
+    worldX: 0, // 実際のワールド座標
+    worldY: 0,
     stamina: 100, 
     maxStamina: 100, 
     speed: 5, 
     isRunning: false, 
     invisible: false, 
-    invisibleTimer: null 
+    invisibleTimer: null,
+    direction: 'down' // 向き: up, down, left, right
 };
 let otagGhosts = [
-    { id: 1, x: 200, y: 200, speed: 2, stunned: false, stunTimer: 0 },
-    { id: 2, x: 600, y: 300, speed: 2, stunned: false, stunTimer: 0 },
-    { id: 3, x: 400, y: 500, speed: 2, stunned: false, stunTimer: 0 },
-    { id: 4, x: 800, y: 400, speed: 2, stunned: false, stunTimer: 0 }
+    { id: 1, worldX: 200, worldY: 200, speed: 2, stunned: false, stunTimer: 0 },
+    { id: 2, worldX: 600, worldY: 300, speed: 2, stunned: false, stunTimer: 0 },
+    { id: 3, worldX: 400, worldY: 500, speed: 2, stunned: false, stunTimer: 0 },
+    { id: 4, worldX: 800, worldY: 400, speed: 2, stunned: false, stunTimer: 0 }
 ];
 let otagGenerators = [
-    { id: 1, x: 100, y: 100, active: false, typingActive: false, isMoneyGenerator: false },
-    { id: 2, x: 700, y: 150, active: false, typingActive: false, isMoneyGenerator: false },
-    { id: 3, x: 200, y: 500, active: false, typingActive: false, isMoneyGenerator: false },
-    { id: 4, x: 850, y: 500, active: false, typingActive: false, isMoneyGenerator: true }
+    { id: 1, worldX: 100, worldY: 100, active: false, typingActive: false, isMoneyGenerator: false },
+    { id: 2, worldX: 700, worldY: 150, active: false, typingActive: false, isMoneyGenerator: false },
+    { id: 3, worldX: 200, worldY: 500, active: false, typingActive: false, isMoneyGenerator: false },
+    { id: 4, worldX: 850, worldY: 500, active: false, typingActive: false, isMoneyGenerator: true }
 ];
 let otagWalls = [
-    { x: 300, y: 150, width: 100, height: 20 },
-    { x: 500, y: 250, width: 20, height: 100 },
-    { x: 600, y: 450, width: 150, height: 20 }
+    { worldX: 300, worldY: 150, width: 100, height: 20 },
+    { worldX: 500, worldY: 250, width: 20, height: 100 },
+    { worldX: 600, worldY: 450, width: 150, height: 20 }
 ];
 let otagTimer = 900;
 let otagReward = 0;
@@ -260,7 +265,7 @@ let otagTypingCurrentRoma = "";
 let otagTypingRomaIdx = 0;
 let otagKeys = { w: false, a: false, s: false, d: false, arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false, space: false };
 let otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
-let otagPlacedTiles = [];
+let otagPlacedTiles = []; // ビルダーのタイル（ワールド座標）
 let otagKeyHandler = null;
 let otagTypingHandler = null;
 
@@ -271,6 +276,7 @@ let otagOwnedSkills = {
     builder: false,
     invisible: false
 };
+let equippedOtagSkill = 'dash'; // 現在装備中のスキル（デフォルトはダッシュ）
 
 // デッキスキル
 let otagDeckSkills = {
@@ -3131,6 +3137,12 @@ function syncRivals() {
 }
 
 function endGame() {
+    // 修行モードの結果を先に処理するため、trainingModeを先にfalseにしない
+    let trainingResult = null;
+    if (trainingMode) {
+        trainingResult = handleTrainingResult();
+    }
+    
     gameActive = false; 
     trainingMode = false;
     clearInterval(gameInterval);
@@ -3210,8 +3222,8 @@ function endGame() {
                     const totalScore = Object.values(val).reduce((sum, m) => sum + (m.score || 0), 0);
                     const avgScore = Math.floor(totalScore / Object.keys(val).length);
                     coinText = `チーム平均スコア: ${avgScore.toLocaleString()} pts`;
-                } else if (trainingMode) {
-                    coinText = handleTrainingResult();
+                } else if (trainingResult) {
+                    coinText = trainingResult;
                 } else {
                     coinText = isWinner ? `勝利ボーナス！ +${earnedCoins.toLocaleString()} 🪙` : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
                 }
@@ -3232,9 +3244,8 @@ function endGame() {
             saveAndDisplayData();
         }
         
-        if (trainingMode) {
-            const resultText = handleTrainingResult();
-            el("ranking-box").innerHTML = resultText;
+        if (trainingResult) {
+            el("ranking-box").innerHTML = trainingResult;
         } else {
             el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>`; 
             let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
@@ -3377,12 +3388,42 @@ function trainingStatusAttack() {
 // 鬼ごっこタイピングモード
 // =========================================
 
+// 鬼ごっこスキルリストのレンダリング
+function renderOtagSkillList() {
+    const container = document.querySelector('.otag-card .skill-list');
+    if (!container) return;
+    
+    const skills = [
+        { id: 'dash', name: '🏃 ダッシュ', cost: 0, desc: 'CT20秒: 2秒間 足が80%速くなる', owned: true },
+        { id: 'netgun', name: '🎯 あみでっぽう', cost: 100000, desc: 'CT100秒: 向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く', owned: otagOwnedSkills.netgun },
+        { id: 'builder', name: '🏗️ ビルダー', cost: 500000, desc: 'CT50秒: 自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）', owned: otagOwnedSkills.builder },
+        { id: 'invisible', name: '👻 透明', cost: 500000, desc: 'CT40秒: 6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる', owned: otagOwnedSkills.invisible }
+    ];
+    
+    container.innerHTML = skills.map(skill => {
+        const isEquipped = equippedOtagSkill === skill.id;
+        const status = skill.owned ? (isEquipped ? '装備中' : '') : `${skill.cost.toLocaleString()}🪙`;
+        const statusColor = skill.owned ? (isEquipped ? '#00FF00' : '#FFD700') : '#FFD700';
+        
+        return `
+            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('${skill.id}')">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: bold;">${skill.name}</span>
+                    ${status ? `<span style="color: ${statusColor};">${status}</span>` : ''}
+                </div>
+                <small>${skill.desc}</small>
+            </div>
+        `;
+    }).join('');
+}
+
 window.openOtagMode = () => {
     if (myPartyId || isMatchmaking || trainingMode) {
         alert("パーティー中・マッチング待機中・修行中は鬼ごっこモードを開けません");
         return;
     }
     otagMode = true;
+    renderOtagSkillList();
     openScreen("screen-otag");
 };
 
@@ -3401,28 +3442,37 @@ window.startOtagGame = () => {
 
 function resetOtagGame() {
     otagPlayer = {
-        x: 400,
-        y: 300,
+        worldX: 400,
+        worldY: 300,
+        x: 0, // カメラ座標（常に0,0に固定）
+        y: 0,
         stamina: 100,
         maxStamina: 100,
         speed: 5,
         isRunning: false,
         invisible: false,
-        invisibleTimer: null
+        invisibleTimer: null,
+        direction: 'down'
     };
     
     otagGhosts = [
-        { id: 1, x: 200, y: 200, speed: 2, stunned: false, stunTimer: 0 },
-        { id: 2, x: 600, y: 300, speed: 2, stunned: false, stunTimer: 0 },
-        { id: 3, x: 400, y: 500, speed: 2, stunned: false, stunTimer: 0 },
-        { id: 4, x: 800, y: 400, speed: 2, stunned: false, stunTimer: 0 }
+        { id: 1, worldX: 200, worldY: 200, speed: 2, stunned: false, stunTimer: 0 },
+        { id: 2, worldX: 600, worldY: 300, speed: 2, stunned: false, stunTimer: 0 },
+        { id: 3, worldX: 400, worldY: 500, speed: 2, stunned: false, stunTimer: 0 },
+        { id: 4, worldX: 800, worldY: 400, speed: 2, stunned: false, stunTimer: 0 }
     ];
     
     otagGenerators = [
-        { id: 1, x: 100, y: 100, active: false, typingActive: false, isMoneyGenerator: false },
-        { id: 2, x: 700, y: 150, active: false, typingActive: false, isMoneyGenerator: false },
-        { id: 3, x: 200, y: 500, active: false, typingActive: false, isMoneyGenerator: false },
-        { id: 4, x: 850, y: 500, active: false, typingActive: false, isMoneyGenerator: true }
+        { id: 1, worldX: 100, worldY: 100, active: false, typingActive: false, isMoneyGenerator: false },
+        { id: 2, worldX: 700, worldY: 150, active: false, typingActive: false, isMoneyGenerator: false },
+        { id: 3, worldX: 200, worldY: 500, active: false, typingActive: false, isMoneyGenerator: false },
+        { id: 4, worldX: 850, worldY: 500, active: false, typingActive: false, isMoneyGenerator: true }
+    ];
+    
+    otagWalls = [
+        { worldX: 300, worldY: 150, width: 100, height: 20 },
+        { worldX: 500, worldY: 250, width: 20, height: 100 },
+        { worldX: 600, worldY: 450, width: 150, height: 20 }
     ];
     
     otagTimer = 900;
@@ -3511,20 +3561,25 @@ function startOtagMainGame() {
 function handleOtagKeyDown(e) {
     if (!otagGameActive || otagTypingActive) return;
     
+    // 移動キーで方向を更新
     if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
         otagKeys.arrowUp = true;
+        otagPlayer.direction = 'up';
         e.preventDefault();
     }
     if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
         otagKeys.arrowDown = true;
+        otagPlayer.direction = 'down';
         e.preventDefault();
     }
     if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
         otagKeys.arrowLeft = true;
+        otagPlayer.direction = 'left';
         e.preventDefault();
     }
     if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
         otagKeys.arrowRight = true;
+        otagPlayer.direction = 'right';
         e.preventDefault();
     }
     
@@ -3536,10 +3591,18 @@ function handleOtagKeyDown(e) {
         e.preventDefault();
     }
     
-    if (e.key === '1') activateOtagSkill('dash');
-    if (e.key === '2') activateOtagSkill('netgun');
-    if (e.key === '3') activateOtagSkill('builder');
-    if (e.key === '4') activateOtagSkill('invisible');
+    // キー1〜4でスキル装備（簡易的な切り替え）
+    if (e.key === '1') equippedOtagSkill = 'dash';
+    if (e.key === '2' && otagOwnedSkills.netgun) equippedOtagSkill = 'netgun';
+    if (e.key === '3' && otagOwnedSkills.builder) equippedOtagSkill = 'builder';
+    if (e.key === '4' && otagOwnedSkills.invisible) equippedOtagSkill = 'invisible';
+    
+    // 装備中のスキルを使用（スペースキーで発動）
+    if (e.code === "Space") {
+        activateOtagSkill(equippedOtagSkill);
+    }
+    
+    // デッキスキルは別キー（5,6）
     if (e.key === '5' && otagDeckSkills.support) activateOtagSkill('support');
     if (e.key === '6' && otagDeckSkills.staminaBottle) activateOtagSkill('staminaBottle');
     
@@ -3587,12 +3650,12 @@ function updateOtagGame() {
             currentSpeed *= 1.8;
         }
         
-        const newX = otagPlayer.x + moveX * currentSpeed;
-        const newY = otagPlayer.y + moveY * currentSpeed;
+        const newWorldX = otagPlayer.worldX + moveX * currentSpeed;
+        const newWorldY = otagPlayer.worldY + moveY * currentSpeed;
         
-        if (!checkOtagWallCollision(newX, newY)) {
-            otagPlayer.x = newX;
-            otagPlayer.y = newY;
+        if (!checkOtagWallCollision(newWorldX, newWorldY)) {
+            otagPlayer.worldX = newWorldX;
+            otagPlayer.worldY = newWorldY;
         }
         
         if (otagPlayer.isRunning) {
@@ -3636,8 +3699,8 @@ function updateOtagGhosts() {
             return;
         }
         
-        const dx = otagPlayer.x - ghost.x;
-        const dy = otagPlayer.y - ghost.y;
+        const dx = otagPlayer.worldX - ghost.worldX;
+        const dy = otagPlayer.worldY - ghost.worldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < 200) {
@@ -3645,36 +3708,36 @@ function updateOtagGhosts() {
             const moveX = Math.cos(angle) * ghost.speed;
             const moveY = Math.sin(angle) * ghost.speed;
             
-            const newX = ghost.x + moveX;
-            const newY = ghost.y + moveY;
+            const newX = ghost.worldX + moveX;
+            const newY = ghost.worldY + moveY;
             
             if (!checkOtagWallCollisionForGhost(newX, newY)) {
-                ghost.x = newX;
-                ghost.y = newY;
+                ghost.worldX = newX;
+                ghost.worldY = newY;
             }
         } else {
-            ghost.x += Math.sin(Date.now() * 0.001 + ghost.id) * 0.5;
-            ghost.y += Math.cos(Date.now() * 0.001 + ghost.id) * 0.5;
+            ghost.worldX += Math.sin(Date.now() * 0.001 + ghost.id) * 0.5;
+            ghost.worldY += Math.cos(Date.now() * 0.001 + ghost.id) * 0.5;
         }
         
         updateOtagGhostDisplay(ghost);
     });
 }
 
-function checkOtagWallCollision(newX, newY) {
+function checkOtagWallCollision(newWorldX, newWorldY) {
     for (let wall of otagWalls) {
-        if (newX > wall.x - 20 && newX < wall.x + wall.width + 20 &&
-            newY > wall.y - 20 && newY < wall.y + wall.height + 20) {
+        if (newWorldX > wall.worldX - 20 && newWorldX < wall.worldX + wall.width + 20 &&
+            newWorldY > wall.worldY - 20 && newWorldY < wall.worldY + wall.height + 20) {
             return true;
         }
     }
     return false;
 }
 
-function checkOtagWallCollisionForGhost(newX, newY) {
+function checkOtagWallCollisionForGhost(newWorldX, newWorldY) {
     for (let wall of otagWalls) {
-        if (newX > wall.x - 20 && newX < wall.x + wall.width + 20 &&
-            newY > wall.y - 20 && newY < wall.y + wall.height + 20) {
+        if (newWorldX > wall.worldX - 20 && newWorldX < wall.worldX + wall.width + 20 &&
+            newWorldY > wall.worldY - 20 && newWorldY < wall.worldY + wall.height + 20) {
             return true;
         }
     }
@@ -3685,8 +3748,8 @@ function checkOtagGhostCollision() {
     for (let ghost of otagGhosts) {
         if (ghost.stunned) continue;
         
-        const dx = otagPlayer.x - ghost.x;
-        const dy = otagPlayer.y - ghost.y;
+        const dx = otagPlayer.worldX - ghost.worldX;
+        const dy = otagPlayer.worldY - ghost.worldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < 40) {
@@ -3699,8 +3762,8 @@ function checkOtagGhostCollision() {
 
 function otagPlayerDead() {
     if (otagDeckSkills.support) {
-        otagPlayer.x = 400;
-        otagPlayer.y = 300;
+        otagPlayer.worldX = 400;
+        otagPlayer.worldY = 300;
         showBattleAlert("💫 サポートで復活！", "#FF69B4");
     } else {
         endOtagGame(false);
@@ -3709,8 +3772,8 @@ function otagPlayerDead() {
 
 function checkOtagGenerator() {
     for (let gen of otagGenerators) {
-        const dx = otagPlayer.x - gen.x;
-        const dy = otagPlayer.y - gen.y;
+        const dx = otagPlayer.worldX - gen.worldX;
+        const dy = otagPlayer.worldY - gen.worldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < 50 && !gen.active) {
@@ -3867,14 +3930,24 @@ function activateOtagSkill(skillType) {
                 showBattleAlert(`⏳ あみでっぽうクールダウン中`, "#FFA500");
                 return;
             }
+            // プレイヤーの向きに応じた範囲判定
             for (let ghost of otagGhosts) {
-                const dx = ghost.x - otagPlayer.x;
-                const dy = ghost.y - otagPlayer.y;
+                const dx = ghost.worldX - otagPlayer.worldX;
+                const dy = ghost.worldY - otagPlayer.worldY;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance < 150 && Math.abs(dy) < 50) {
+                
+                let inRange = false;
+                switch(otagPlayer.direction) {
+                    case 'up': inRange = (dy < 0 && Math.abs(dx) < 50 && Math.abs(dy) < 150); break;
+                    case 'down': inRange = (dy > 0 && Math.abs(dx) < 50 && Math.abs(dy) < 150); break;
+                    case 'left': inRange = (dx < 0 && Math.abs(dy) < 50 && Math.abs(dx) < 150); break;
+                    case 'right': inRange = (dx > 0 && Math.abs(dy) < 50 && Math.abs(dx) < 150); break;
+                }
+                
+                if (inRange) {
                     ghost.stunned = true;
                     ghost.stunTimer = 5;
-                    ghost.speed = 1.2;
+                    ghost.speed = 1.2; // 40%減速（2→1.2）
                 }
             }
             otagSkillCooldowns.netgun = 100;
@@ -3891,8 +3964,8 @@ function activateOtagSkill(skillType) {
                 return;
             }
             otagPlacedTiles.push({
-                x: otagPlayer.x,
-                y: otagPlayer.y,
+                worldX: otagPlayer.worldX,
+                worldY: otagPlayer.worldY,
                 active: true,
                 timer: 20
             });
@@ -3957,8 +4030,8 @@ function checkOtagTileEffect() {
     for (let tile of otagPlacedTiles) {
         if (!tile.active) continue;
         
-        const dx = otagPlayer.x - tile.x;
-        const dy = otagPlayer.y - tile.y;
+        const dx = otagPlayer.worldX - tile.worldX;
+        const dy = otagPlayer.worldY - tile.worldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < 40) {
@@ -3978,19 +4051,100 @@ function checkOtagTileEffect() {
 function updateOtagPlayerDisplay() {
     const playerEl = el("otag-player");
     if (playerEl) {
-        playerEl.style.left = otagPlayer.x + "px";
-        playerEl.style.top = otagPlayer.y + "px";
+        // カメラ座標に変換（プレイヤーは常に画面中央）
+        // 他のオブジェクトは逆方向にオフセット
+        const offsetX = otagPlayer.worldX - 400; // 画面中心を400,300と仮定
+        const offsetY = otagPlayer.worldY - 300;
+        
+        // プレイヤーは常に中央
+        playerEl.style.left = "50%";
+        playerEl.style.top = "50%";
+        playerEl.style.transform = "translate(-50%, -50%)";
         playerEl.style.opacity = otagPlayer.invisible ? "0.3" : "1";
+        
+        // 鬼の表示位置を更新
+        otagGhosts.forEach(ghost => {
+            const ghostEl = el(`otag-ghost-${ghost.id}`);
+            if (ghostEl) {
+                const screenX = ghost.worldX - offsetX;
+                const screenY = ghost.worldY - offsetY;
+                ghostEl.style.left = screenX + "px";
+                ghostEl.style.top = screenY + "px";
+                ghostEl.style.opacity = ghost.stunned ? "0.5" : "1";
+                ghostEl.style.background = "none"; // 背景色を消して絵文字表示
+                ghostEl.innerText = ghost.stunned ? "😵" : "👔🕶️"; // スーツケースとグラサン
+                ghostEl.style.fontSize = "30px";
+                ghostEl.style.display = "flex";
+                ghostEl.style.alignItems = "center";
+                ghostEl.style.justifyContent = "center";
+            }
+        });
+        
+        // ジェネレーターの表示位置を更新
+        otagGenerators.forEach(gen => {
+            const genEl = document.querySelector(`.otag-generator[data-id="${gen.id}"]`);
+            if (!genEl) {
+                // 動的に要素を作成（簡易版）
+                const newGen = document.createElement('div');
+                newGen.className = 'otag-generator';
+                newGen.setAttribute('data-id', gen.id);
+                newGen.style.position = 'absolute';
+                newGen.style.width = '30px';
+                newGen.style.height = '30px';
+                newGen.style.background = 'var(--accent-gold)';
+                newGen.style.borderRadius = '50%';
+                newGen.style.boxShadow = '0 0 15px var(--accent-gold)';
+                newGen.onclick = () => window.startOtagGenerator(gen.id);
+                document.querySelector('.otag-game-canvas').appendChild(newGen);
+            } else {
+                const screenX = gen.worldX - offsetX;
+                const screenY = gen.worldY - offsetY;
+                genEl.style.left = screenX + "px";
+                genEl.style.top = screenY + "px";
+            }
+        });
+        
+        // 壁の表示位置を更新
+        document.querySelectorAll('.otag-wall').forEach((wall, index) => {
+            if (index < otagWalls.length) {
+                const w = otagWalls[index];
+                const screenX = w.worldX - offsetX;
+                const screenY = w.worldY - offsetY;
+                wall.style.left = screenX + "px";
+                wall.style.top = screenY + "px";
+            }
+        });
+        
+        // タイルの表示（簡易版：デバッグ用に色付き四角を表示）
+        otagPlacedTiles.forEach((tile, idx) => {
+            let tileEl = document.getElementById(`otag-tile-${idx}`);
+            if (!tile.active) {
+                if (tileEl) tileEl.remove();
+                return;
+            }
+            if (!tileEl) {
+                tileEl = document.createElement('div');
+                tileEl.id = `otag-tile-${idx}`;
+                tileEl.className = 'otag-tile';
+                tileEl.style.position = 'absolute';
+                tileEl.style.width = '40px';
+                tileEl.style.height = '40px';
+                tileEl.style.background = 'rgba(0, 255, 0, 0.5)';
+                tileEl.style.borderRadius = '10px';
+                tileEl.style.pointerEvents = 'none';
+                tileEl.style.zIndex = '8';
+                document.querySelector('.otag-game-canvas').appendChild(tileEl);
+            }
+            const screenX = tile.worldX - offsetX;
+            const screenY = tile.worldY - offsetY;
+            tileEl.style.left = screenX + "px";
+            tileEl.style.top = screenY + "px";
+        });
     }
 }
 
 function updateOtagGhostDisplay(ghost) {
-    const ghostEl = el(`otag-ghost-${ghost.id}`);
-    if (ghostEl) {
-        ghostEl.style.left = ghost.x + "px";
-        ghostEl.style.top = ghost.y + "px";
-        ghostEl.style.opacity = ghost.stunned ? "0.5" : "1";
-    }
+    // 既にupdateOtagPlayerDisplay内でまとめて更新している
 }
 
 function updateOtagUI() {
@@ -4050,24 +4204,39 @@ function stopOtagGame() {
 }
 
 window.selectOtagSkill = (skillId) => {
+    // スキル購入処理
     if (skillId === 'netgun' && coins >= 100000) {
         coins -= 100000;
         otagOwnedSkills.netgun = true;
+        equippedOtagSkill = 'netgun';
         saveAndDisplayData();
+        renderOtagSkillList();
         alert("🎯 あみでっぽうを購入しました！");
     } else if (skillId === 'builder' && coins >= 500000) {
         coins -= 500000;
         otagOwnedSkills.builder = true;
+        equippedOtagSkill = 'builder';
         saveAndDisplayData();
+        renderOtagSkillList();
         alert("🏗️ ビルダーを購入しました！");
     } else if (skillId === 'invisible' && coins >= 500000) {
         coins -= 500000;
         otagOwnedSkills.invisible = true;
+        equippedOtagSkill = 'invisible';
         saveAndDisplayData();
+        renderOtagSkillList();
         alert("👻 透明を購入しました！");
+    } else if (skillId === 'dash') {
+        equippedOtagSkill = 'dash';
+        renderOtagSkillList();
     } else {
         alert("コインが足りません");
     }
+};
+
+// スキンショップへ移動（鬼ごっこモードのボタン用）
+window.goToSkinShopFromOtag = () => {
+    openSkinShop();
 };
 
 // =========================================
