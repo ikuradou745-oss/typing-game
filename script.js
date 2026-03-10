@@ -1,13 +1,13 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V23.2 (修正版)
+// FIREBASE & TYPING ENGINE V23.3 (鬼ごっこ修正版)
 // 修正内容:
-// 1. 修行モードクリア時にコードが表示されないバグを修正
-// 2. 鬼ごっこモードのスキル購入・装備システムを改善
-// 3. 鬼の見た目をスーツケースとグラサンに変更
-// 4. プレイヤーの向きを追加し、あみでっぽうの方向判定を実装
-// 5. マップをスクロール方式に変更（Among Us風）
-// 6. UIの最前面化
+// 1. 鬼ごっこスキルショップを本家ショップと統合
+// 2. スキンショップを本格実装（体型・肌色・服装・帽子）
+// 3. ジェネレーターの見た目を改善
+// 4. デッキケース連打バグ修正
+// 5. ハンター当たり判定を適正化
+// 6. スクロールバグ修正
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -87,15 +87,23 @@ let tysm1045Used = localStorage.getItem("ramo_tysm1045_used") === "true";
 let comboGodActive = false;
 let comboGodTimer = null;
 
-// --- スキンシステム ---
+// --- スキンシステム（拡張版）---
 let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
     skin: "skin-1",
     face: "face-1",
-    accessories: []
+    accessories: [],
+    bodyType: "normal", // 体型: thin, normal, chubby
+    skinCustom: { r: 255, g: 205, b: 148 }, // カスタム肌色
+    clothes: {
+        type: "plain", // plain, tracksuit, bMark, yMark
+        color: "#ffffff",
+        sticker: ""
+    },
+    hat: "none" // none, cap, helmet, headband, headphones, afro, crown
 };
 let equippedAccessory = localStorage.getItem("ramo_accessory") || null;
 
-// アクセサリーデータ
+// アクセサリーデータ（既存）
 const ACCESSORY_DB = {
     headphone1: { id: "headphone1", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
     banana: { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
@@ -118,7 +126,7 @@ const ACCESSORY_DB = {
     }
 };
 
-// 肌の色データ
+// 肌の色データ（既存＋カスタム）
 const SKIN_COLORS = {
     "skin-1": "#f5d0a9",
     "skin-2": "#f8d5b0",
@@ -133,7 +141,7 @@ const SKIN_COLORS = {
     "skin-gold": "linear-gradient(135deg, #ffd700, #b8860b)"
 };
 
-// 顔データ
+// 顔データ（既存）
 const FACE_DATA = {
     "face-1": "😊", "face-2": "🙂", "face-3": "😎", "face-4": "😲", "face-5": "😴",
     "face-6": "😠", "face-7": "😢", "face-8": "😉", "face-9": "😆", "face-10": "😇",
@@ -142,6 +150,32 @@ const FACE_DATA = {
     "face-21": "👽", "face-22": "🤖", "face-23": "👻", "face-24": "💀", "face-25": "🎃",
     "face-26": "😺", "face-27": "🙈", "face-28": "🐧", "face-29": "🐱", "face-30": "🐶",
     "face-money": "🤑"
+};
+
+// 体型データ
+const BODY_TYPES = {
+    thin: { name: "やせ", scale: 0.9 },
+    normal: { name: "ふつう", scale: 1.0 },
+    chubby: { name: "ぽっちゃり", scale: 1.2 }
+};
+
+// 服装データ
+const CLOTHES_TYPES = {
+    plain: { name: "白Tシャツ", cost: 0, emoji: "👕" },
+    tracksuit: { name: "トラシャツ", cost: 10000, emoji: "👚" },
+    bMark: { name: "Bマーク", cost: 10000, emoji: "🔵" },
+    yMark: { name: "Yマーク", cost: 10000, emoji: "🟡" }
+};
+
+// 帽子データ
+const HAT_TYPES = {
+    none: { name: "なし", cost: 0, emoji: "" },
+    cap: { name: "キャップ", cost: 10000, emoji: "🧢" },
+    helmet: { name: "ヘルメット", cost: 10000, emoji: "⛑️" },
+    headband: { name: "はちまき", cost: 10000, emoji: "🎗️" },
+    headphones: { name: "ヘッドフォン", cost: 50000, emoji: "🎧" },
+    afro: { name: "アフロ", cost: 50000, emoji: "🦱" },
+    crown: { name: "王冠", cost: 100000000, emoji: "👑" }
 };
 
 // --- スキルシステム ---
@@ -218,17 +252,17 @@ let trainingCompleted = {
 let otagMode = false;
 let otagGameActive = false;
 let otagPlayer = { 
-    x: 0, // ワールド座標（カメラ基準）
+    worldX: 400,
+    worldY: 300,
+    x: 0,
     y: 0,
-    worldX: 0, // 実際のワールド座標
-    worldY: 0,
     stamina: 100, 
     maxStamina: 100, 
     speed: 5, 
     isRunning: false, 
     invisible: false, 
     invisibleTimer: null,
-    direction: 'down' // 向き: up, down, left, right
+    direction: 'down'
 };
 let otagGhosts = [
     { id: 1, worldX: 200, worldY: 200, speed: 2, stunned: false, stunTimer: 0 },
@@ -265,25 +299,30 @@ let otagTypingCurrentRoma = "";
 let otagTypingRomaIdx = 0;
 let otagKeys = { w: false, a: false, s: false, d: false, arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false, space: false };
 let otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
-let otagPlacedTiles = []; // ビルダーのタイル（ワールド座標）
+let otagPlacedTiles = [];
 let otagKeyHandler = null;
 let otagTypingHandler = null;
 
-// 鬼ごっこスキル所有フラグ
+// 鬼ごっこスキル所有フラグ（購入状態）
 let otagOwnedSkills = {
     dash: true,
     netgun: false,
     builder: false,
-    invisible: false
+    invisible: false,
+    support: false,
+    staminaBottle: false
 };
-let equippedOtagSkill = 'dash'; // 現在装備中のスキル（デフォルトはダッシュ）
+let equippedOtagSkill = 'dash'; // 現在装備中のスキル
 
-// デッキスキル
+// デッキスキル（ゲーム中に選択）
 let otagDeckSkills = {
     support: false,
     staminaUp: false,
     staminaBottle: false
 };
+
+// スキンショップ用の一時選択
+let tempSkinData = JSON.parse(JSON.stringify(skinData));
 
 // ストーリーモードのステージデータ
 const STORY_STAGES = {
@@ -460,6 +499,16 @@ const SKILL_DB = {
     ...Object.fromEntries(
         Object.entries(GACHA_CHAR_DB).map(([key, val]) => [key, { ...val, cost: 0 }])
     )
+};
+
+// 鬼ごっこスキルデータベース
+const OTAG_SKILL_DB = {
+    dash: { id: "dash", name: "ダッシュ", cost: 0, cooldown: 20, desc: "2秒間 足が80%速くなる", default: true },
+    netgun: { id: "netgun", name: "あみでっぽう", cost: 100000, cooldown: 100, desc: "向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く" },
+    builder: { id: "builder", name: "ビルダー", cost: 500000, cooldown: 50, desc: "自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）" },
+    invisible: { id: "invisible", name: "透明", cost: 500000, cooldown: 40, desc: "6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる" },
+    support: { id: "support", name: "サポート", cost: 0, cooldown: 150, desc: "死んだ味方のところで使うと復活（デッキスキル）", deck: true },
+    staminaBottle: { id: "staminaBottle", name: "スタミナボトル", cost: 0, cooldown: 50, desc: "周りの味方のスタミナ+10、回復速度50%UP、足30%UP(5秒)（デッキスキル）", deck: true }
 };
 
 // ガチャ関連
@@ -944,7 +993,7 @@ async function resetAllData() {
     equippedSkill = "none";
     storyProgress = { chapter1: 0, chapter2: 0, chapter3: 0 };
     trainingCompleted = { training1: false, training2: false };
-    skinData = { skin: "skin-1", face: "face-1", accessories: [] };
+    skinData = { skin: "skin-1", face: "face-1", accessories: [], bodyType: "normal", skinCustom: { r: 255, g: 205, b: 148 }, clothes: { type: "plain", color: "#ffffff", sticker: "" }, hat: "none" };
     equippedAccessory = null;
     tysmUsed = false;
     byramoUsed = false;
@@ -1289,10 +1338,13 @@ function updateProfileFace() {
     const profileSkin = el("profile-skin");
     const profileFace = el("profile-face-layer");
     const profileAccessory = el("profile-accessory");
+    const profileBody = document.querySelector('.profile-face-container');
     
     if (profileSkin) {
         if (skinData.skin === "skin-gold") {
             profileSkin.style.background = SKIN_COLORS["skin-gold"];
+        } else if (skinData.skin === "custom") {
+            profileSkin.style.background = `rgb(${skinData.skinCustom.r}, ${skinData.skinCustom.g}, ${skinData.skinCustom.b})`;
         } else {
             profileSkin.style.background = SKIN_COLORS[skinData.skin] || SKIN_COLORS["skin-1"];
         }
@@ -1300,14 +1352,25 @@ function updateProfileFace() {
     
     if (profileFace) profileFace.innerText = FACE_DATA[skinData.face] || "😊";
     
-    if (profileAccessory) {
-        if (equippedAccessory && ACCESSORY_DB[equippedAccessory]) {
-            profileAccessory.innerText = ACCESSORY_DB[equippedAccessory].emoji;
-            profileAccessory.style.display = "flex";
-        } else {
-            profileAccessory.innerText = "";
-            profileAccessory.style.display = "none";
+    if (profileBody) {
+        switch(skinData.bodyType) {
+            case 'thin': profileBody.style.transform = 'scale(0.9)'; break;
+            case 'chubby': profileBody.style.transform = 'scale(1.2)'; break;
+            default: profileBody.style.transform = 'scale(1)';
         }
+    }
+    
+    if (profileAccessory) {
+        let accessoryText = "";
+        if (equippedAccessory && ACCESSORY_DB[equippedAccessory]) {
+            accessoryText = ACCESSORY_DB[equippedAccessory].emoji;
+        }
+        // 帽子を追加
+        if (skinData.hat && HAT_TYPES[skinData.hat]) {
+            accessoryText = HAT_TYPES[skinData.hat].emoji + accessoryText;
+        }
+        profileAccessory.innerText = accessoryText;
+        profileAccessory.style.display = "flex";
     }
 }
 
@@ -1559,8 +1622,9 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 ui.appendChild(row);
             }
             
-            const friendSkin = data.skin || { skin: "skin-1", face: "face-1" };
+            const friendSkin = data.skin || { skin: "skin-1", face: "face-1", bodyType: "normal", hat: "none" };
             const friendFace = FACE_DATA[friendSkin.face] || "😊";
+            const friendHat = HAT_TYPES[friendSkin.hat]?.emoji || "";
             const friendAccessory = data.accessory ? ACCESSORY_DB[data.accessory]?.emoji || "" : "";
             
             row.innerHTML = `
@@ -1568,7 +1632,7 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                     <span class="status-dot ${data.status || 'offline'}"></span>
                     <div class="friend-face">
                         <span>${friendFace}</span>
-                        ${friendAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${friendAccessory}</span>` : ''}
+                        <span style="font-size: 1rem;">${friendHat}${friendAccessory}</span>
                     </div>
                     <span class="friend-name">${data.name || '不明'}</span>
                 </div>
@@ -1687,15 +1751,16 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
 
             const membersHtml = Object.entries(p.members || {}).map(([id, m]) => {
-                const memberSkin = m.skin || { skin: "skin-1", face: "face-1" };
+                const memberSkin = m.skin || { skin: "skin-1", face: "face-1", bodyType: "normal", hat: "none" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                const memberHat = HAT_TYPES[memberSkin.hat]?.emoji || "";
                 const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                 const teamColor = m.team === "red" ? "🔴" : m.team === "blue" ? "🔵" : "";
                 return `<div class="friend-item">
                     <div class="friend-left">
                         <div class="friend-face">
                             <span>${memberFace}</span>
-                            ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
+                            <span style="font-size: 1rem;">${memberHat}${memberAccessory}</span>
                         </div>
                         <span class="friend-name">${m.name} ${teamColor}</span>
                         ${m.ready ? '<span style="color: var(--accent-green); margin-left: 5px;">✅</span>' : ''}
@@ -1980,14 +2045,19 @@ function showHandicapDescription() {
     }
 }
 
-// --- スキンショップ ---
+// =========================================
+// スキンショップ（拡張版）
+// =========================================
+
 window.openSkinShop = () => {
+    tempSkinData = JSON.parse(JSON.stringify(skinData));
     openScreen("screen-skin-shop");
     updateSkinPreview();
-    renderSkinShop();
+    renderExtendedSkinShop();
 };
 
 window.saveAndExitSkinShop = () => {
+    skinData = JSON.parse(JSON.stringify(tempSkinData));
     saveAndDisplayData();
     goHome();
 };
@@ -1996,23 +2066,34 @@ function updateSkinPreview() {
     const previewSkin = el("preview-skin");
     const previewFace = el("preview-face");
     const previewAccessory = el("preview-accessory");
+    const previewBody = document.querySelector('.skin-preview');
     
     if (previewSkin) {
-        if (skinData.skin === "skin-gold") {
+        if (tempSkinData.skin === "skin-gold") {
             previewSkin.style.background = SKIN_COLORS["skin-gold"];
+        } else if (tempSkinData.skin === "custom") {
+            previewSkin.style.background = `rgb(${tempSkinData.skinCustom.r}, ${tempSkinData.skinCustom.g}, ${tempSkinData.skinCustom.b})`;
         } else {
-            previewSkin.style.background = SKIN_COLORS[skinData.skin] || SKIN_COLORS["skin-1"];
+            previewSkin.style.background = SKIN_COLORS[tempSkinData.skin] || SKIN_COLORS["skin-1"];
         }
     }
     
-    if (previewFace) previewFace.innerText = FACE_DATA[skinData.face] || "😊";
+    if (previewFace) previewFace.innerText = FACE_DATA[tempSkinData.face] || "😊";
+    
+    if (previewBody) {
+        switch(tempSkinData.bodyType) {
+            case 'thin': previewBody.style.transform = 'scale(0.9)'; break;
+            case 'chubby': previewBody.style.transform = 'scale(1.2)'; break;
+            default: previewBody.style.transform = 'scale(1)';
+        }
+    }
     
     if (previewAccessory) {
-        if (equippedAccessory && ACCESSORY_DB[equippedAccessory]) {
-            previewAccessory.innerText = ACCESSORY_DB[equippedAccessory].emoji;
-        } else {
-            previewAccessory.innerText = "";
+        let accessoryText = "";
+        if (tempSkinData.hat && HAT_TYPES[tempSkinData.hat]) {
+            accessoryText = HAT_TYPES[tempSkinData.hat].emoji;
         }
+        previewAccessory.innerText = accessoryText;
     }
 }
 
@@ -2021,127 +2102,267 @@ window.switchSkinCategory = (category) => {
     document.querySelectorAll('.skin-grid').forEach(grid => grid.classList.add('hidden'));
     
     const activeBtn = Array.from(document.querySelectorAll('.skin-cat-btn')).find(btn => 
-        btn.textContent.includes(category === 'skin' ? '肌の色' : category === 'face' ? '顔' : 'アクセサリー')
+        btn.textContent.includes(category === 'skin' ? '肌の色' : category === 'face' ? '顔' : category === 'body' ? '体型' : category === 'clothes' ? '服装' : '帽子')
     );
     if (activeBtn) activeBtn.classList.add('active');
     
     el(`skin-category-${category}`).classList.remove('hidden');
+    
+    switch(category) {
+        case 'skin': renderSkinCategory(); break;
+        case 'face': renderFaceCategory(); break;
+        case 'body': renderBodyCategory(); break;
+        case 'clothes': renderClothesCategory(); break;
+        case 'hat': renderHatCategory(); break;
+    }
 };
 
-function renderSkinShop() {
-    const skinGrid = el("skin-category-skin");
-    if (skinGrid) {
-        skinGrid.innerHTML = "";
+function renderSkinCategory() {
+    const grid = el("skin-category-skin");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    // 既存の肌色
+    for (let i = 1; i <= 10; i++) {
+        const skinId = `skin-${i}`;
+        const isEquipped = tempSkinData.skin === skinId;
         
-        for (let i = 1; i <= 10; i++) {
-            const skinId = `skin-${i}`;
-            const isEquipped = skinData.skin === skinId;
-            
-            const item = document.createElement("div");
-            item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
-            item.style.background = SKIN_COLORS[skinId];
-            item.onclick = () => selectSkin(skinId);
-            skinGrid.appendChild(item);
-        }
-        
-        if (skinData.accessories && skinData.accessories.includes('rich')) {
-            const goldItem = document.createElement("div");
-            goldItem.className = `skin-item owned ${skinData.skin === 'skin-gold' ? 'equipped' : ''}`;
-            goldItem.style.background = SKIN_COLORS["skin-gold"];
-            goldItem.onclick = () => selectSkin("skin-gold");
-            skinGrid.appendChild(goldItem);
-        }
+        const item = document.createElement("div");
+        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
+        item.style.background = SKIN_COLORS[skinId];
+        item.onclick = () => selectSkin(skinId);
+        grid.appendChild(item);
     }
     
-    const faceGrid = el("skin-category-face");
-    if (faceGrid) {
-        faceGrid.innerHTML = "";
-        
-        for (let i = 1; i <= 30; i++) {
-            const faceId = `face-${i}`;
-            const isEquipped = skinData.face === faceId;
-            
-            const item = document.createElement("div");
-            item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
-            item.innerHTML = FACE_DATA[faceId];
-            item.onclick = () => selectFace(faceId);
-            faceGrid.appendChild(item);
+    // カスタム肌色
+    const customItem = document.createElement("div");
+    customItem.className = `skin-item ${tempSkinData.skin === 'custom' ? 'equipped' : ''}`;
+    customItem.style.background = `rgb(${tempSkinData.skinCustom.r}, ${tempSkinData.skinCustom.g}, ${tempSkinData.skinCustom.b})`;
+    customItem.onclick = () => openCustomSkinPicker();
+    customItem.innerHTML = '<span style="font-size: 0.8rem;">CUSTOM</span>';
+    grid.appendChild(customItem);
+    
+    // 金色（リッチアクセサリー所持者のみ）
+    if (skinData.accessories && skinData.accessories.includes('rich')) {
+        const goldItem = document.createElement("div");
+        goldItem.className = `skin-item owned ${tempSkinData.skin === 'skin-gold' ? 'equipped' : ''}`;
+        goldItem.style.background = SKIN_COLORS["skin-gold"];
+        goldItem.onclick = () => selectSkin("skin-gold");
+        grid.appendChild(goldItem);
+    }
+}
+
+function openCustomSkinPicker() {
+    const r = tempSkinData.skinCustom.r;
+    const g = tempSkinData.skinCustom.g;
+    const b = tempSkinData.skinCustom.b;
+    
+    const newR = prompt("赤の値 (0-255):", r);
+    if (newR === null) return;
+    const newG = prompt("緑の値 (0-255):", g);
+    if (newG === null) return;
+    const newB = prompt("青の値 (0-255):", b);
+    if (newB === null) return;
+    
+    const cost = 15000;
+    if (tempSkinData.skin !== 'custom') {
+        if (coins < cost) {
+            alert(`コインが足りません！\n必要: ${cost}🪙`);
+            return;
         }
+        coins -= cost;
     }
     
-    const accessoryGrid = el("skin-category-accessory");
-    if (accessoryGrid) {
-        accessoryGrid.innerHTML = "";
-        
-        Object.entries(ACCESSORY_DB).forEach(([id, acc]) => {
-            const isOwned = skinData.accessories ? skinData.accessories.includes(id) : false;
-            const isEquipped = equippedAccessory === id;
-            const canAfford = coins >= acc.cost;
-            
-            const item = document.createElement("div");
-            item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
-            item.innerHTML = `
-                <span style="font-size: 2rem;">${acc.emoji}</span>
-                <span class="skin-price">${acc.cost.toLocaleString()}🪙</span>
-            `;
-            
-            if (isOwned) {
-                item.onclick = () => equipAccessory(id);
-            } else if (canAfford) {
-                item.onclick = () => buyAccessory(id);
-            }
-            
-            accessoryGrid.appendChild(item);
-        });
-    }
-}
-
-function selectSkin(skinId) {
-    skinData.skin = skinId;
+    tempSkinData.skin = 'custom';
+    tempSkinData.skinCustom = {
+        r: Math.min(255, Math.max(0, parseInt(newR) || 0)),
+        g: Math.min(255, Math.max(0, parseInt(newG) || 0)),
+        b: Math.min(255, Math.max(0, parseInt(newB) || 0))
+    };
     updateSkinPreview();
-    renderSkinShop();
-    updateProfileFace();
-}
-
-function selectFace(faceId) {
-    skinData.face = faceId;
-    updateSkinPreview();
-    renderSkinShop();
-    updateProfileFace();
-}
-
-function buyAccessory(accessoryId) {
-    const acc = ACCESSORY_DB[accessoryId];
-    if (coins >= acc.cost) {
-        coins -= acc.cost;
-        if (!skinData.accessories) skinData.accessories = [];
-        skinData.accessories.push(accessoryId);
-        equippedAccessory = accessoryId;
-        
-        if (accessoryId === 'rich') {
-            alert("🎉 大金持ちアクセサリーを購入しました！\n金色の肌と特別な顔がアンロックされました！");
-        }
-        
-        updateSkinPreview();
-        renderSkinShop();
-        updateProfileFace();
-        saveAndDisplayData();
-        sounds.notify.play();
-    } else {
-        alert(`コインが足りません！\n必要: ${acc.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
-    }
-}
-
-function equipAccessory(accessoryId) {
-    equippedAccessory = accessoryId;
-    updateSkinPreview();
-    renderSkinShop();
-    updateProfileFace();
+    renderSkinCategory();
     saveAndDisplayData();
 }
 
+function selectSkin(skinId) {
+    tempSkinData.skin = skinId;
+    updateSkinPreview();
+    renderSkinCategory();
+}
+
+function renderFaceCategory() {
+    const grid = el("skin-category-face");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    for (let i = 1; i <= 30; i++) {
+        const faceId = `face-${i}`;
+        const isEquipped = tempSkinData.face === faceId;
+        
+        const item = document.createElement("div");
+        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
+        item.innerHTML = FACE_DATA[faceId];
+        item.onclick = () => selectFace(faceId);
+        grid.appendChild(item);
+    }
+    
+    // 特別な顔
+    if (skinData.accessories && skinData.accessories.includes('rich')) {
+        const moneyFace = document.createElement("div");
+        moneyFace.className = `skin-item owned ${tempSkinData.face === 'face-money' ? 'equipped' : ''}`;
+        moneyFace.innerHTML = "🤑";
+        moneyFace.onclick = () => selectFace("face-money");
+        grid.appendChild(moneyFace);
+    }
+}
+
+function selectFace(faceId) {
+    tempSkinData.face = faceId;
+    updateSkinPreview();
+    renderFaceCategory();
+}
+
+function renderBodyCategory() {
+    const grid = el("skin-category-body");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    Object.entries(BODY_TYPES).forEach(([id, data]) => {
+        const isEquipped = tempSkinData.bodyType === id;
+        const item = document.createElement("div");
+        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
+        item.innerHTML = data.name;
+        item.onclick = () => {
+            tempSkinData.bodyType = id;
+            updateSkinPreview();
+            renderBodyCategory();
+        };
+        grid.appendChild(item);
+    });
+}
+
+function renderClothesCategory() {
+    const grid = el("skin-category-clothes");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    // 基本服装
+    Object.entries(CLOTHES_TYPES).forEach(([id, data]) => {
+        const isOwned = id === 'plain' || (tempSkinData.clothes.owned && tempSkinData.clothes.owned[id]) || id === tempSkinData.clothes.type;
+        const isEquipped = tempSkinData.clothes.type === id;
+        const canAfford = coins >= data.cost;
+        
+        const item = document.createElement("div");
+        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
+        item.innerHTML = `
+            <span style="font-size: 2rem;">${data.emoji}</span>
+            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
+        `;
+        
+        if (isOwned) {
+            item.onclick = () => {
+                tempSkinData.clothes.type = id;
+                updateSkinPreview();
+                renderClothesCategory();
+            };
+        } else if (canAfford) {
+            item.onclick = () => {
+                if (confirm(`${data.name}を購入しますか？`)) {
+                    coins -= data.cost;
+                    if (!tempSkinData.clothes.owned) tempSkinData.clothes.owned = {};
+                    tempSkinData.clothes.owned[id] = true;
+                    tempSkinData.clothes.type = id;
+                    saveAndDisplayData();
+                    updateSkinPreview();
+                    renderClothesCategory();
+                }
+            };
+        }
+        
+        grid.appendChild(item);
+    });
+    
+    // カスタム服装（色＋ステッカー）
+    const customItem = document.createElement("div");
+    customItem.className = `skin-item ${tempSkinData.clothes.type === 'custom' ? 'equipped' : ''}`;
+    customItem.style.background = tempSkinData.clothes.color;
+    customItem.innerHTML = `
+        <span style="font-size: 1.5rem;">${tempSkinData.clothes.sticker || '✏️'}</span>
+        <span class="skin-price">30000🪙</span>
+    `;
+    customItem.onclick = () => openCustomClothesPicker();
+    grid.appendChild(customItem);
+}
+
+function openCustomClothesPicker() {
+    const cost = 30000;
+    if (tempSkinData.clothes.type !== 'custom' && coins < cost) {
+        alert(`コインが足りません！\n必要: ${cost}🪙`);
+        return;
+    }
+    
+    const color = prompt("色を入力 (例: #ff0000, red, rgb(255,0,0)):", tempSkinData.clothes.color);
+    if (!color) return;
+    const sticker = prompt("ステッカー（1文字）:", tempSkinData.clothes.sticker || "");
+    if (sticker && sticker.length > 1) {
+        alert("1文字で入力してください");
+        return;
+    }
+    
+    if (tempSkinData.clothes.type !== 'custom') {
+        coins -= cost;
+    }
+    tempSkinData.clothes.type = 'custom';
+    tempSkinData.clothes.color = color;
+    tempSkinData.clothes.sticker = sticker || "";
+    saveAndDisplayData();
+    updateSkinPreview();
+    renderClothesCategory();
+}
+
+function renderHatCategory() {
+    const grid = el("skin-category-hat");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    Object.entries(HAT_TYPES).forEach(([id, data]) => {
+        const isOwned = id === 'none' || (tempSkinData.hats && tempSkinData.hats[id]) || id === tempSkinData.hat;
+        const isEquipped = tempSkinData.hat === id;
+        const canAfford = coins >= data.cost;
+        
+        const item = document.createElement("div");
+        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
+        item.innerHTML = `
+            <span style="font-size: 2rem;">${data.emoji || '👤'}</span>
+            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
+        `;
+        
+        if (isOwned) {
+            item.onclick = () => {
+                tempSkinData.hat = id;
+                updateSkinPreview();
+                renderHatCategory();
+            };
+        } else if (canAfford) {
+            item.onclick = () => {
+                if (confirm(`${data.name}を購入しますか？`)) {
+                    coins -= data.cost;
+                    if (!tempSkinData.hats) tempSkinData.hats = {};
+                    tempSkinData.hats[id] = true;
+                    tempSkinData.hat = id;
+                    saveAndDisplayData();
+                    updateSkinPreview();
+                    renderHatCategory();
+                }
+            };
+        }
+        
+        grid.appendChild(item);
+    });
+}
+
 // =========================================
-// スキルショップ
+// スキルショップ（鬼ごっこスキル追加）
 // =========================================
 
 window.openShop = () => {
@@ -2157,7 +2378,8 @@ window.switchShopTab = (tabType) => {
     document.querySelectorAll('.shop-tab').forEach(tab => tab.classList.remove('active'));
     const targetTab = Array.from(document.querySelectorAll('.shop-tab')).find(tab => 
         (tabType === 'normal' && tab.textContent.includes('ノーマル')) ||
-        (tabType === 'gacha' && tab.textContent.includes('ガチャ'))
+        (tabType === 'gacha' && tab.textContent.includes('ガチャ')) ||
+        (tabType === 'otag' && tab.textContent.includes('鬼ごっこ'))
     );
     if (targetTab) targetTab.classList.add('active');
     
@@ -2165,10 +2387,68 @@ window.switchShopTab = (tabType) => {
     if (tabType === 'normal') {
         el('shop-normal-skills').classList.remove('hidden');
         renderNormalSkills();
-    } else {
+    } else if (tabType === 'gacha') {
         el('shop-gacha-skills').classList.remove('hidden');
         renderGachaSkills();
+    } else {
+        el('shop-otag-skills').classList.remove('hidden');
+        renderOtagSkills();
     }
+};
+
+function renderOtagSkills() {
+    const container = el('shop-otag-skills');
+    if (!container) return;
+    container.innerHTML = "";
+    
+    Object.values(OTAG_SKILL_DB).forEach(skill => {
+        if (skill.deck) return; // デッキスキルはショップで販売しない
+        
+        const isOwned = otagOwnedSkills[skill.id];
+        const isEquipped = equippedOtagSkill === skill.id;
+        
+        let buttonHtml = "";
+        if (isEquipped) {
+            buttonHtml = `<button class="shop-btn gacha-btn equipped" disabled>装備中</button>`;
+        } else if (isOwned) {
+            buttonHtml = `<button class="shop-btn gacha-btn" onclick="window.equipOtagSkill('${skill.id}')">装備する</button>`;
+        } else {
+            const canAfford = coins >= skill.cost;
+            buttonHtml = `<button class="shop-btn gacha-btn" onclick="window.buyOtagSkill('${skill.id}')" ${canAfford ? '' : 'disabled'}>購入 (${skill.cost.toLocaleString()}🪙)</button>`;
+        }
+        
+        container.innerHTML += `
+            <div class="shop-item gacha-skill">
+                <h3>${skill.name}</h3>
+                <p style="white-space: pre-wrap; font-size: 0.9rem;">${skill.desc}</p>
+                <span class="cooldown-text">クールダウン: ${skill.cooldown}秒</span>
+                ${buttonHtml}
+            </div>
+        `;
+    });
+}
+
+window.buyOtagSkill = (skillId) => {
+    const skill = OTAG_SKILL_DB[skillId];
+    if (coins >= skill.cost) {
+        coins -= skill.cost;
+        otagOwnedSkills[skillId] = true;
+        equippedOtagSkill = skillId;
+        saveAndDisplayData();
+        renderOtagSkills();
+        if (otagMode) renderOtagSkillList();
+        sounds.notify.play();
+        alert(`🎉 「${skill.name}」スキルを購入・装備しました！`);
+    } else {
+        alert(`コインが足りません！\n必要: ${skill.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
+    }
+};
+
+window.equipOtagSkill = (skillId) => {
+    equippedOtagSkill = skillId;
+    saveAndDisplayData();
+    renderOtagSkills();
+    if (otagMode) renderOtagSkillList();
 };
 
 function renderNormalSkills() {
@@ -2272,8 +2552,6 @@ window.equipGachaCharacter = (charId) => {
         return;
     }
     
-    console.log(`Equipping gacha character: ${charId}`);
-    
     equippedSkill = charId;
     localStorage.setItem("ramo_equipped", equippedSkill);
     
@@ -2286,6 +2564,7 @@ window.equipGachaCharacter = (charId) => {
     
     renderGachaSkills();
     renderNormalSkills();
+    renderOtagSkills();
     
     if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
         renderGachaCharacters(getCurrentGachaTabRarity());
@@ -2306,6 +2585,7 @@ window.buySkill = (skillId) => {
         saveAndDisplayData();
         renderNormalSkills();
         renderGachaSkills();
+        renderOtagSkills();
         if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
             renderGachaCharacters(getCurrentGachaTabRarity());
         }
@@ -2321,6 +2601,7 @@ window.equipSkill = (skillId) => {
     saveAndDisplayData();
     renderNormalSkills();
     renderGachaSkills();
+    renderOtagSkills();
     if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
         renderGachaCharacters(getCurrentGachaTabRarity());
     }
@@ -2380,8 +2661,6 @@ window.handleGachaCharClick = (event) => {
     
     const charId = target.dataset.charId;
     if (!charId) return;
-    
-    console.log(`Gacha character clicked: ${charId}`);
     
     const isOwned = ownedSkills.includes(charId);
     if (!isOwned) {
@@ -2480,6 +2759,7 @@ window.drawGacha = async (type) => {
     showGachaResult(results);
     renderGachaCharacters(getCurrentGachaTabRarity());
     renderGachaSkills();
+    renderOtagSkills();
 };
 
 function showGachaResult(results) {
@@ -3117,13 +3397,14 @@ function syncRivals() {
                 el("rival-list").innerHTML = scores.map(({id, ...m}) => {
                     const memberSkin = m.skin || { face: "face-1" };
                     const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                    const memberHat = HAT_TYPES[memberSkin.hat]?.emoji || "";
                     const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                     return `
                         <div class="friend-item">
                             <div class="friend-left">
                                 <div class="friend-face">
                                     <span>${memberFace}</span>
-                                    ${memberAccessory ? `<span style="font-size: 1rem; margin-left: 2px;">${memberAccessory}</span>` : ''}
+                                    <span style="font-size: 1rem;">${memberHat}${memberAccessory}</span>
                                 </div>
                                 <span class="friend-name">${m.name}</span>
                             </div>
@@ -3137,7 +3418,6 @@ function syncRivals() {
 }
 
 function endGame() {
-    // 修行モードの結果を先に処理するため、trainingModeを先にfalseにしない
     let trainingResult = null;
     if (trainingMode) {
         trainingResult = handleTrainingResult();
@@ -3201,14 +3481,15 @@ function endGame() {
                 } else {
                     el("ranking-box").innerHTML = res.map((item, i) => {
                         const m = item[1];
-                        const memberSkin = m.skin || { face: "face-1" };
+                        const memberSkin = m.skin || { face: "face-1", bodyType: "normal", hat: "none" };
                         const memberFace = FACE_DATA[memberSkin.face] || "😊";
+                        const memberHat = HAT_TYPES[memberSkin.hat]?.emoji || "";
                         const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                         return `<div class="ranking-row">
                             <div style="display: flex; align-items: center; gap: 5px;">
                                 <div class="friend-face">
                                     <span style="font-size: 1.2rem;">${memberFace}</span>
-                                    ${memberAccessory ? `<span style="font-size: 1rem;">${memberAccessory}</span>` : ''}
+                                    <span style="font-size: 1rem;">${memberHat}${memberAccessory}</span>
                                 </div>
                                 <span>${i+1}位: ${m.name}</span>
                             </div>
@@ -3388,22 +3669,32 @@ function trainingStatusAttack() {
 // 鬼ごっこタイピングモード
 // =========================================
 
-// 鬼ごっこスキルリストのレンダリング
 function renderOtagSkillList() {
     const container = document.querySelector('.otag-card .skill-list');
     if (!container) return;
     
     const skills = [
-        { id: 'dash', name: '🏃 ダッシュ', cost: 0, desc: 'CT20秒: 2秒間 足が80%速くなる', owned: true },
-        { id: 'netgun', name: '🎯 あみでっぽう', cost: 100000, desc: 'CT100秒: 向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く', owned: otagOwnedSkills.netgun },
-        { id: 'builder', name: '🏗️ ビルダー', cost: 500000, desc: 'CT50秒: 自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）', owned: otagOwnedSkills.builder },
-        { id: 'invisible', name: '👻 透明', cost: 500000, desc: 'CT40秒: 6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる', owned: otagOwnedSkills.invisible }
+        { id: 'dash', name: '🏃 ダッシュ', desc: 'CT20秒: 2秒間 足が80%速くなる' },
+        { id: 'netgun', name: '🎯 あみでっぽう', desc: 'CT100秒: 向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く' },
+        { id: 'builder', name: '🏗️ ビルダー', desc: 'CT50秒: 自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）' },
+        { id: 'invisible', name: '👻 透明', desc: 'CT40秒: 6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる' }
     ];
     
     container.innerHTML = skills.map(skill => {
+        const isOwned = otagOwnedSkills[skill.id];
         const isEquipped = equippedOtagSkill === skill.id;
-        const status = skill.owned ? (isEquipped ? '装備中' : '') : `${skill.cost.toLocaleString()}🪙`;
-        const statusColor = skill.owned ? (isEquipped ? '#00FF00' : '#FFD700') : '#FFD700';
+        const skillData = OTAG_SKILL_DB[skill.id];
+        
+        let status = "";
+        let statusColor = "";
+        
+        if (!isOwned) {
+            status = `${skillData.cost.toLocaleString()}🪙`;
+            statusColor = '#FFD700';
+        } else if (isEquipped) {
+            status = '装備中';
+            statusColor = '#00FF00';
+        }
         
         return `
             <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('${skill.id}')">
@@ -3415,6 +3706,17 @@ function renderOtagSkillList() {
             </div>
         `;
     }).join('');
+    
+    // ショップへ行くボタンを追加
+    container.innerHTML += `
+        <div class="skill-item" style="border: 2px solid #FFD700; border-radius: 15px; padding: 15px; margin-top: 15px;" onclick="window.openShop()">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold;">🛒 スキルショップへ</span>
+                <span style="color: #FFD700;">スキル購入</span>
+            </div>
+            <small>鬼ごっこスキルを購入・装備できます</small>
+        </div>
+    `;
 }
 
 window.openOtagMode = () => {
@@ -3444,7 +3746,7 @@ function resetOtagGame() {
     otagPlayer = {
         worldX: 400,
         worldY: 300,
-        x: 0, // カメラ座標（常に0,0に固定）
+        x: 0,
         y: 0,
         stamina: 100,
         maxStamina: 100,
@@ -3483,7 +3785,6 @@ function resetOtagGame() {
     otagPlacedTiles = [];
     
     otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
-    
     otagKeys = { w: false, a: false, s: false, d: false, arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false, space: false };
 }
 
@@ -3513,6 +3814,9 @@ function startOtagDeckTimer() {
 }
 
 window.selectOtagDeck = (deckType) => {
+    // 一度選択したら再度選択できないように
+    if (otagDeckSelected) return;
+    
     otagDeckSelected = deckType;
     
     if (deckType === 'support') {
@@ -3526,6 +3830,11 @@ window.selectOtagDeck = (deckType) => {
     } else if (deckType === 'stamina_bottle') {
         otagDeckSkills.staminaBottle = true;
     }
+    
+    // 選択後すぐに非表示にせず、タイマー終了を待つが、連打防止のためイベントリスナーを削除
+    document.querySelectorAll('.deck-card').forEach(card => {
+        card.onclick = null;
+    });
     
     updateOtagUI();
 };
@@ -3561,7 +3870,6 @@ function startOtagMainGame() {
 function handleOtagKeyDown(e) {
     if (!otagGameActive || otagTypingActive) return;
     
-    // 移動キーで方向を更新
     if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
         otagKeys.arrowUp = true;
         otagPlayer.direction = 'up';
@@ -3591,18 +3899,17 @@ function handleOtagKeyDown(e) {
         e.preventDefault();
     }
     
-    // キー1〜4でスキル装備（簡易的な切り替え）
-    if (e.key === '1') equippedOtagSkill = 'dash';
+    // キー1〜4でスキル装備（所持しているもののみ）
+    if (e.key === '1' && otagOwnedSkills.dash) equippedOtagSkill = 'dash';
     if (e.key === '2' && otagOwnedSkills.netgun) equippedOtagSkill = 'netgun';
     if (e.key === '3' && otagOwnedSkills.builder) equippedOtagSkill = 'builder';
     if (e.key === '4' && otagOwnedSkills.invisible) equippedOtagSkill = 'invisible';
     
-    // 装備中のスキルを使用（スペースキーで発動）
+    // 装備中のスキルを使用
     if (e.code === "Space") {
         activateOtagSkill(equippedOtagSkill);
     }
     
-    // デッキスキルは別キー（5,6）
     if (e.key === '5' && otagDeckSkills.support) activateOtagSkill('support');
     if (e.key === '6' && otagDeckSkills.staminaBottle) activateOtagSkill('staminaBottle');
     
@@ -3613,18 +3920,10 @@ function handleOtagKeyDown(e) {
 }
 
 function handleOtagKeyUp(e) {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
-        otagKeys.arrowUp = false;
-    }
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
-        otagKeys.arrowDown = false;
-    }
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
-        otagKeys.arrowLeft = false;
-    }
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
-        otagKeys.arrowRight = false;
-    }
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') otagKeys.arrowUp = false;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') otagKeys.arrowDown = false;
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') otagKeys.arrowLeft = false;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') otagKeys.arrowRight = false;
     if (e.code === "Space") {
         otagKeys.space = false;
         otagPlayer.isRunning = false;
@@ -3752,7 +4051,7 @@ function checkOtagGhostCollision() {
         const dy = otagPlayer.worldY - ghost.worldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        if (distance < 40) {
+        if (distance < 30) { // 当たり判定を40→30に縮小
             if (otagPlayer.invisible) return;
             otagPlayerDead();
             break;
@@ -3930,7 +4229,6 @@ function activateOtagSkill(skillType) {
                 showBattleAlert(`⏳ あみでっぽうクールダウン中`, "#FFA500");
                 return;
             }
-            // プレイヤーの向きに応じた範囲判定
             for (let ghost of otagGhosts) {
                 const dx = ghost.worldX - otagPlayer.worldX;
                 const dy = ghost.worldY - otagPlayer.worldY;
@@ -3947,7 +4245,7 @@ function activateOtagSkill(skillType) {
                 if (inRange) {
                     ghost.stunned = true;
                     ghost.stunTimer = 5;
-                    ghost.speed = 1.2; // 40%減速（2→1.2）
+                    ghost.speed = 1.2;
                 }
             }
             otagSkillCooldowns.netgun = 100;
@@ -4050,102 +4348,114 @@ function checkOtagTileEffect() {
 
 function updateOtagPlayerDisplay() {
     const playerEl = el("otag-player");
-    if (playerEl) {
-        // カメラ座標に変換（プレイヤーは常に画面中央）
-        // 他のオブジェクトは逆方向にオフセット
-        const offsetX = otagPlayer.worldX - 400; // 画面中心を400,300と仮定
-        const offsetY = otagPlayer.worldY - 300;
-        
-        // プレイヤーは常に中央
-        playerEl.style.left = "50%";
-        playerEl.style.top = "50%";
-        playerEl.style.transform = "translate(-50%, -50%)";
-        playerEl.style.opacity = otagPlayer.invisible ? "0.3" : "1";
-        
-        // 鬼の表示位置を更新
-        otagGhosts.forEach(ghost => {
-            const ghostEl = el(`otag-ghost-${ghost.id}`);
-            if (ghostEl) {
-                const screenX = ghost.worldX - offsetX;
-                const screenY = ghost.worldY - offsetY;
-                ghostEl.style.left = screenX + "px";
-                ghostEl.style.top = screenY + "px";
-                ghostEl.style.opacity = ghost.stunned ? "0.5" : "1";
-                ghostEl.style.background = "none"; // 背景色を消して絵文字表示
-                ghostEl.innerText = ghost.stunned ? "😵" : "👔🕶️"; // スーツケースとグラサン
-                ghostEl.style.fontSize = "30px";
-                ghostEl.style.display = "flex";
-                ghostEl.style.alignItems = "center";
-                ghostEl.style.justifyContent = "center";
-            }
-        });
-        
-        // ジェネレーターの表示位置を更新
-        otagGenerators.forEach(gen => {
-            const genEl = document.querySelector(`.otag-generator[data-id="${gen.id}"]`);
-            if (!genEl) {
-                // 動的に要素を作成（簡易版）
-                const newGen = document.createElement('div');
-                newGen.className = 'otag-generator';
-                newGen.setAttribute('data-id', gen.id);
-                newGen.style.position = 'absolute';
-                newGen.style.width = '30px';
-                newGen.style.height = '30px';
-                newGen.style.background = 'var(--accent-gold)';
-                newGen.style.borderRadius = '50%';
-                newGen.style.boxShadow = '0 0 15px var(--accent-gold)';
-                newGen.onclick = () => window.startOtagGenerator(gen.id);
-                document.querySelector('.otag-game-canvas').appendChild(newGen);
-            } else {
-                const screenX = gen.worldX - offsetX;
-                const screenY = gen.worldY - offsetY;
-                genEl.style.left = screenX + "px";
-                genEl.style.top = screenY + "px";
-            }
-        });
-        
-        // 壁の表示位置を更新
-        document.querySelectorAll('.otag-wall').forEach((wall, index) => {
-            if (index < otagWalls.length) {
-                const w = otagWalls[index];
-                const screenX = w.worldX - offsetX;
-                const screenY = w.worldY - offsetY;
-                wall.style.left = screenX + "px";
-                wall.style.top = screenY + "px";
-            }
-        });
-        
-        // タイルの表示（簡易版：デバッグ用に色付き四角を表示）
-        otagPlacedTiles.forEach((tile, idx) => {
-            let tileEl = document.getElementById(`otag-tile-${idx}`);
-            if (!tile.active) {
-                if (tileEl) tileEl.remove();
-                return;
-            }
-            if (!tileEl) {
-                tileEl = document.createElement('div');
-                tileEl.id = `otag-tile-${idx}`;
-                tileEl.className = 'otag-tile';
-                tileEl.style.position = 'absolute';
-                tileEl.style.width = '40px';
-                tileEl.style.height = '40px';
-                tileEl.style.background = 'rgba(0, 255, 0, 0.5)';
-                tileEl.style.borderRadius = '10px';
-                tileEl.style.pointerEvents = 'none';
-                tileEl.style.zIndex = '8';
-                document.querySelector('.otag-game-canvas').appendChild(tileEl);
-            }
-            const screenX = tile.worldX - offsetX;
-            const screenY = tile.worldY - offsetY;
-            tileEl.style.left = screenX + "px";
-            tileEl.style.top = screenY + "px";
-        });
+    if (!playerEl) return;
+    
+    const offsetX = otagPlayer.worldX - 400;
+    const offsetY = otagPlayer.worldY - 300;
+    
+    playerEl.style.left = "50%";
+    playerEl.style.top = "50%";
+    playerEl.style.transform = "translate(-50%, -50%)";
+    playerEl.style.opacity = otagPlayer.invisible ? "0.3" : "1";
+    
+    // 鬼の表示
+    otagGhosts.forEach(ghost => {
+        const ghostEl = el(`otag-ghost-${ghost.id}`);
+        if (ghostEl) {
+            const screenX = ghost.worldX - offsetX;
+            const screenY = ghost.worldY - offsetY;
+            ghostEl.style.left = screenX + "px";
+            ghostEl.style.top = screenY + "px";
+            ghostEl.style.opacity = ghost.stunned ? "0.5" : "1";
+            ghostEl.style.background = "none";
+            ghostEl.innerText = ghost.stunned ? "😵" : "👔🕶️";
+            ghostEl.style.fontSize = "30px";
+            ghostEl.style.display = "flex";
+            ghostEl.style.alignItems = "center";
+            ghostEl.style.justifyContent = "center";
+        }
+    });
+    
+    // ジェネレーターの表示（初回のみ作成）
+    otagGenerators.forEach((gen, index) => {
+        let genEl = document.getElementById(`otag-generator-${gen.id}`);
+        if (!genEl) {
+            genEl = document.createElement('div');
+            genEl.id = `otag-generator-${gen.id}`;
+            genEl.className = 'otag-generator';
+            genEl.style.position = 'absolute';
+            genEl.style.width = '40px';
+            genEl.style.height = '40px';
+            genEl.style.borderRadius = '50%';
+            genEl.style.display = 'flex';
+            genEl.style.alignItems = 'center';
+            genEl.style.justifyContent = 'center';
+            genEl.style.fontSize = '24px';
+            genEl.style.background = 'rgba(255, 215, 0, 0.3)';
+            genEl.style.border = '2px solid gold';
+            genEl.style.cursor = 'pointer';
+            genEl.onclick = () => {
+                if (otagGameActive && !otagTypingActive) checkOtagGeneratorById(gen.id);
+            };
+            document.querySelector('.otag-game-canvas').appendChild(genEl);
+        }
+        const screenX = gen.worldX - offsetX;
+        const screenY = gen.worldY - offsetY;
+        genEl.style.left = screenX + "px";
+        genEl.style.top = screenY + "px";
+        genEl.innerText = gen.isMoneyGenerator ? "💰" : "⚡";
+        genEl.style.backgroundColor = gen.active ? '#aaa' : 'rgba(255, 215, 0, 0.3)';
+    });
+    
+    // 壁の表示
+    document.querySelectorAll('.otag-wall').forEach((wall, index) => {
+        if (index < otagWalls.length) {
+            const w = otagWalls[index];
+            const screenX = w.worldX - offsetX;
+            const screenY = w.worldY - offsetY;
+            wall.style.left = screenX + "px";
+            wall.style.top = screenY + "px";
+        }
+    });
+    
+    // タイルの表示
+    otagPlacedTiles.forEach((tile, idx) => {
+        let tileEl = document.getElementById(`otag-tile-${idx}`);
+        if (!tile.active) {
+            if (tileEl) tileEl.remove();
+            return;
+        }
+        if (!tileEl) {
+            tileEl = document.createElement('div');
+            tileEl.id = `otag-tile-${idx}`;
+            tileEl.className = 'otag-tile';
+            tileEl.style.position = 'absolute';
+            tileEl.style.width = '40px';
+            tileEl.style.height = '40px';
+            tileEl.style.background = 'rgba(0, 255, 0, 0.5)';
+            tileEl.style.borderRadius = '10px';
+            tileEl.style.pointerEvents = 'none';
+            tileEl.style.zIndex = '8';
+            document.querySelector('.otag-game-canvas').appendChild(tileEl);
+        }
+        const screenX = tile.worldX - offsetX;
+        const screenY = tile.worldY - offsetY;
+        tileEl.style.left = screenX + "px";
+        tileEl.style.top = screenY + "px";
+    });
+}
+
+function checkOtagGeneratorById(id) {
+    const gen = otagGenerators.find(g => g.id === id);
+    if (gen && !gen.active) {
+        gen.active = true;
+        gen.typingActive = true;
+        otagTypingActive = true;
+        startOtagTyping(gen);
     }
 }
 
-function updateOtagGhostDisplay(ghost) {
-    // 既にupdateOtagPlayerDisplay内でまとめて更新している
-}
+function updateOtagGhostDisplay(ghost) {}
 
 function updateOtagUI() {
     const timerEl = el("otag-timer");
@@ -4204,38 +4514,19 @@ function stopOtagGame() {
 }
 
 window.selectOtagSkill = (skillId) => {
-    // スキル購入処理
-    if (skillId === 'netgun' && coins >= 100000) {
-        coins -= 100000;
-        otagOwnedSkills.netgun = true;
-        equippedOtagSkill = 'netgun';
-        saveAndDisplayData();
-        renderOtagSkillList();
-        alert("🎯 あみでっぽうを購入しました！");
-    } else if (skillId === 'builder' && coins >= 500000) {
-        coins -= 500000;
-        otagOwnedSkills.builder = true;
-        equippedOtagSkill = 'builder';
-        saveAndDisplayData();
-        renderOtagSkillList();
-        alert("🏗️ ビルダーを購入しました！");
-    } else if (skillId === 'invisible' && coins >= 500000) {
-        coins -= 500000;
-        otagOwnedSkills.invisible = true;
-        equippedOtagSkill = 'invisible';
-        saveAndDisplayData();
-        renderOtagSkillList();
-        alert("👻 透明を購入しました！");
-    } else if (skillId === 'dash') {
-        equippedOtagSkill = 'dash';
+    // スキルが所持済みなら装備、未所持ならショップへ誘導
+    if (otagOwnedSkills[skillId]) {
+        equippedOtagSkill = skillId;
         renderOtagSkillList();
     } else {
-        alert("コインが足りません");
+        if (confirm("このスキルは未購入です。スキルショップに移動しますか？")) {
+            openShop();
+        }
     }
 };
 
-// スキンショップへ移動（鬼ごっこモードのボタン用）
-window.goToSkinShopFromOtag = () => {
+// スキンショップへのショートカット
+window.goToSkinShop = () => {
     openSkinShop();
 };
 
@@ -6255,7 +6546,7 @@ window.openOnlineMatch = () => {
                         name: player.name, 
                         score: 0, 
                         ready: false,
-                        skin: player.skin || { skin: "skin-1", face: "face-1" },
+                        skin: player.skin || { skin: "skin-1", face: "face-1", bodyType: "normal", hat: "none" },
                         team: Math.random() < 0.5 ? "red" : "blue",
                         handicap: "none"
                     }; 
