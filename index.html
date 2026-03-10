@@ -143,7 +143,7 @@
         <main id="main-area">
             <div class="header-logo">ULTIMATE TYPING</div>
 
-            <div id="screen-home" class="screen">
+            <div id="screen-home" class="screen" style="overflow-y: auto; padding: 20px 0;">
                 <div class="btn-group">
                     <button id="btn-single" class="action-btn" onclick="window.openSingleSelect()">
                         <span>一人でプレイ</span>
@@ -168,6 +168,10 @@
                     <button id="btn-training" class="action-btn" onclick="window.openTraining()" style="border-color: #00FF00;">
                         <span>修行</span>
                         <small>TRAINING</small>
+                    </button>
+                    <button id="btn-otag" class="action-btn" onclick="window.openOtagMode()" style="border-color: #FFA500;">
+                        <span>鬼ごっこタイピング</span>
+                        <small>OTAG TYPING</small>
                     </button>
                     <button id="btn-story" class="action-btn full-width" onclick="window.openStoryMode()" style="border-color: #FFD700;">
                         <span>ストーリーモード</span>
@@ -216,7 +220,7 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面（第三章コード入力ボタン追加） -->
+            <!-- ストーリーモード画面（コード入力ボタンを削除） -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
@@ -230,19 +234,6 @@
                     <div class="progress-item">第1章: <span id="progress-chapter1">0/7</span></div>
                     <div class="progress-item">第2章: <span id="progress-chapter2">0/7</span></div>
                     <div class="progress-item">第3章: <span id="progress-chapter3">0/10</span></div>
-                </div>
-                
-                <!-- 第三章用コード入力ボタン（新規追加） -->
-                <div class="story-code-buttons" id="story-code-buttons">
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 2)" id="story-unlock-3-2" style="display: none;">🔓 3-2 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 3)" id="story-unlock-3-3" style="display: none;">🔓 3-3 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 4)" id="story-unlock-3-4" style="display: none;">🔓 3-4 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 5)" id="story-unlock-3-5" style="display: none;">🔓 3-5 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 6)" id="story-unlock-3-6" style="display: none;">🔓 3-6 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 7)" id="story-unlock-3-7" style="display: none;">🔓 3-7 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 8)" id="story-unlock-3-8" style="display: none;">🔓 3-8 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openStageUnlockUI(3, 9)" id="story-unlock-3-9" style="display: none;">🔓 3-9 解放コード入力</button>
-                    <button class="story-code-btn" onclick="window.openSkillUnlockUI('invincible_man')" id="story-skill-3-10" style="display: none;">✨ 無敵マンスキル獲得コード入力</button>
                 </div>
                 
                 <div id="story-chapter-1" class="story-chapter active">
@@ -293,11 +284,11 @@
                 </div>
             </div>
 
-            <!-- 修行モード画面（スキル獲得コード入力ボタン追加） -->
+            <!-- 修行モード画面（コード入力ボタンは残す） -->
             <div id="screen-training" class="screen hidden">
                 <h2 class="title-glow" style="color: #00FF00;">TRAINING</h2>
                 
-                <!-- 修行用コード入力ボタン（新規追加） -->
+                <!-- 修行用コード入力ボタン -->
                 <div class="training-code-buttons">
                     <button class="training-code-btn" onclick="window.openSkillUnlockUI('swordsman')" id="training-skill-1">⚔️ 剣士スキル獲得コード入力</button>
                     <button class="training-code-btn" onclick="window.openSkillUnlockUI('hacker_trainee')" id="training-skill-2">💻 ハッカー修行人スキル獲得コード入力</button>
@@ -317,6 +308,59 @@
                         <p>特殊: タブ追加・異常状態攻撃</p>
                         <p class="training-reward">報酬: ハッカー修行人スキル</p>
                         <div class="training-status" id="training-2-status">未クリア</div>
+                    </div>
+                </div>
+                <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
+            </div>
+
+            <!-- 鬼ごっこタイピングモード画面（新規追加） -->
+            <div id="screen-otag" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFA500;">鬼ごっこタイピング</h2>
+                <div class="otag-container" style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; margin-top: 20px;">
+                    <div class="otag-card" style="background: var(--panel-bg); border: 3px solid #FFA500; border-radius: 30px; padding: 30px; width: 350px;">
+                        <h3 style="color: #FFA500; font-size: 2rem; margin-bottom: 20px;">ゲームプレイ</h3>
+                        <p style="margin: 15px 0;">3Dトップビューの鬼ごっこ！</p>
+                        <p style="margin: 15px 0;">15秒間のデッキ選択後、15分間の鬼ごっこが始まります。</p>
+                        <p style="margin: 15px 0;">鬼から逃げ切ってコインを獲得！</p>
+                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="window.startOtagGame()">ゲームスタート</button>
+                    </div>
+                    <div class="otag-card" style="background: var(--panel-bg); border: 3px solid #FFA500; border-radius: 30px; padding: 30px; width: 350px;">
+                        <h3 style="color: #FFA500; font-size: 2rem; margin-bottom: 20px;">スキル変更</h3>
+                        <div class="skill-list" style="display: flex; flex-direction: column; gap: 15px;">
+                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('dash')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: bold;">🏃 ダッシュ</span>
+                                    <span style="color: #00FF00;">装備中</span>
+                                </div>
+                                <small>CT20秒: 2秒間 足が80%速くなる</small>
+                            </div>
+                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('netgun')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: bold;">🎯 あみでっぽう</span>
+                                    <span style="color: #FFD700;">100,000🪙</span>
+                                </div>
+                                <small>CT100秒: 向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く</small>
+                            </div>
+                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('builder')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: bold;">🏗️ ビルダー</span>
+                                    <span style="color: #FFD700;">500,000🪙</span>
+                                </div>
+                                <small>CT50秒: 自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）</small>
+                            </div>
+                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('invisible')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: bold;">👻 透明</span>
+                                    <span style="color: #FFD700;">500,000🪙</span>
+                                </div>
+                                <small>CT40秒: 6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="otag-card" style="background: var(--panel-bg); border: 3px solid #FFA500; border-radius: 30px; padding: 30px; width: 350px;">
+                        <h3 style="color: #FFA500; font-size: 2rem; margin-bottom: 20px;">スキン変更</h3>
+                        <p>3Dスキンカスタマイズ（準備中）</p>
+                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="alert('準備中')">スキンショップへ</button>
                     </div>
                 </div>
                 <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
@@ -576,6 +620,83 @@
                         <div id="rival-list"></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- 鬼ごっこタイピングゲーム画面（新規追加） -->
+            <div id="screen-otag-game" class="screen hidden">
+                <div class="otag-game-container" style="width: 100%; height: 100%; position: relative; background: #111; border-radius: 20px; overflow: hidden;">
+                    <!-- ゲームキャンバス（簡易的な2D表現） -->
+                    <div class="otag-game-canvas" style="width: 100%; height: 100%; position: relative;">
+                        <!-- プレイヤー -->
+                        <div id="otag-player" style="position: absolute; width: 40px; height: 40px; background: var(--accent-blue); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 0 20px var(--accent-blue);"></div>
+                        
+                        <!-- 鬼 -->
+                        <div id="otag-ghost-1" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 200px; top: 200px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 3s infinite alternate;"></div>
+                        <div id="otag-ghost-2" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 600px; top: 300px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 4s infinite alternate-reverse;"></div>
+                        <div id="otag-ghost-3" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 400px; top: 500px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 3.5s infinite alternate;"></div>
+                        <div id="otag-ghost-4" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 800px; top: 400px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 5s infinite alternate-reverse;"></div>
+                        
+                        <!-- 壁 -->
+                        <div class="otag-wall" style="position: absolute; width: 100px; height: 20px; background: #666; left: 300px; top: 150px;"></div>
+                        <div class="otag-wall" style="position: absolute; width: 20px; height: 100px; background: #666; left: 500px; top: 250px;"></div>
+                        <div class="otag-wall" style="position: absolute; width: 150px; height: 20px; background: #666; left: 600px; top: 450px;"></div>
+                        
+                        <!-- ジェネレーター -->
+                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 100px; top: 100px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(1)"></div>
+                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 700px; top: 150px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(2)"></div>
+                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 200px; top: 500px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(3)"></div>
+                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 850px; top: 500px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(4)"></div>
+                    </div>
+                    
+                    <!-- UI要素 -->
+                    <div style="position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 2px solid var(--accent-gold);">
+                        <div>⏱️ 残り時間: <span id="otag-timer">15:00</span></div>
+                        <div>🏃 スタミナ: <span id="otag-stamina">100/100</span></div>
+                        <div>💰 賞金: <span id="otag-reward">0</span>🪙</div>
+                    </div>
+                    
+                    <!-- デッキ選択UI（最初の15秒のみ表示） -->
+                    <div id="otag-deck-select" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel-bg); border: 3px solid var(--accent-gold); border-radius: 30px; padding: 30px; min-width: 500px; text-align: center;">
+                        <h3 style="color: var(--accent-gold); margin-bottom: 20px;">デッキを選択（残り<span id="otag-deck-timer">15</span>秒）</h3>
+                        <div style="display: flex; gap: 20px; justify-content: center;">
+                            <div class="deck-card" style="background: rgba(0,0,0,0.6); border: 2px solid #FF69B4; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;" onclick="window.selectOtagDeck('support')">
+                                <div style="font-size: 3rem;">🆘</div>
+                                <h4>サポート</h4>
+                                <small>スタミナ-10、死んだ味方を復活</small>
+                            </div>
+                            <div class="deck-card" style="background: rgba(0,0,0,0.6); border: 2px solid #00FF00; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;" onclick="window.selectOtagDeck('stamina_up')">
+                                <div style="font-size: 3rem;">⚡</div>
+                                <h4>スタミナアップ</h4>
+                                <small>スタミナ+25</small>
+                            </div>
+                            <div class="deck-card" style="background: rgba(0,0,0,0.6); border: 2px solid #00FFFF; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;" onclick="window.selectOtagDeck('stamina_bottle')">
+                                <div style="font-size: 3rem;">🧪</div>
+                                <h4>スタミナボトル</h4>
+                                <small>CT50秒: 周りの味方のスタミナ+10、回復速度50%UP、足30%UP(5秒)</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作説明 -->
+                    <div style="position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 2px solid var(--accent-blue);">
+                        <div>WASD/矢印キー: 移動 | スペース: ダッシュ | R: ジェネレーター起動</div>
+                    </div>
+                    
+                    <!-- ジェネレーターミニゲーム（タイピング） -->
+                    <div id="otag-typing-minigame" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel-bg); border: 3px solid var(--accent-gold); border-radius: 30px; padding: 30px; min-width: 400px; text-align: center;">
+                        <h3 style="color: var(--accent-gold); margin-bottom: 20px;">ジェネレーター起動中</h3>
+                        <div id="otag-typing-word" style="font-size: 3rem; margin-bottom: 20px;">準備中...</div>
+                        <div id="otag-typing-roma" style="font-family: monospace; font-size: 2rem; margin-bottom: 20px;"></div>
+                        <div>残り <span id="otag-typing-remaining">5</span> 問</div>
+                        <button class="action-btn" style="margin-top: 20px;" onclick="window.stopOtagGenerator()">終了</button>
+                    </div>
+                </div>
+                <style>
+                    @keyframes ghostMove {
+                        0% { transform: translate(0, 0); }
+                        100% { transform: translate(50px, 50px); }
+                    }
+                </style>
             </div>
 
             <div id="screen-result" class="screen hidden">
