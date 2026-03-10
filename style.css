@@ -56,7 +56,7 @@ body, html {
 #app { display: flex; height: 100vh; width: 100vw; }
 
 /* メインエリア */
-#main-area { flex: 1; display: flex; flex-direction: column; padding: 40px; position: relative; min-width: 0; }
+#main-area { flex: 1; display: flex; flex-direction: column; padding: 40px; position: relative; min-width: 0; overflow-y: auto; }
 .header-logo {
     font-family: 'Exo 2', sans-serif; font-size: 3rem; font-weight: 900;
     background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
@@ -569,40 +569,6 @@ body, html {
 .special-reward {
     color: var(--accent-gold);
     font-size: 1rem;
-}
-
-/* =========================================
-   ストーリーモード用コードボタン（新規追加）
-   ========================================= */
-.story-code-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    justify-content: center;
-    margin: 20px 0;
-    padding: 15px;
-    background: var(--panel-bg);
-    border-radius: 30px;
-    border: 2px solid var(--accent-gold);
-}
-
-.story-code-btn {
-    background: linear-gradient(135deg, var(--accent-purple), #8a2be2);
-    border: 2px solid white;
-    color: white;
-    padding: 12px 25px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    border-radius: 40px;
-    cursor: pointer;
-    transition: 0.2s;
-    box-shadow: 0 0 15px var(--accent-purple);
-}
-
-.story-code-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 30px var(--accent-purple);
-    border-color: var(--accent-gold);
 }
 
 /* =========================================
