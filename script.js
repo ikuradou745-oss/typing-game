@@ -1,10 +1,10 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V22.4 (コード入力システム完全版・バグ修正)
+// FIREBASE & TYPING ENGINE V22.5 (修行モードコードバグ修正)
 // 修正内容:
-// 1. ストーリーモード3-1のバグ修正（クリアしたステージのコードを表示し、そのステージのみ解放）
-// 2. 修行モードのコード表示バグ修正（確実に表示）
-// 3. 最強自動入力の速度をさらに10倍に強化（0.0005秒間隔 = 2000回/秒）
+// 1. 修行モードクリア時に正しい修行専用コードを表示するよう修正
+// 2. 修行1クリアで剣士スキル、修行2クリアでハッカー修行人スキルのコードを表示
+// 3. コード入力時に正しくスキルを獲得できるよう修正
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -3293,9 +3293,11 @@ function handleTrainingResult() {
     const skillId = trainingType === 1 ? "swordsman" : "hacker_trainee";
     
     if (score >= targetScore) {
-        // 修行クリア：コードを表示（自動でスキル獲得はしない）
+        // 修行クリア：修行専用コードを表示（タイプを'training'に設定）
         const clearCode = generateClearCode();
         console.log(`Generated training code for ${skillId}: ${clearCode}`);
+        
+        // 修正: タイプを'training'に設定して表示
         showClearCode(clearCode, 'training', skillId);
         
         return `
