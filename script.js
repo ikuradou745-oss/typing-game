@@ -2249,6 +2249,13 @@ function renderAccessoryCategory() {
                     coins -= acc.cost;
                     if (!tempSkinData.accessories) tempSkinData.accessories = [];
                     tempSkinData.accessories.push(acc.id);
+                    
+                    // 王冠購入時に金色肌を自動解禁
+                    if (acc.id === 'crown' || acc.id === 'rich') {
+                        // 金色肌が選択可能であることを知らせる
+                        alert(`👑 王冠を購入しました！\n肌の色に「金色」が追加されました！`);
+                    }
+                    
                     updateSkinPreview();
                     renderAccessoryCategory();
                     document.getElementById("skin-coin-amount").innerText = coins.toLocaleString();
