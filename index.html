@@ -16,7 +16,7 @@
         🔐
     </div>
 
-    <!-- クリアコード表示エリア（新規追加：ストーリーモード・修行モードクリア時に表示） -->
+    <!-- クリアコード表示エリア -->
     <div id="clear-code-display" class="clear-code-display hidden">
         <div class="clear-code-container">
             <div class="clear-code-header">
@@ -35,7 +35,7 @@
         </div>
     </div>
 
-    <!-- ステージ解放コード入力UI（新規追加：第三章用） -->
+    <!-- ステージ解放コード入力UI -->
     <div id="stage-unlock-ui" class="stage-unlock-ui hidden">
         <div class="unlock-container">
             <div class="unlock-header">
@@ -53,7 +53,7 @@
         </div>
     </div>
 
-    <!-- スキル獲得コード入力UI（新規追加：3-10・修行用） -->
+    <!-- スキル獲得コード入力UI -->
     <div id="skill-unlock-ui" class="skill-unlock-ui hidden">
         <div class="unlock-container">
             <div class="unlock-header">
@@ -143,7 +143,7 @@
         <main id="main-area">
             <div class="header-logo">ULTIMATE TYPING</div>
 
-            <div id="screen-home" class="screen" style="overflow-y: auto; padding: 20px 0;">
+            <div id="screen-home" class="screen" style="overflow-y: auto; padding: 30px 0 60px 0;">
                 <div class="btn-group">
                     <button id="btn-single" class="action-btn" onclick="window.openSingleSelect()">
                         <span>一人でプレイ</span>
@@ -184,7 +184,7 @@
                 </div>
             </div>
 
-            <!-- スキンショップ画面 -->
+            <!-- スキンショップ画面 (プロフィール用) -->
             <div id="screen-skin-shop" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">SKIN SHOP</h2>
                 <div class="skin-preview" id="skin-preview">
@@ -197,21 +197,21 @@
                 <div class="shop-coin-display">所持コイン: <span id="skin-coin-amount">0</span> 🪙</div>
                 
                 <div class="skin-categories">
-                    <button class="skin-cat-btn active" onclick="window.switchSkinCategory('skin')">アイコンの色</button>
+                    <button class="skin-cat-btn active" onclick="window.switchSkinCategory('skin')">肌の色</button>
                     <button class="skin-cat-btn" onclick="window.switchSkinCategory('face')">顔</button>
+                    <button class="skin-cat-btn" onclick="window.switchSkinCategory('body')">体型</button>
+                    <button class="skin-cat-btn" onclick="window.switchSkinCategory('clothes')">服装</button>
+                    <button class="skin-cat-btn" onclick="window.switchSkinCategory('hat')">帽子</button>
                     <button class="skin-cat-btn" onclick="window.switchSkinCategory('accessory')">アクセサリー</button>
                 </div>
 
                 <div class="skin-grid-container">
-                    <div id="skin-category-skin" class="skin-grid active">
-                        <!-- 肌の色10種類がJSで動的に生成されます -->
-                    </div>
-                    <div id="skin-category-face" class="skin-grid hidden">
-                        <!-- 顔30種類がJSで動的に生成されます -->
-                    </div>
-                    <div id="skin-category-accessory" class="skin-grid hidden">
-                        <!-- アクセサリー10種類がJSで動的に生成されます -->
-                    </div>
+                    <div id="skin-category-skin" class="skin-grid active"></div>
+                    <div id="skin-category-face" class="skin-grid hidden"></div>
+                    <div id="skin-category-body" class="skin-grid hidden"></div>
+                    <div id="skin-category-clothes" class="skin-grid hidden"></div>
+                    <div id="skin-category-hat" class="skin-grid hidden"></div>
+                    <div id="skin-category-accessory" class="skin-grid hidden"></div>
                 </div>
 
                 <div class="skin-shop-buttons">
@@ -220,7 +220,40 @@
                 </div>
             </div>
 
-            <!-- ストーリーモード画面（コード入力ボタンを削除） -->
+            <!-- 鬼ごっこスキンショップ画面 (新規追加) -->
+            <div id="screen-otag-skin-shop" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFA500;">鬼ごスキン SHOP</h2>
+                <div class="skin-preview" id="otag-skin-preview">
+                    <div class="face-preview">
+                        <div id="otag-preview-skin" class="preview-skin"></div>
+                        <div id="otag-preview-face" class="preview-face"></div>
+                        <div id="otag-preview-hat" class="preview-accessory"></div>
+                        <div id="otag-preview-clothes" class="preview-clothes"></div>
+                    </div>
+                </div>
+                <div class="shop-coin-display">所持コイン: <span id="otag-skin-coin-amount">0</span> 🪙</div>
+                
+                <div class="skin-categories">
+                    <button class="skin-cat-btn active" onclick="window.switchOtagSkinCategory('skin')">肌の色</button>
+                    <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('body')">体型</button>
+                    <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('hat')">帽子</button>
+                    <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('clothes')">服装</button>
+                </div>
+
+                <div class="skin-grid-container">
+                    <div id="otag-skin-category-skin" class="skin-grid active"></div>
+                    <div id="otag-skin-category-body" class="skin-grid hidden"></div>
+                    <div id="otag-skin-category-hat" class="skin-grid hidden"></div>
+                    <div id="otag-skin-category-clothes" class="skin-grid hidden"></div>
+                </div>
+
+                <div class="skin-shop-buttons">
+                    <button class="action-btn purple-btn" onclick="window.saveAndExitOtagSkinShop()">保存して戻る</button>
+                    <button class="action-btn gray-btn" onclick="window.goHome()">キャンセル</button>
+                </div>
+            </div>
+
+            <!-- ストーリーモード画面 -->
             <div id="screen-story" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFD700;">STORY MODE</h2>
                 <div class="story-chapter-selector">
@@ -284,7 +317,7 @@
                 </div>
             </div>
 
-            <!-- 修行モード画面（コード入力ボタンは残す） -->
+            <!-- 修行モード画面 -->
             <div id="screen-training" class="screen hidden">
                 <h2 class="title-glow" style="color: #00FF00;">TRAINING</h2>
                 
@@ -313,7 +346,7 @@
                 <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
             </div>
 
-            <!-- 鬼ごっこタイピングモード画面（新規追加） -->
+            <!-- 鬼ごっこタイピングモード画面 -->
             <div id="screen-otag" class="screen hidden">
                 <h2 class="title-glow" style="color: #FFA500;">鬼ごっこタイピング</h2>
                 <div class="otag-container" style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; margin-top: 20px;">
@@ -327,43 +360,29 @@
                     <div class="otag-card" style="background: var(--panel-bg); border: 3px solid #FFA500; border-radius: 30px; padding: 30px; width: 350px;">
                         <h3 style="color: #FFA500; font-size: 2rem; margin-bottom: 20px;">スキル変更</h3>
                         <div class="skill-list" style="display: flex; flex-direction: column; gap: 15px;">
-                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('dash')">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight: bold;">🏃 ダッシュ</span>
-                                    <span style="color: #00FF00;">装備中</span>
-                                </div>
-                                <small>CT20秒: 2秒間 足が80%速くなる</small>
-                            </div>
-                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('netgun')">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight: bold;">🎯 あみでっぽう</span>
-                                    <span style="color: #FFD700;">100,000🪙</span>
-                                </div>
-                                <small>CT100秒: 向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く</small>
-                            </div>
-                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('builder')">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight: bold;">🏗️ ビルダー</span>
-                                    <span style="color: #FFD700;">500,000🪙</span>
-                                </div>
-                                <small>CT50秒: 自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）</small>
-                            </div>
-                            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('invisible')">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight: bold;">👻 透明</span>
-                                    <span style="color: #FFD700;">500,000🪙</span>
-                                </div>
-                                <small>CT40秒: 6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる</small>
-                            </div>
+                            <!-- 動的にJSで生成 -->
                         </div>
+                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="window.openOtagSkillShop()">スキルショップへ</button>
                     </div>
                     <div class="otag-card" style="background: var(--panel-bg); border: 3px solid #FFA500; border-radius: 30px; padding: 30px; width: 350px;">
                         <h3 style="color: #FFA500; font-size: 2rem; margin-bottom: 20px;">スキン変更</h3>
-                        <p>3Dスキンカスタマイズ（準備中）</p>
-                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="alert('準備中')">スキンショップへ</button>
+                        <p>鬼ごっこ用のスキンをカスタマイズ</p>
+                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="window.openOtagSkinShop()">スキンショップへ</button>
                     </div>
                 </div>
                 <button class="action-btn gray-btn" style="margin-top: 30px;" onclick="window.goHome()">戻る</button>
+            </div>
+
+            <!-- 鬼ごっこスキルショップ (タブ追加) -->
+            <div id="screen-otag-skill-shop" class="screen hidden">
+                <h2 class="title-glow" style="color: #FFA500;">鬼ごスキル SHOP</h2>
+                <div class="shop-coin-display">所持コイン: <span id="otag-shop-coin-amount">0</span> 🪙</div>
+                <div class="shop-grid-container">
+                    <div id="otag-shop-skills" class="shop-grid"></div>
+                </div>
+                <div class="shop-footer-buttons" style="margin-top: 15px; display: flex; justify-content: center;">
+                    <button class="action-btn gray-btn" style="max-width: 300px;" onclick="window.goHome()">戻る</button>
+                </div>
             </div>
 
             <!-- スキルガチャ画面 -->
@@ -404,11 +423,9 @@
                     <button class="gacha-tab" onclick="window.switchGachaTab('ur')">UR</button>
                 </div>
 
-                <!-- 所持キャラクター一覧（クリックで装備可能） -->
+                <!-- 所持キャラクター一覧 -->
                 <div class="gacha-char-grid-container">
-                    <div id="gacha-char-list" class="gacha-char-grid">
-                        <!-- 所持キャラクターがJSで動的に生成されます -->
-                    </div>
+                    <div id="gacha-char-list" class="gacha-char-grid"></div>
                 </div>
 
                 <!-- 装備中のキャラ表示 -->
@@ -422,21 +439,23 @@
                 </div>
             </div>
 
-            <!-- スキルショップ画面 -->
+            <!-- スキルショップ画面 (統合) -->
             <div id="screen-shop" class="screen hidden">
-                <h2 class="title-glow" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">SKILL SHOP</h2>
+                <h2 class="title-glow" style="color: #FFD700;">SKILL SHOP</h2>
                 <div class="shop-coin-display">所持コイン: <span id="shop-coin-amount">0</span> 🪙</div>
                 
                 <!-- スキルタイプ切り替えタブ -->
                 <div class="shop-skill-tabs">
                     <button class="shop-tab active" onclick="window.switchShopTab('normal')">ノーマルスキル</button>
                     <button class="shop-tab" onclick="window.switchShopTab('gacha')">ガチャスキル</button>
+                    <button class="shop-tab" onclick="window.switchShopTab('otag')">鬼ごっこスキル</button>
                 </div>
 
                 <!-- スキル一覧表示エリア -->
                 <div class="shop-grid-container">
                     <div id="shop-normal-skills" class="shop-grid active"></div>
                     <div id="shop-gacha-skills" class="shop-grid hidden"></div>
+                    <div id="shop-otag-skills" class="shop-grid hidden"></div>
                 </div>
 
                 <!-- メインメニューに戻るボタン -->
@@ -484,19 +503,15 @@
                     <div id="team-setup" class="team-setup hidden">
                         <h4 class="team-setup-title">チーム割り当て（メンバーをクリックで赤/青切替）</h4>
                         <div class="team-members-container">
-                            <div id="team-members-list" class="team-members-list">
-                                <!-- メンバー一覧がJSで動的に生成されます -->
-                            </div>
+                            <div id="team-members-list" class="team-members-list"></div>
                         </div>
                     </div>
 
-                    <!-- ハンデ設定エリア（5種類） -->
+                    <!-- ハンデ設定エリア -->
                     <div class="handicap-section">
                         <h4 class="handicap-title">ハンデ設定 (メンバー個別)</h4>
                         <div class="handicap-members-container">
-                            <div id="handicap-members-list" class="handicap-members-list">
-                                <!-- メンバーごとのハンデ選択がJSで動的に生成されます -->
-                            </div>
+                            <div id="handicap-members-list" class="handicap-members-list"></div>
                         </div>
                     </div>
 
@@ -545,12 +560,12 @@
                     <div class="blood-overlay"></div>
                 </div>
 
-                <!-- 無敵状態エフェクト（虹色） -->
+                <!-- 無敵状態エフェクト -->
                 <div id="invincible-effect" class="hidden">
                     <div class="rainbow-overlay"></div>
                 </div>
 
-                <!-- 最弱状態エフェクト（くらくら） -->
+                <!-- 最弱状態エフェクト -->
                 <div id="weak-effect" class="hidden">
                     <div class="dizzy-overlay"></div>
                 </div>
@@ -578,13 +593,11 @@
                     <div id="timer-display">00:30</div>
                     
                     <div id="skill-action-box" class="hidden">
-                        <!-- メインスキルボタン（スペースキー用） -->
                         <button id="in-game-skill-btn" onclick="window.activateSkill('space')">
                             <span id="skill-btn-name">スキルなし</span>
                             <div id="skill-cooldown-bar"></div>
                         </button>
                         
-                        <!-- 個別キー表示エリア -->
                         <div id="skill-keys-container">
                             <div id="skill-key-space" class="skill-key-item hidden">Space: スキル名</div>
                             <div id="skill-key-1" class="skill-key-item hidden">1: スキル名</div>
@@ -592,11 +605,9 @@
                             <div id="skill-key-3" class="skill-key-item hidden">3: スキル名</div>
                         </div>
                         
-                        <!-- 旧キー情報表示領域 -->
                         <div id="skill-status-text" class="hidden"></div>
                     </div>
 
-                    <!-- 偽物タイピング用の追加表示（本物と同じ青色のハイライト） -->
                     <div id="fake-typing-display" class="hidden">
                         <div class="word-ja" id="fake-q-ja"></div>
                         <div class="word-roma" id="fake-q-roma">
@@ -622,30 +633,28 @@
                 </div>
             </div>
 
-            <!-- 鬼ごっこタイピングゲーム画面（新規追加） -->
+            <!-- 鬼ごっこタイピングゲーム画面 (修正済み) -->
             <div id="screen-otag-game" class="screen hidden">
                 <div class="otag-game-container" style="width: 100%; height: 100%; position: relative; background: #111; border-radius: 20px; overflow: hidden;">
-                    <!-- ゲームキャンバス（簡易的な2D表現） -->
-                    <div class="otag-game-canvas" style="width: 100%; height: 100%; position: relative;">
+                    <!-- ゲームキャンバス (スクロール可能なマップ) -->
+                    <div class="otag-game-canvas" style="width: 100%; height: 100%; position: relative; overflow: hidden;">
                         <!-- プレイヤー -->
                         <div id="otag-player" style="position: absolute; width: 40px; height: 40px; background: var(--accent-blue); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 0 20px var(--accent-blue);"></div>
                         
-                        <!-- 鬼 -->
-                        <div id="otag-ghost-1" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 200px; top: 200px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 3s infinite alternate;"></div>
-                        <div id="otag-ghost-2" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 600px; top: 300px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 4s infinite alternate-reverse;"></div>
-                        <div id="otag-ghost-3" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 400px; top: 500px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 3.5s infinite alternate;"></div>
-                        <div id="otag-ghost-4" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: var(--accent-red); border-radius: 50%; left: 800px; top: 400px; z-index: 5; box-shadow: 0 0 20px var(--accent-red); animation: ghostMove 5s infinite alternate-reverse;"></div>
+                        <!-- 鬼 (初期配置) -->
+                        <div id="otag-ghost-1" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: none; border-radius: 50%; left: 200px; top: 200px; z-index: 5; display: flex; align-items: center; justify-content: center; font-size: 30px;">👔🕶️</div>
+                        <div id="otag-ghost-2" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: none; border-radius: 50%; left: 600px; top: 300px; z-index: 5; display: flex; align-items: center; justify-content: center; font-size: 30px;">👔🕶️</div>
+                        <div id="otag-ghost-3" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: none; border-radius: 50%; left: 400px; top: 500px; z-index: 5; display: flex; align-items: center; justify-content: center; font-size: 30px;">👔🕶️</div>
+                        <div id="otag-ghost-4" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: none; border-radius: 50%; left: 800px; top: 400px; z-index: 5; display: flex; align-items: center; justify-content: center; font-size: 30px;">👔🕶️</div>
                         
                         <!-- 壁 -->
                         <div class="otag-wall" style="position: absolute; width: 100px; height: 20px; background: #666; left: 300px; top: 150px;"></div>
                         <div class="otag-wall" style="position: absolute; width: 20px; height: 100px; background: #666; left: 500px; top: 250px;"></div>
                         <div class="otag-wall" style="position: absolute; width: 150px; height: 20px; background: #666; left: 600px; top: 450px;"></div>
+                        <div class="otag-wall" style="position: absolute; width: 300px; height: 20px; background: #666; left: 100px; top: 550px;"></div>
+                        <div class="otag-wall" style="position: absolute; width: 20px; height: 200px; background: #666; left: 900px; top: 200px;"></div>
                         
-                        <!-- ジェネレーター -->
-                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 100px; top: 100px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(1)"></div>
-                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 700px; top: 150px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(2)"></div>
-                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 200px; top: 500px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(3)"></div>
-                        <div class="otag-generator" style="position: absolute; width: 30px; height: 30px; background: var(--accent-gold); border-radius: 50%; left: 850px; top: 500px; box-shadow: 0 0 15px var(--accent-gold);" onclick="window.startOtagGenerator(4)"></div>
+                        <!-- ジェネレーター (JSで動的に追加) -->
                     </div>
                     
                     <!-- UI要素 -->
@@ -655,21 +664,21 @@
                         <div>💰 賞金: <span id="otag-reward">0</span>🪙</div>
                     </div>
                     
-                    <!-- デッキ選択UI（最初の15秒のみ表示） -->
+                    <!-- デッキ選択UI -->
                     <div id="otag-deck-select" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel-bg); border: 3px solid var(--accent-gold); border-radius: 30px; padding: 30px; min-width: 500px; text-align: center;">
                         <h3 style="color: var(--accent-gold); margin-bottom: 20px;">デッキを選択（残り<span id="otag-deck-timer">15</span>秒）</h3>
                         <div style="display: flex; gap: 20px; justify-content: center;">
-                            <div class="deck-card" style="background: rgba(0,0,0,0.6); border: 2px solid #FF69B4; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;" onclick="window.selectOtagDeck('support')">
+                            <div class="deck-card" data-deck="support" style="background: rgba(0,0,0,0.6); border: 2px solid #FF69B4; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;">
                                 <div style="font-size: 3rem;">🆘</div>
                                 <h4>サポート</h4>
                                 <small>スタミナ-10、死んだ味方を復活</small>
                             </div>
-                            <div class="deck-card" style="background: rgba(0,0,0,0.6); border: 2px solid #00FF00; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;" onclick="window.selectOtagDeck('stamina_up')">
+                            <div class="deck-card" data-deck="stamina_up" style="background: rgba(0,0,0,0.6); border: 2px solid #00FF00; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;">
                                 <div style="font-size: 3rem;">⚡</div>
                                 <h4>スタミナアップ</h4>
                                 <small>スタミナ+25</small>
                             </div>
-                            <div class="deck-card" style="background: rgba(0,0,0,0.6); border: 2px solid #00FFFF; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;" onclick="window.selectOtagDeck('stamina_bottle')">
+                            <div class="deck-card" data-deck="stamina_bottle" style="background: rgba(0,0,0,0.6); border: 2px solid #00FFFF; border-radius: 20px; padding: 20px; width: 150px; cursor: pointer;">
                                 <div style="font-size: 3rem;">🧪</div>
                                 <h4>スタミナボトル</h4>
                                 <small>CT50秒: 周りの味方のスタミナ+10、回復速度50%UP、足30%UP(5秒)</small>
@@ -679,10 +688,10 @@
                     
                     <!-- 操作説明 -->
                     <div style="position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 2px solid var(--accent-blue);">
-                        <div>WASD/矢印キー: 移動 | スペース: ダッシュ | R: ジェネレーター起動</div>
+                        <div>WASD/矢印キー: 移動 | スペース: ダッシュ | R: ジェネレーター起動 | 1-4: スキル切替 | 5-6: デッキスキル</div>
                     </div>
                     
-                    <!-- ジェネレーターミニゲーム（タイピング） -->
+                    <!-- ジェネレーターミニゲーム -->
                     <div id="otag-typing-minigame" class="hidden" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel-bg); border: 3px solid var(--accent-gold); border-radius: 30px; padding: 30px; min-width: 400px; text-align: center;">
                         <h3 style="color: var(--accent-gold); margin-bottom: 20px;">ジェネレーター起動中</h3>
                         <div id="otag-typing-word" style="font-size: 3rem; margin-bottom: 20px;">準備中...</div>
@@ -691,12 +700,6 @@
                         <button class="action-btn" style="margin-top: 20px;" onclick="window.stopOtagGenerator()">終了</button>
                     </div>
                 </div>
-                <style>
-                    @keyframes ghostMove {
-                        0% { transform: translate(0, 0); }
-                        100% { transform: translate(50px, 50px); }
-                    }
-                </style>
             </div>
 
             <div id="screen-result" class="screen hidden">
@@ -734,7 +737,7 @@
                 <button class="social-tab" id="tab-party" onclick="window.switchSocialTab('party')">🎮 パーティー</button>
             </div>
 
-            <!-- フレンドリストコンテナ（初期表示） -->
+            <!-- フレンドリストコンテナ -->
             <section class="side-panel list-section" id="friends-container">
                 <div class="panel-title">フレンド</div>
                 <div class="friend-add-box">
@@ -744,7 +747,7 @@
                 <div id="friend-list-ui" class="side-scroll"></div>
             </section>
 
-            <!-- パーティーリストコンテナ（初期非表示） -->
+            <!-- パーティーリストコンテナ -->
             <section class="side-panel list-section hidden" id="party-container">
                 <div class="panel-title" id="party-label">パーティー (未参加)</div>
                 <div id="party-list-ui" class="side-scroll"></div>
@@ -808,13 +811,11 @@
         </div>
     </div>
 
-    <!-- パズルゲーム（ドットコネクト）オーバーレイ -->
+    <!-- パズルゲームオーバーレイ -->
     <div id="puzzle-game-overlay" class="hidden">
         <div class="puzzle-game-container">
             <h3>🧩 ドットコネクト</h3>
-            <div class="puzzle-grid" id="puzzle-grid">
-                <!-- 16個のドットがJSで生成されます -->
-            </div>
+            <div class="puzzle-grid" id="puzzle-grid"></div>
             <div class="puzzle-controls">
                 <button class="action-btn" onclick="window.resetPuzzle()">リセット</button>
             </div>
