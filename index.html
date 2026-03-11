@@ -235,6 +235,7 @@
                 
                 <div class="skin-categories">
                     <button class="skin-cat-btn active" onclick="window.switchOtagSkinCategory('skin')">肌の色</button>
+                    <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('face')">顔</button>
                     <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('body')">体型</button>
                     <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('hat')">帽子</button>
                     <button class="skin-cat-btn" onclick="window.switchOtagSkinCategory('clothes')">服装</button>
@@ -242,6 +243,7 @@
 
                 <div class="skin-grid-container">
                     <div id="otag-skin-category-skin" class="skin-grid active"></div>
+                    <div id="otag-skin-category-face" class="skin-grid hidden"></div>
                     <div id="otag-skin-category-body" class="skin-grid hidden"></div>
                     <div id="otag-skin-category-hat" class="skin-grid hidden"></div>
                     <div id="otag-skin-category-clothes" class="skin-grid hidden"></div>
@@ -362,7 +364,7 @@
                         <div class="skill-list" style="display: flex; flex-direction: column; gap: 15px;">
                             <!-- 動的にJSで生成 -->
                         </div>
-                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="window.openOtagSkillShop()">スキルショップへ</button>
+                        <button class="action-btn" style="border-color: #FFA500; width: 100%; margin-top: 20px;" onclick="window.openShop()">スキルショップへ</button>
                     </div>
                     <div class="otag-card" style="background: var(--panel-bg); border: 3px solid #FFA500; border-radius: 30px; padding: 30px; width: 350px;">
                         <h3 style="color: #FFA500; font-size: 2rem; margin-bottom: 20px;">スキン変更</h3>
@@ -638,8 +640,8 @@
                 <div class="otag-game-container" style="width: 100%; height: 100%; position: relative; background: #111; border-radius: 20px; overflow: hidden;">
                     <!-- ゲームキャンバス (スクロール可能なマップ) -->
                     <div class="otag-game-canvas" style="width: 100%; height: 100%; position: relative; overflow: hidden;">
-                        <!-- プレイヤー -->
-                        <div id="otag-player" style="position: absolute; width: 40px; height: 40px; background: var(--accent-blue); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 0 20px var(--accent-blue);"></div>
+                        <!-- プレイヤー (スキン適用) -->
+                        <div id="otag-player" class="otag-player" style="position: absolute; width: 40px; height: 40px; border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 0 20px var(--accent-blue); display: flex; align-items: center; justify-content: center; font-size: 30px;"></div>
                         
                         <!-- 鬼 (初期配置) -->
                         <div id="otag-ghost-1" class="otag-ghost" style="position: absolute; width: 40px; height: 40px; background: none; border-radius: 50%; left: 200px; top: 200px; z-index: 5; display: flex; align-items: center; justify-content: center; font-size: 30px;">👔🕶️</div>
