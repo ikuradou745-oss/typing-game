@@ -142,7 +142,7 @@ const SKIN_COLORS = {
     "skin-gold": "linear-gradient(135deg, #ffd700, #b8860b)"
 };
 
-// 顔データ（既存）
+// 顔データ（40種類）
 const FACE_DATA = {
     "face-1": "😊", "face-2": "🙂", "face-3": "😎", "face-4": "😲", "face-5": "😴",
     "face-6": "😠", "face-7": "😢", "face-8": "😉", "face-9": "😆", "face-10": "😇",
@@ -150,6 +150,8 @@ const FACE_DATA = {
     "face-16": "🤪", "face-17": "🤓", "face-18": "🥸", "face-19": "😎", "face-20": "🤠",
     "face-21": "👽", "face-22": "🤖", "face-23": "👻", "face-24": "💀", "face-25": "🎃",
     "face-26": "😺", "face-27": "🙈", "face-28": "🐧", "face-29": "🐱", "face-30": "🐶",
+    "face-31": "🦊", "face-32": "🐼", "face-33": "🐸", "face-34": "🐨", "face-35": "🦁",
+    "face-36": "🐮", "face-37": "🐷", "face-38": "🐙", "face-39": "🦄", "face-40": "🐉",
     "face-money": "🤑"
 };
 
