@@ -1,13 +1,11 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V23.3 (鬼ごっこ修正版・完全統合)
+// FIREBASE & TYPING ENGINE V24.0 (イベントモード追加版)
 // 修正内容:
-// 1. 鬼ごっこスキン専用データ追加 (otagSkinData)
-// 2. 鬼ごっこスキンショップで肌・顔・体型・帽子・服装変更可能
-// 3. 鬼ごっこスキルショップで全スキル購入可能（デッキスキル含む、cost設定）
-// 4. ジェネレーター再利用可能化
-// 5. 鬼ごっこプレイヤーにスキン適用
-// 6. 通常スキンで一番高いアクセサリー購入で金色肌追加
+// 1. 鬼ごっこ関連の完全削除
+// 2. スキンショップ簡素化 (肌・顔・アクセサリーのみ)
+// 3. イベントモード「混ぜたら混ぜたら」追加
+// 4. イベント中はスキル使用不可
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -87,19 +85,11 @@ let tysm1045Used = localStorage.getItem("ramo_tysm1045_used") === "true";
 let comboGodActive = false;
 let comboGodTimer = null;
 
-// --- スキンシステム（拡張版）---
+// --- スキンシステム（簡素化版）---
 let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
     skin: "skin-1",
     face: "face-1",
-    accessories: [],
-    bodyType: "normal", // 体型: thin, normal, chubby
-    skinCustom: { r: 255, g: 205, b: 148 }, // カスタム肌色
-    clothes: {
-        type: "plain", // plain, tracksuit, bMark, yMark
-        color: "#ffffff",
-        sticker: ""
-    },
-    hat: "none" // none, cap, helmet, headband, headphones, afro, crown
+    accessories: []
 };
 let equippedAccessory = localStorage.getItem("ramo_accessory") || null;
 
@@ -150,32 +140,6 @@ const FACE_DATA = {
     "face-21": "👽", "face-22": "🤖", "face-23": "👻", "face-24": "💀", "face-25": "🎃",
     "face-26": "😺", "face-27": "🙈", "face-28": "🐧", "face-29": "🐱", "face-30": "🐶",
     "face-money": "🤑"
-};
-
-// 体型データ
-const BODY_TYPES = {
-    thin: { name: "やせ", scale: 0.9 },
-    normal: { name: "ふつう", scale: 1.0 },
-    chubby: { name: "ぽっちゃり", scale: 1.2 }
-};
-
-// 服装データ
-const CLOTHES_TYPES = {
-    plain: { name: "白Tシャツ", cost: 0, emoji: "👕" },
-    tracksuit: { name: "トラシャツ", cost: 10000, emoji: "👚" },
-    bMark: { name: "Bマーク", cost: 10000, emoji: "🔵" },
-    yMark: { name: "Yマーク", cost: 10000, emoji: "🟡" }
-};
-
-// 帽子データ
-const HAT_TYPES = {
-    none: { name: "なし", cost: 0, emoji: "" },
-    cap: { name: "キャップ", cost: 10000, emoji: "🧢" },
-    helmet: { name: "ヘルメット", cost: 10000, emoji: "⛑️" },
-    headband: { name: "はちまき", cost: 10000, emoji: "🎗️" },
-    headphones: { name: "ヘッドフォン", cost: 50000, emoji: "🎧" },
-    afro: { name: "アフロ", cost: 50000, emoji: "🦱" },
-    crown: { name: "王冠", cost: 100000000, emoji: "👑" }
 };
 
 // --- スキルシステム ---
@@ -249,146 +213,115 @@ let trainingCompleted = {
 };
 
 // =========================================
-// 鬼ごっこタイピングモード関連 (拡張)
+// イベントモード関連 (新規追加)
 // =========================================
-let otagMode = false;
-let otagGameActive = false;
-let otagPlayer = { 
-    worldX: 400,
-    worldY: 300,
-    x: 0,
-    y: 0,
-    stamina: 100, 
-    maxStamina: 100, 
-    speed: 5, 
-    isRunning: false, 
-    invisible: false, 
-    invisibleTimer: null,
-    direction: 'down'
-};
-let otagGhosts = [
-    { id: 1, worldX: 200, worldY: 200, speed: 2, stunned: false, stunTimer: 0 },
-    { id: 2, worldX: 600, worldY: 300, speed: 2, stunned: false, stunTimer: 0 },
-    { id: 3, worldX: 400, worldY: 500, speed: 2, stunned: false, stunTimer: 0 },
-    { id: 4, worldX: 800, worldY: 400, speed: 2, stunned: false, stunTimer: 0 }
-];
-let otagGenerators = [
-    { id: 1, worldX: 100, worldY: 100, active: false, typingActive: false, isMoneyGenerator: false },
-    { id: 2, worldX: 700, worldY: 150, active: false, typingActive: false, isMoneyGenerator: false },
-    { id: 3, worldX: 200, worldY: 500, active: false, typingActive: false, isMoneyGenerator: false },
-    { id: 4, worldX: 850, worldY: 500, active: false, typingActive: false, isMoneyGenerator: true }
-];
-let otagWalls = [
-    { worldX: 300, worldY: 150, width: 100, height: 20 },
-    { worldX: 500, worldY: 250, width: 20, height: 100 },
-    { worldX: 600, worldY: 450, width: 150, height: 20 }
-];
-let otagTimer = 900;
-let otagReward = 0;
-let otagDeckSelected = null;
-let otagDeckTimer = 15;
-let otagDeckInterval = null;
-let otagGameInterval = null;
-let otagStaminaInterval = null;
-let otagGhostInterval = null;
-let otagRewardInterval = null;
-let otagTypingWords = [];
-let otagTypingCurrentIndex = 0;
-let otagTypingRemaining = 5;
-let otagTypingActive = false;
-let otagTypingCurrentWord = "";
-let otagTypingCurrentRoma = "";
-let otagTypingRomaIdx = 0;
-let otagKeys = { w: false, a: false, s: false, d: false, arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false, space: false };
-let otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
-let otagPlacedTiles = [];
-let otagKeyHandler = null;
-let otagTypingHandler = null;
+let eventMode = false;
+let eventGameActive = false;
+let eventDifficulty = 'easy';
+let eventProgress = JSON.parse(localStorage.getItem("ramo_event_progress")) || { easy: false, normal: false, hard: false, boss: false, ura1: false, ura2: false };
+let eventQuestions = [];
+let eventCurrentQuestionIndex = 0;
+let eventAnswers = [];
+let eventTimer = 15;
+let eventTimerInterval = null;
+let eventTypingActive = false;
+let eventCurrentRoma = '';
+let eventRomaIdx = 0;
+let eventPartyVotes = {}; // パーティー投票用 { option: count }
+let canUseSkill = true; // イベント中はスキル使用不可
 
-// 鬼ごっこスキル所有フラグ（購入状態）デッキスキルも含む
-let otagOwnedSkills = JSON.parse(localStorage.getItem("ramo_otag_skills")) || {
-    dash: true,      // 初期所持
-    netgun: false,
-    builder: false,
-    invisible: false,
-    support: false,  // 購入可能に（cost設定）
-    staminaBottle: false
-};
-let equippedOtagSkill = localStorage.getItem("ramo_equipped_otag") || 'dash';
-
-// デッキスキル（ゲーム中に選択）
-let otagDeckSkills = {
-    support: false,
-    staminaUp: false,
-    staminaBottle: false
-};
-
-// 鬼ごっこスキルデータベース (costを設定)
-const OTAG_SKILL_DB = {
-    dash: { id: "dash", name: "ダッシュ", cost: 0, cooldown: 20, desc: "2秒間 足が80%速くなる", default: true },
-    netgun: { id: "netgun", name: "あみでっぽう", cost: 100000, cooldown: 100, desc: "向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く" },
-    builder: { id: "builder", name: "ビルダー", cost: 500000, cooldown: 50, desc: "自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）" },
-    invisible: { id: "invisible", name: "透明", cost: 500000, cooldown: 40, desc: "6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる" },
-    support: { id: "support", name: "サポート", cost: 200000, cooldown: 150, desc: "死んだ味方のところで使うと復活（デッキスキル）" },
-    staminaBottle: { id: "staminaBottle", name: "スタミナボトル", cost: 150000, cooldown: 50, desc: "周りの味方のスタミナ+10、回復速度50%UP、足30%UP(5秒)（デッキスキル）" }
-};
-
-// 鬼ごっこスキン専用データ
-let otagSkinData = JSON.parse(localStorage.getItem("ramo_otag_skin")) || {
-    skin: "skin-1",
-    face: "face-1",
-    bodyType: "normal",
-    hat: "none",
-    clothes: {
-        type: "plain",
-        color: "#ffffff",
-        sticker: ""
-    },
-    ownedHats: { none: true },
-    ownedClothes: { plain: true }
-};
-
-// 鬼ごっこスキンショップ用の一時データ
-let tempOtagSkinData = JSON.parse(JSON.stringify(otagSkinData));
-
-// スキンショップ用の一時選択
-let tempSkinData = JSON.parse(JSON.stringify(skinData));
-
-// ストーリーモードのステージデータ
-const STORY_STAGES = {
-    chapter1: [
-        { stage: 1, target: 8000, reward: 100 },
-        { stage: 2, target: 9000, reward: 200 },
-        { stage: 3, target: 10000, reward: 300 },
-        { stage: 4, target: 11000, reward: 400 },
-        { stage: 5, target: 12000, reward: 500 },
-        { stage: 6, target: 13000, reward: 600 },
-        { stage: 7, target: 25000, reward: 700, boss: true, skill: "hanabi" }
+// イベント問題データベース
+const EVENT_QUESTION_DB = {
+    easy: [
+        { question: "赤！と青！をまぜたら？", options: ["紫", "緑", "黄色"], answer: "紫", colors: ["赤", "青"] },
+        { question: "青！と黄色！をまぜたら？", options: ["緑", "紫", "オレンジ"], answer: "緑", colors: ["青", "黄色"] },
+        { question: "赤！と黄色！をまぜたら？", options: ["オレンジ", "紫", "緑"], answer: "オレンジ", colors: ["赤", "黄色"] },
+        { question: "白！と黒！をまぜたら？", options: ["灰色", "茶色", "ピンク"], answer: "灰色", colors: ["白", "黒"] },
+        { question: "赤！と白！をまぜたら？", options: ["ピンク", "オレンジ", "紫"], answer: "ピンク", colors: ["赤", "白"] },
+        { question: "青！と白！をまぜたら？", options: ["水色", "緑", "紫"], answer: "水色", colors: ["青", "白"] },
+        { question: "黄色！と黒！をまぜたら？", options: ["黄緑", "茶色", "オレンジ"], answer: "黄緑", colors: ["黄色", "黒"] },
+        { question: "赤！と黒！をまぜたら？", options: ["茶色", "紫", "赤黒"], answer: "茶色", colors: ["赤", "黒"] },
+        { question: "緑！と白！をまぜたら？", options: ["若葉色", "黄緑", "水色"], answer: "若葉色", colors: ["緑", "白"] },
+        { question: "青！と黒！をまぜたら？", options: ["深藍", "紫", "紺"], answer: "紺", colors: ["青", "黒"] }
     ],
-    chapter2: [
-        { stage: 1, target: 26000, reward: 800 },
-        { stage: 2, target: 27000, reward: 900 },
-        { stage: 3, target: 28000, reward: 1000 },
-        { stage: 4, target: 29000, reward: 1100 },
-        { stage: 5, target: 30000, reward: 1200 },
-        { stage: 6, target: 31000, reward: 1300 },
-        { stage: 7, target: 45000, reward: 1400, boss: true, skill: "hacker_milestone4" }
+    normal: [
+        { question: "紫！とオレンジ！をまぜたら？", options: ["赤紫", "茶色", "黄土色"], answer: "茶色", colors: ["紫", "オレンジ"] },
+        { question: "赤！と紫！をまぜたら？", options: ["赤紫", "ピンク", "ワインレッド"], answer: "赤紫", colors: ["赤", "紫"] },
+        { question: "青！とオレンジ！をまぜたら？", options: ["茶色", "緑", "紫"], answer: "茶色", colors: ["青", "オレンジ"] },
+        { question: "黄色！と紫！をまぜたら？", options: ["黄土色", "茶色", "黄緑"], answer: "黄土色", colors: ["黄色", "紫"] },
+        { question: "緑！とオレンジ！をまぜたら？", options: ["黄緑", "茶色", "黄土色"], answer: "黄土色", colors: ["緑", "オレンジ"] },
+        { question: "白！と紫！をまぜたら？", options: ["ラベンダー", "ピンク", "水色"], answer: "ラベンダー", colors: ["白", "紫"] },
+        { question: "黒！とオレンジ！をまぜたら？", options: ["茶色", "黄土色", "こげ茶"], answer: "こげ茶", colors: ["黒", "オレンジ"] },
+        { question: "赤！とオレンジ！をまぜたら？", options: ["朱色", "ピンク", "茶色"], answer: "朱色", colors: ["赤", "オレンジ"] },
+        { question: "青！と紫！をまぜたら？", options: ["藍色", "赤紫", "水色"], answer: "藍色", colors: ["青", "紫"] },
+        { question: "黄色！とオレンジ！をまぜたら？", options: ["山吹色", "黄土色", "金色"], answer: "山吹色", colors: ["黄色", "オレンジ"] },
+        { question: "紫！と緑！をまぜたら？", options: ["灰色", "茶色", "青緑"], answer: "灰色", colors: ["紫", "緑"] },
+        { question: "オレンジ！と青！をまぜたら？", options: ["茶色", "紫", "緑"], answer: "茶色", colors: ["オレンジ", "青"] },
+        { question: "ピンク！と紫！をまぜたら？", options: ["赤紫", "マゼンタ", "ワインレッド"], answer: "赤紫", colors: ["ピンク", "紫"] },
+        { question: "水色！と黄色！をまぜたら？", options: ["黄緑", "若草色", "ミント"], answer: "黄緑", colors: ["水色", "黄色"] },
+        { question: "紫！と白！をまぜたら？", options: ["ラベンダー", "薄紫", "ピンク"], answer: "ラベンダー", colors: ["紫", "白"] }
     ],
-    chapter3: [
-        { stage: 1, target: 50000, reward: 1500 },
-        { stage: 2, target: 50500, reward: 1600 },
-        { stage: 3, target: 51000, reward: 1700 },
-        { stage: 4, target: 51500, reward: 1800 },
-        { stage: 5, target: 52000, reward: 1900 },
-        { stage: 6, target: 52500, reward: 2000 },
-        { stage: 7, target: 53000, reward: 2100 },
-        { stage: 8, target: 53500, reward: 2200 },
-        { stage: 9, target: 54000, reward: 2300 },
-        { stage: 10, target: 70000, reward: 10000, boss: true, skill: "invincible_man" }
+    hard: [
+        { question: "茶色！とピンク！をまぜたら？", options: ["ローズブラウン", "ベージュ", "テラコッタ"], answer: "ローズブラウン", colors: ["茶色", "ピンク"] },
+        { question: "水色！と黄色！をまぜたら？", options: ["若草色", "黄緑", "ミントグリーン"], answer: "若草色", colors: ["水色", "黄色"] },
+        { question: "橙！と紫！をまぜたら？", options: ["赤紫", "茶色", "スミレ色"], answer: "赤紫", colors: ["橙", "紫"] },
+        { question: "黄緑！と青！をまぜたら？", options: ["エメラルドグリーン", "緑", "ターコイズ"], answer: "エメラルドグリーン", colors: ["黄緑", "青"] },
+        { question: "橙！とピンク！をまぜたら？", options: ["サーモンピンク", "コーラル", "赤"], answer: "サーモンピンク", colors: ["橙", "ピンク"] },
+        { question: "紫！と黄緑！をまぜたら？", options: ["オリーブ", "カーキ", "茶色"], answer: "オリーブ", colors: ["紫", "黄緑"] },
+        { question: "茶色！と水色！をまぜたら？", options: ["グレージュ", "カーキ", "モスグリーン"], answer: "グレージュ", colors: ["茶色", "水色"] },
+        { question: "だいだい色！と紫！をまぜたら？", options: ["赤紫", "茶色", "ワインレッド"], answer: "赤紫", colors: ["だいだい色", "紫"] },
+        { question: "おうど色！と青！をまぜたら？", options: ["グレー", "緑", "茶色"], answer: "グレー", colors: ["おうど色", "青"] },
+        { question: "ピンク！と黄緑！をまぜたら？", options: ["黄緑", "若草色", "ベージュ"], answer: "黄緑", colors: ["ピンク", "黄緑"] },
+        { question: "みずいろ！と紫！をまぜたら？", options: ["ラベンダー", "薄紫", "ブルーグレー"], answer: "ラベンダー", colors: ["みずいろ", "紫"] },
+        { question: "きみどり！と茶色！をまぜたら？", options: ["カーキ", "オリーブ", "モスグリーン"], answer: "カーキ", colors: ["きみどり", "茶色"] },
+        { question: "赤！と茶色！をまぜたら？", options: ["赤茶", "テラコッタ", "バーガンディ"], answer: "赤茶", colors: ["赤", "茶色"] },
+        { question: "青！と紫！をまぜたら？", options: ["藍色", "インディゴ", "紺"], answer: "藍色", colors: ["青", "紫"] },
+        { question: "黄色！と緑！をまぜたら？", options: ["黄緑", "若草色", "ライム"], answer: "黄緑", colors: ["黄色", "緑"] },
+        { question: "白！と茶色！をまぜたら？", options: ["ベージュ", "アイボリー", "クリーム"], answer: "ベージュ", colors: ["白", "茶色"] },
+        { question: "黒！と白！をまぜたら？", options: ["灰色", "シルバー", "グレー"], answer: "灰色", colors: ["黒", "白"] },
+        { question: "紫！と黄色！をまぜたら？", options: ["茶色", "灰色", "オリーブ"], answer: "茶色", colors: ["紫", "黄色"] },
+        { question: "緑！と赤！をまぜたら？", options: ["茶色", "黄色", "黒"], answer: "茶色", colors: ["緑", "赤"] },
+        { question: "青！と緑！をまぜたら？", options: ["青緑", "ターコイズ", "エメラルド"], answer: "青緑", colors: ["青", "緑"] }
+    ],
+    boss: [
+        { question: "赤！と青！と黄色！をまぜたら？", options: ["黒", "白", "茶色"], answer: "茶色", colors: ["赤", "青", "黄色"] },
+        { question: "青！と黄色！と白！をまぜたら？", options: ["水色", "若草色", "ミント"], answer: "若草色", colors: ["青", "黄色", "白"] },
+        { question: "赤！と白！と黒！をまぜたら？", options: ["灰色", "ピンク", "茶色"], answer: "灰色", colors: ["赤", "白", "黒"] },
+        { question: "赤！と青！と白！をまぜたら？", options: ["水色", "紫", "ピンク"], answer: "水色", colors: ["赤", "青", "白"] },
+        { question: "黄色！と青！と黒！をまぜたら？", options: ["緑", "茶色", "深緑"], answer: "深緑", colors: ["黄色", "青", "黒"] },
+        { question: "赤！と黄色！と黒！をまぜたら？", options: ["茶色", "オレンジ", "こげ茶"], answer: "こげ茶", colors: ["赤", "黄色", "黒"] },
+        { question: "緑！と青！と黄色！をまぜたら？", options: ["黄緑", "エメラルド", "ミント"], answer: "黄緑", colors: ["緑", "青", "黄色"] },
+        { question: "紫！と白！と黒！をまぜたら？", options: ["灰色", "ラベンダー", "薄紫"], answer: "灰色", colors: ["紫", "白", "黒"] },
+        { question: "オレンジ！と青！と黄色！をまぜたら？", options: ["茶色", "黄土色", "カーキ"], answer: "茶色", colors: ["オレンジ", "青", "黄色"] },
+        { question: "ピンク！と白！と赤！をまぜたら？", options: ["薄ピンク", "ローズ", "コーラル"], answer: "薄ピンク", colors: ["ピンク", "白", "赤"] },
+        { question: "茶色！と白！と黒！をまぜたら？", options: ["ベージュ", "灰色", "クリーム"], answer: "ベージュ", colors: ["茶色", "白", "黒"] },
+        { question: "水色！と青！と白！をまぜたら？", options: ["空色", "水色", "薄青"], answer: "空色", colors: ["水色", "青", "白"] },
+        { question: "黄緑！と緑！と黄色！をまぜたら？", options: ["黄緑", "若草色", "ライム"], answer: "黄緑", colors: ["黄緑", "緑", "黄色"] },
+        { question: "紫！と青！と赤！をまぜたら？", options: ["暗紫色", "ワインレッド", "バーガンディ"], answer: "暗紫色", colors: ["紫", "青", "赤"] },
+        { question: "橙！と赤！と黄色！をまぜたら？", options: ["朱色", "橙", "金赤"], answer: "朱色", colors: ["橙", "赤", "黄色"] }
+    ],
+    ura1: [
+        { question: "紫！と黄緑！と橙！をまぜたら？", options: ["灰色", "茶色", "黄土色"], answer: "茶色", colors: ["紫", "黄緑", "橙"] },
+        { question: "ピンク！と水色！と黄色！をまぜたら？", options: ["ベージュ", "クリーム", "薄橙"], answer: "ベージュ", colors: ["ピンク", "水色", "黄色"] },
+        { question: "茶色！と緑！と青！をまぜたら？", options: ["カーキ", "モスグリーン", "オリーブ"], answer: "カーキ", colors: ["茶色", "緑", "青"] },
+        { question: "紫！と赤！と黄緑！をまぜたら？", options: ["茶色", "灰色", "黄土色"], answer: "茶色", colors: ["紫", "赤", "黄緑"] },
+        { question: "橙！とピンク！と紫！をまぜたら？", options: ["赤紫", "マゼンタ", "ワインレッド"], answer: "赤紫", colors: ["橙", "ピンク", "紫"] }
+    ],
+    ura2: [
+        { question: "光の赤と光の緑を混ぜると？", options: ["黄色", "シアン", "マゼンタ"], answer: "黄色", colors: ["光の赤", "光の緑"] },
+        { question: "光の緑と光の青を混ぜると？", options: ["シアン", "黄色", "マゼンタ"], answer: "シアン", colors: ["光の緑", "光の青"] },
+        { question: "光の青と光の赤を混ぜると？", options: ["マゼンタ", "黄色", "シアン"], answer: "マゼンタ", colors: ["光の青", "光の赤"] },
+        { question: "光の赤と光の緑と光の青を全部混ぜると？", options: ["白", "黒", "灰色"], answer: "白", colors: ["光の赤", "光の緑", "光の青"] },
+        { question: "光の赤と光の青を混ぜるとできる色は？", options: ["マゼンタ", "紫", "ピンク"], answer: "マゼンタ", colors: ["光の赤", "光の青"] },
+        { question: "光の緑と光の青を混ぜるとできる色は？", options: ["シアン", "水色", "エメラルド"], answer: "シアン", colors: ["光の緑", "光の青"] },
+        { question: "光の赤と光の緑を混ぜるとできる色は？", options: ["黄色", "橙", "黄緑"], answer: "黄色", colors: ["光の赤", "光の緑"] },
+        { question: "光の赤と光の緑と光の青のうち、2つを混ぜて黄色になる組み合わせは？", options: ["赤と緑", "赤と青", "緑と青"], answer: "赤と緑", colors: ["光の赤", "光の緑"] },
+        { question: "光の赤と光の緑と光の青のうち、2つを混ぜてシアンになる組み合わせは？", options: ["緑と青", "赤と青", "赤と緑"], answer: "緑と青", colors: ["光の緑", "光の青"] },
+        { question: "光の赤と光の緑と光の青のうち、2つを混ぜてマゼンタになる組み合わせは？", options: ["赤と青", "赤と緑", "緑と青"], answer: "赤と青", colors: ["光の赤", "光の青"] }
     ]
 };
 
-// 新しいスキルの追加
+// --- スキルシステム (NEW_SKILLSにイベントスキル追加) ---
 const NEW_SKILLS = {
     hanabi: { 
         id: "hanabi", 
@@ -457,6 +390,25 @@ const NEW_SKILLS = {
         desc: "【スペースキー】120秒間、0.0005秒間隔で超高速自動入力を実行（2000回/秒）",
         special: true,
         hidden: true
+    },
+    // イベントスキル追加
+    color_splash: {
+        id: "color_splash",
+        name: "カラースプラッシュ",
+        cost: 0,
+        cooldown: 0,
+        desc: "【スプラッシュ/キー:1】CT25秒: 画面が見えなくなる（5秒）\n【塗りつぶし/キー:2】CT50秒: 相手の文字を見えなくする（5回タップで消える）\n【スケートボード/キー:3】CT70秒: 自動入力（5秒）\n【最強スプレー/キー:Space】CT70秒: 相手をスプラッシュ効果（10秒）",
+        event: true,
+        requirement: "イベント ボス クリア"
+    },
+    hacker_splash: {
+        id: "hacker_splash",
+        name: "ハッカースプラッシュ",
+        cost: 0,
+        cooldown: 0,
+        desc: "【スプラッシュタブ追加/キー:1】CT40秒: 消せるタブ10個＆画面塗りつぶし\n【混ぜ混ぜハック/キー:2】CT65秒: いろんな色を10個ぶつけて3秒スタン\n【カラーオイル/キー:3】CT35秒: 3秒スタン＆10秒スプラッシュ効果",
+        event: true,
+        requirement: "イベント 裏ボス クリア"
     }
 };
 
@@ -1013,7 +965,7 @@ async function resetAllData() {
     equippedSkill = "none";
     storyProgress = { chapter1: 0, chapter2: 0, chapter3: 0 };
     trainingCompleted = { training1: false, training2: false };
-    skinData = { skin: "skin-1", face: "face-1", accessories: [], bodyType: "normal", skinCustom: { r: 255, g: 205, b: 148 }, clothes: { type: "plain", color: "#ffffff", sticker: "" }, hat: "none" };
+    skinData = { skin: "skin-1", face: "face-1", accessories: [] };
     equippedAccessory = null;
     tysmUsed = false;
     byramoUsed = false;
@@ -1313,16 +1265,13 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
     localStorage.setItem("ramo_tysm1045_used", tysm1045Used.toString());
-    // 鬼ごっこ関連
-    localStorage.setItem("ramo_otag_skin", JSON.stringify(otagSkinData));
-    localStorage.setItem("ramo_otag_skills", JSON.stringify(otagOwnedSkills));
-    localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
+    // イベント進捗保存
+    localStorage.setItem("ramo_event_progress", JSON.stringify(eventProgress));
     
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
     if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString();
-    if (el("otag-skin-coin-amount")) el("otag-skin-coin-amount").innerText = coins.toLocaleString();
     
     updateStoryProgressDisplay();
     updateTrainingStatus();
@@ -1341,9 +1290,6 @@ function saveAndDisplayData() {
             accessory: equippedAccessory,
             name: myName,
             clear_codes: clearCodes,
-            otag_skin: otagSkinData,
-            otag_skills: otagOwnedSkills,
-            equipped_otag: equippedOtagSkill,
             lastUpdate: Date.now()
         });
     }).catch(err => console.error("Firebase save error:", err));
@@ -1366,13 +1312,12 @@ function updateProfileFace() {
     const profileSkin = el("profile-skin");
     const profileFace = el("profile-face-layer");
     const profileAccessory = el("profile-accessory");
-    const profileBody = document.querySelector('.profile-face-container');
     
     if (profileSkin) {
         if (skinData.skin === "skin-gold") {
             profileSkin.style.background = SKIN_COLORS["skin-gold"];
         } else if (skinData.skin === "custom") {
-            profileSkin.style.background = `rgb(${skinData.skinCustom.r}, ${skinData.skinCustom.g}, ${skinData.skinCustom.b})`;
+            profileSkin.style.background = `rgb(${skinData.skinCustom?.r || 255}, ${skinData.skinCustom?.g || 205}, ${skinData.skinCustom?.b || 148})`;
         } else {
             profileSkin.style.background = SKIN_COLORS[skinData.skin] || SKIN_COLORS["skin-1"];
         }
@@ -1380,22 +1325,10 @@ function updateProfileFace() {
     
     if (profileFace) profileFace.innerText = FACE_DATA[skinData.face] || "😊";
     
-    if (profileBody) {
-        switch(skinData.bodyType) {
-            case 'thin': profileBody.style.transform = 'scale(0.9)'; break;
-            case 'chubby': profileBody.style.transform = 'scale(1.2)'; break;
-            default: profileBody.style.transform = 'scale(1)';
-        }
-    }
-    
     if (profileAccessory) {
         let accessoryText = "";
         if (equippedAccessory && ACCESSORY_DB[equippedAccessory]) {
             accessoryText = ACCESSORY_DB[equippedAccessory].emoji;
-        }
-        // 帽子を追加
-        if (skinData.hat && HAT_TYPES[skinData.hat]) {
-            accessoryText = HAT_TYPES[skinData.hat].emoji + accessoryText;
         }
         profileAccessory.innerText = accessoryText;
         profileAccessory.style.display = "flex";
@@ -1410,7 +1343,7 @@ const WORD_DB = {
 };
 
 function updateButtonStates() {
-    const isBusy = isMatchmaking || trainingMode || otagMode;
+    const isBusy = isMatchmaking || trainingMode || eventMode;
     const btnSingle = el("btn-single");
     const btnParty = el("btn-party");
     const btnMatch = el("btn-match");
@@ -1419,17 +1352,17 @@ function updateButtonStates() {
     const btnStory = el("btn-story");
     const btnGacha = el("btn-gacha");
     const btnTraining = el("btn-training");
-    const btnOtag = el("btn-otag");
+    const btnEvent = el("btn-event");
 
     if (btnSingle) btnSingle.disabled = isBusy || myPartyId !== null;
-    if (btnParty) btnParty.disabled = isMatchmaking || trainingMode || otagMode; 
+    if (btnParty) btnParty.disabled = isMatchmaking || trainingMode || eventMode; 
     if (btnMatch) btnMatch.disabled = isBusy || myPartyId !== null;
     if (btnSkin) btnSkin.disabled = isBusy;
     if (btnShop) btnShop.disabled = isBusy;
     if (btnStory) btnStory.disabled = isBusy;
     if (btnGacha) btnGacha.disabled = isBusy;
     if (btnTraining) btnTraining.disabled = isBusy || myPartyId !== null;
-    if (btnOtag) btnOtag.disabled = isBusy;
+    if (btnEvent) btnEvent.disabled = isBusy || myPartyId !== null;
 }
 
 window.updateMyName = () => {
@@ -1650,9 +1583,8 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                 ui.appendChild(row);
             }
             
-            const friendSkin = data.skin || { skin: "skin-1", face: "face-1", bodyType: "normal", hat: "none" };
+            const friendSkin = data.skin || { skin: "skin-1", face: "face-1" };
             const friendFace = FACE_DATA[friendSkin.face] || "😊";
-            const friendHat = HAT_TYPES[friendSkin.hat]?.emoji || "";
             const friendAccessory = data.accessory ? ACCESSORY_DB[data.accessory]?.emoji || "" : "";
             
             row.innerHTML = `
@@ -1660,7 +1592,7 @@ onValue(ref(db, `users/${myId}/friends`), (snap) => {
                     <span class="status-dot ${data.status || 'offline'}"></span>
                     <div class="friend-face">
                         <span>${friendFace}</span>
-                        <span style="font-size: 1rem;">${friendHat}${friendAccessory}</span>
+                        <span style="font-size: 1rem;">${friendAccessory}</span>
                     </div>
                     <span class="friend-name">${data.name || '不明'}</span>
                 </div>
@@ -1714,7 +1646,7 @@ onValue(ref(db, `users/${myId}/invite`), snap => {
 });
 
 window.acceptInvite = () => {
-    if (gameActive || isMatchmaking || trainingMode || otagMode) {
+    if (gameActive || isMatchmaking || trainingMode || eventMode) {
         alert("プレイ中・待機中は参加できません。");
         window.declineInvite();
         return;
@@ -1779,16 +1711,15 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
             }
 
             const membersHtml = Object.entries(p.members || {}).map(([id, m]) => {
-                const memberSkin = m.skin || { skin: "skin-1", face: "face-1", bodyType: "normal", hat: "none" };
+                const memberSkin = m.skin || { skin: "skin-1", face: "face-1" };
                 const memberFace = FACE_DATA[memberSkin.face] || "😊";
-                const memberHat = HAT_TYPES[memberSkin.hat]?.emoji || "";
                 const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                 const teamColor = m.team === "red" ? "🔴" : m.team === "blue" ? "🔵" : "";
                 return `<div class="friend-item">
                     <div class="friend-left">
                         <div class="friend-face">
                             <span>${memberFace}</span>
-                            <span style="font-size: 1rem;">${memberHat}${memberAccessory}</span>
+                            <span style="font-size: 1rem;">${memberAccessory}</span>
                         </div>
                         <span class="friend-name">${m.name} ${teamColor}</span>
                         ${m.ready ? '<span style="color: var(--accent-green); margin-left: 5px;">✅</span>' : ''}
@@ -1803,7 +1734,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                 updateHandicapSetupUI();
             }
             
-            if (p.state === "ready_check" && !gameActive && !otagMode) {
+            if (p.state === "ready_check" && !gameActive && !eventMode) {
                 openScreen("screen-play"); 
                 el("ready-overlay").classList.remove("hidden");
                 el("ready-list").innerHTML = Object.values(p.members || {}).map(m => `<div>${m.name}: ${m.ready?'準備完了':'待機中...'}</div>`).join("");
@@ -1811,7 +1742,7 @@ onValue(ref(db, `users/${myId}/partyId`), snap => {
                     update(ref(db, `parties/${myPartyId}`), { state: "playing" });
                 }
             }
-            if (p.state === "playing" && !gameActive && !otagMode) {
+            if (p.state === "playing" && !gameActive && !eventMode) {
                 el("ready-overlay").classList.add("hidden");
                 if (p.storyMode) {
                     isStoryMode = true;
@@ -2074,14 +2005,15 @@ function showHandicapDescription() {
 }
 
 // =========================================
-// スキンショップ（拡張版）
+// スキンショップ（簡素化版）
 // =========================================
 
 window.openSkinShop = () => {
     tempSkinData = JSON.parse(JSON.stringify(skinData));
     openScreen("screen-skin-shop");
     updateSkinPreview();
-    renderExtendedSkinShop();
+    renderSkinCategory(); // 初期表示は肌の色
+    document.getElementById("skin-coin-amount").innerText = coins.toLocaleString();
 };
 
 window.saveAndExitSkinShop = () => {
@@ -2094,96 +2026,91 @@ function updateSkinPreview() {
     const previewSkin = el("preview-skin");
     const previewFace = el("preview-face");
     const previewAccessory = el("preview-accessory");
-    const previewBody = document.querySelector('.skin-preview');
     
     if (previewSkin) {
         if (tempSkinData.skin === "skin-gold") {
             previewSkin.style.background = SKIN_COLORS["skin-gold"];
         } else if (tempSkinData.skin === "custom") {
-            previewSkin.style.background = `rgb(${tempSkinData.skinCustom.r}, ${tempSkinData.skinCustom.g}, ${tempSkinData.skinCustom.b})`;
+            previewSkin.style.background = `rgb(${tempSkinData.skinCustom?.r || 255}, ${tempSkinData.skinCustom?.g || 205}, ${tempSkinData.skinCustom?.b || 148})`;
         } else {
             previewSkin.style.background = SKIN_COLORS[tempSkinData.skin] || SKIN_COLORS["skin-1"];
         }
     }
-    
     if (previewFace) previewFace.innerText = FACE_DATA[tempSkinData.face] || "😊";
-    
-    if (previewBody) {
-        switch(tempSkinData.bodyType) {
-            case 'thin': previewBody.style.transform = 'scale(0.9)'; break;
-            case 'chubby': previewBody.style.transform = 'scale(1.2)'; break;
-            default: previewBody.style.transform = 'scale(1)';
-        }
-    }
-    
     if (previewAccessory) {
         let accessoryText = "";
-        if (tempSkinData.hat && HAT_TYPES[tempSkinData.hat]) {
-            accessoryText = HAT_TYPES[tempSkinData.hat].emoji;
+        if (tempSkinData.accessories && tempSkinData.accessories.length > 0) {
+            const lastAcc = tempSkinData.accessories[tempSkinData.accessories.length - 1];
+            accessoryText = ACCESSORY_DB[lastAcc]?.emoji || "";
         }
         previewAccessory.innerText = accessoryText;
     }
 }
 
 window.switchSkinCategory = (category) => {
-    document.querySelectorAll('.skin-cat-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.skin-grid').forEach(grid => grid.classList.add('hidden'));
-    
-    const activeBtn = Array.from(document.querySelectorAll('.skin-cat-btn')).find(btn => 
-        btn.textContent.includes(category === 'skin' ? '肌の色' : category === 'face' ? '顔' : category === 'body' ? '体型' : category === 'clothes' ? '服装' : '帽子')
+    document.querySelectorAll('#screen-skin-shop .skin-cat-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#screen-skin-shop .skin-grid').forEach(grid => grid.classList.add('hidden'));
+
+    const activeBtn = Array.from(document.querySelectorAll('#screen-skin-shop .skin-cat-btn')).find(btn => 
+        btn.textContent.includes(category === 'skin' ? '肌の色' : category === 'face' ? '顔' : 'アクセサリー')
     );
     if (activeBtn) activeBtn.classList.add('active');
-    
-    el(`skin-category-${category}`).classList.remove('hidden');
-    
+
+    const gridId = `skin-category-${category}`;
+    document.getElementById(gridId).classList.remove('hidden');
+
     switch(category) {
         case 'skin': renderSkinCategory(); break;
         case 'face': renderFaceCategory(); break;
-        case 'body': renderBodyCategory(); break;
-        case 'clothes': renderClothesCategory(); break;
-        case 'hat': renderHatCategory(); break;
+        case 'accessory': renderAccessoryCategory(); break;
     }
 };
 
 function renderSkinCategory() {
-    const grid = el("skin-category-skin");
+    const grid = document.getElementById("skin-category-skin");
     if (!grid) return;
     grid.innerHTML = "";
-    
-    // 既存の肌色
+
     for (let i = 1; i <= 10; i++) {
         const skinId = `skin-${i}`;
         const isEquipped = tempSkinData.skin === skinId;
-        
         const item = document.createElement("div");
         item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
         item.style.background = SKIN_COLORS[skinId];
-        item.onclick = () => selectSkin(skinId);
+        item.onclick = () => {
+            tempSkinData.skin = skinId;
+            updateSkinPreview();
+            renderSkinCategory();
+        };
         grid.appendChild(item);
     }
-    
+
     // カスタム肌色
     const customItem = document.createElement("div");
     customItem.className = `skin-item ${tempSkinData.skin === 'custom' ? 'equipped' : ''}`;
-    customItem.style.background = `rgb(${tempSkinData.skinCustom.r}, ${tempSkinData.skinCustom.g}, ${tempSkinData.skinCustom.b})`;
+    customItem.style.background = `rgb(${tempSkinData.skinCustom?.r || 255}, ${tempSkinData.skinCustom?.g || 205}, ${tempSkinData.skinCustom?.b || 148})`;
     customItem.onclick = () => openCustomSkinPicker();
     customItem.innerHTML = '<span style="font-size: 0.8rem;">CUSTOM</span>';
     grid.appendChild(customItem);
-    
+
     // 金色（リッチアクセサリー所持者のみ）
-    if (skinData.accessories && skinData.accessories.includes('rich')) {
+    if (tempSkinData.accessories && tempSkinData.accessories.includes('rich')) {
         const goldItem = document.createElement("div");
         goldItem.className = `skin-item owned ${tempSkinData.skin === 'skin-gold' ? 'equipped' : ''}`;
         goldItem.style.background = SKIN_COLORS["skin-gold"];
-        goldItem.onclick = () => selectSkin("skin-gold");
+        goldItem.onclick = () => {
+            tempSkinData.skin = "skin-gold";
+            updateSkinPreview();
+            renderSkinCategory();
+        };
         grid.appendChild(goldItem);
     }
 }
 
 function openCustomSkinPicker() {
-    const r = tempSkinData.skinCustom.r;
-    const g = tempSkinData.skinCustom.g;
-    const b = tempSkinData.skinCustom.b;
+    const r = tempSkinData.skinCustom?.r || 255;
+    const g = tempSkinData.skinCustom?.g || 205;
+    const b = tempSkinData.skinCustom?.b || 148;
     
     const newR = prompt("赤の値 (0-255):", r);
     if (newR === null) return;
@@ -2201,6 +2128,7 @@ function openCustomSkinPicker() {
         coins -= cost;
     }
     
+    if (!tempSkinData.skinCustom) tempSkinData.skinCustom = {};
     tempSkinData.skin = 'custom';
     tempSkinData.skinCustom = {
         r: Math.min(255, Math.max(0, parseInt(newR) || 0)),
@@ -2209,188 +2137,90 @@ function openCustomSkinPicker() {
     };
     updateSkinPreview();
     renderSkinCategory();
-    saveAndDisplayData();
-}
-
-function selectSkin(skinId) {
-    tempSkinData.skin = skinId;
-    updateSkinPreview();
-    renderSkinCategory();
+    document.getElementById("skin-coin-amount").innerText = coins.toLocaleString();
 }
 
 function renderFaceCategory() {
-    const grid = el("skin-category-face");
+    const grid = document.getElementById("skin-category-face");
     if (!grid) return;
     grid.innerHTML = "";
-    
+
     for (let i = 1; i <= 30; i++) {
         const faceId = `face-${i}`;
         const isEquipped = tempSkinData.face === faceId;
-        
         const item = document.createElement("div");
         item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
         item.innerHTML = FACE_DATA[faceId];
-        item.onclick = () => selectFace(faceId);
+        item.onclick = () => {
+            tempSkinData.face = faceId;
+            updateSkinPreview();
+            renderFaceCategory();
+        };
         grid.appendChild(item);
     }
-    
+
     // 特別な顔
-    if (skinData.accessories && skinData.accessories.includes('rich')) {
+    if (tempSkinData.accessories && tempSkinData.accessories.includes('rich')) {
         const moneyFace = document.createElement("div");
         moneyFace.className = `skin-item owned ${tempSkinData.face === 'face-money' ? 'equipped' : ''}`;
         moneyFace.innerHTML = "🤑";
-        moneyFace.onclick = () => selectFace("face-money");
+        moneyFace.onclick = () => {
+            tempSkinData.face = "face-money";
+            updateSkinPreview();
+            renderFaceCategory();
+        };
         grid.appendChild(moneyFace);
     }
 }
 
-function selectFace(faceId) {
-    tempSkinData.face = faceId;
-    updateSkinPreview();
-    renderFaceCategory();
-}
-
-function renderBodyCategory() {
-    const grid = el("skin-category-body");
+function renderAccessoryCategory() {
+    const grid = document.getElementById("skin-category-accessory");
     if (!grid) return;
     grid.innerHTML = "";
-    
-    Object.entries(BODY_TYPES).forEach(([id, data]) => {
-        const isEquipped = tempSkinData.bodyType === id;
-        const item = document.createElement("div");
-        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
-        item.innerHTML = data.name;
-        item.onclick = () => {
-            tempSkinData.bodyType = id;
-            updateSkinPreview();
-            renderBodyCategory();
-        };
-        grid.appendChild(item);
-    });
-}
 
-function renderClothesCategory() {
-    const grid = el("skin-category-clothes");
-    if (!grid) return;
-    grid.innerHTML = "";
-    
-    // 基本服装
-    Object.entries(CLOTHES_TYPES).forEach(([id, data]) => {
-        const isOwned = id === 'plain' || (tempSkinData.clothes.owned && tempSkinData.clothes.owned[id]) || id === tempSkinData.clothes.type;
-        const isEquipped = tempSkinData.clothes.type === id;
-        const canAfford = coins >= data.cost;
-        
+    Object.values(ACCESSORY_DB).forEach(acc => {
+        const isOwned = tempSkinData.accessories && tempSkinData.accessories.includes(acc.id);
+        const isEquipped = isOwned && tempSkinData.accessories[tempSkinData.accessories.length - 1] === acc.id;
+        const canAfford = coins >= acc.cost;
+
         const item = document.createElement("div");
         item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
         item.innerHTML = `
-            <span style="font-size: 2rem;">${data.emoji}</span>
-            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
+            <span style="font-size: 2rem;">${acc.emoji}</span>
+            <span class="skin-price">${acc.cost.toLocaleString()}🪙</span>
         `;
-        
+
         if (isOwned) {
             item.onclick = () => {
-                tempSkinData.clothes.type = id;
+                if (!tempSkinData.accessories) tempSkinData.accessories = [];
+                if (!tempSkinData.accessories.includes(acc.id)) {
+                    tempSkinData.accessories.push(acc.id);
+                } else {
+                    // 既存の場合は最後に移動（装備）
+                    tempSkinData.accessories = tempSkinData.accessories.filter(id => id !== acc.id);
+                    tempSkinData.accessories.push(acc.id);
+                }
                 updateSkinPreview();
-                renderClothesCategory();
+                renderAccessoryCategory();
             };
         } else if (canAfford) {
             item.onclick = () => {
-                if (confirm(`${data.name}を購入しますか？`)) {
-                    coins -= data.cost;
-                    if (!tempSkinData.clothes.owned) tempSkinData.clothes.owned = {};
-                    tempSkinData.clothes.owned[id] = true;
-                    tempSkinData.clothes.type = id;
-                    saveAndDisplayData();
+                if (confirm(`${acc.name}を購入しますか？`)) {
+                    coins -= acc.cost;
+                    if (!tempSkinData.accessories) tempSkinData.accessories = [];
+                    tempSkinData.accessories.push(acc.id);
                     updateSkinPreview();
-                    renderClothesCategory();
+                    renderAccessoryCategory();
+                    document.getElementById("skin-coin-amount").innerText = coins.toLocaleString();
                 }
             };
         }
-        
-        grid.appendChild(item);
-    });
-    
-    // カスタム服装（色＋ステッカー）
-    const customItem = document.createElement("div");
-    customItem.className = `skin-item ${tempSkinData.clothes.type === 'custom' ? 'equipped' : ''}`;
-    customItem.style.background = tempSkinData.clothes.color;
-    customItem.innerHTML = `
-        <span style="font-size: 1.5rem;">${tempSkinData.clothes.sticker || '✏️'}</span>
-        <span class="skin-price">30000🪙</span>
-    `;
-    customItem.onclick = () => openCustomClothesPicker();
-    grid.appendChild(customItem);
-}
-
-function openCustomClothesPicker() {
-    const cost = 30000;
-    if (tempSkinData.clothes.type !== 'custom' && coins < cost) {
-        alert(`コインが足りません！\n必要: ${cost}🪙`);
-        return;
-    }
-    
-    const color = prompt("色を入力 (例: #ff0000, red, rgb(255,0,0)):", tempSkinData.clothes.color);
-    if (!color) return;
-    const sticker = prompt("ステッカー（1文字）:", tempSkinData.clothes.sticker || "");
-    if (sticker && sticker.length > 1) {
-        alert("1文字で入力してください");
-        return;
-    }
-    
-    if (tempSkinData.clothes.type !== 'custom') {
-        coins -= cost;
-    }
-    tempSkinData.clothes.type = 'custom';
-    tempSkinData.clothes.color = color;
-    tempSkinData.clothes.sticker = sticker || "";
-    saveAndDisplayData();
-    updateSkinPreview();
-    renderClothesCategory();
-}
-
-function renderHatCategory() {
-    const grid = el("skin-category-hat");
-    if (!grid) return;
-    grid.innerHTML = "";
-    
-    Object.entries(HAT_TYPES).forEach(([id, data]) => {
-        const isOwned = id === 'none' || (tempSkinData.hats && tempSkinData.hats[id]) || id === tempSkinData.hat;
-        const isEquipped = tempSkinData.hat === id;
-        const canAfford = coins >= data.cost;
-        
-        const item = document.createElement("div");
-        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
-        item.innerHTML = `
-            <span style="font-size: 2rem;">${data.emoji || '👤'}</span>
-            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
-        `;
-        
-        if (isOwned) {
-            item.onclick = () => {
-                tempSkinData.hat = id;
-                updateSkinPreview();
-                renderHatCategory();
-            };
-        } else if (canAfford) {
-            item.onclick = () => {
-                if (confirm(`${data.name}を購入しますか？`)) {
-                    coins -= data.cost;
-                    if (!tempSkinData.hats) tempSkinData.hats = {};
-                    tempSkinData.hats[id] = true;
-                    tempSkinData.hat = id;
-                    saveAndDisplayData();
-                    updateSkinPreview();
-                    renderHatCategory();
-                }
-            };
-        }
-        
         grid.appendChild(item);
     });
 }
 
 // =========================================
-// スキルショップ（鬼ごっこスキル追加）
+// スキルショップ（鬼ごっこスキル削除）
 // =========================================
 
 window.openShop = () => {
@@ -2406,8 +2236,7 @@ window.switchShopTab = (tabType) => {
     document.querySelectorAll('.shop-tab').forEach(tab => tab.classList.remove('active'));
     const targetTab = Array.from(document.querySelectorAll('.shop-tab')).find(tab => 
         (tabType === 'normal' && tab.textContent.includes('ノーマル')) ||
-        (tabType === 'gacha' && tab.textContent.includes('ガチャ')) ||
-        (tabType === 'otag' && tab.textContent.includes('鬼ごっこ'))
+        (tabType === 'gacha' && tab.textContent.includes('ガチャ'))
     );
     if (targetTab) targetTab.classList.add('active');
     
@@ -2418,66 +2247,7 @@ window.switchShopTab = (tabType) => {
     } else if (tabType === 'gacha') {
         el('shop-gacha-skills').classList.remove('hidden');
         renderGachaSkills();
-    } else {
-        el('shop-otag-skills').classList.remove('hidden');
-        renderOtagSkills();
     }
-};
-
-function renderOtagSkills() {
-    const container = el('shop-otag-skills');
-    if (!container) return;
-    container.innerHTML = "";
-    
-    Object.values(OTAG_SKILL_DB).forEach(skill => {
-        const isOwned = otagOwnedSkills[skill.id];
-        const isEquipped = equippedOtagSkill === skill.id;
-        
-        let buttonHtml = "";
-        if (isEquipped) {
-            buttonHtml = `<button class="shop-btn gacha-btn equipped" disabled>装備中</button>`;
-        } else if (isOwned) {
-            buttonHtml = `<button class="shop-btn gacha-btn" onclick="window.equipOtagSkill('${skill.id}')">装備する</button>`;
-        } else {
-            const canAfford = coins >= skill.cost;
-            buttonHtml = `<button class="shop-btn gacha-btn" onclick="window.buyOtagSkill('${skill.id}')" ${canAfford ? '' : 'disabled'}>購入 (${skill.cost.toLocaleString()}🪙)</button>`;
-        }
-        
-        container.innerHTML += `
-            <div class="shop-item gacha-skill">
-                <h3>${skill.name}</h3>
-                <p style="white-space: pre-wrap; font-size: 0.9rem;">${skill.desc}</p>
-                <span class="cooldown-text">クールダウン: ${skill.cooldown}秒</span>
-                ${buttonHtml}
-            </div>
-        `;
-    });
-}
-
-window.buyOtagSkill = (skillId) => {
-    const skill = OTAG_SKILL_DB[skillId];
-    if (coins >= skill.cost) {
-        coins -= skill.cost;
-        otagOwnedSkills[skillId] = true;
-        equippedOtagSkill = skillId; // 購入後自動装備
-        localStorage.setItem("ramo_otag_skills", JSON.stringify(otagOwnedSkills));
-        localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
-        saveAndDisplayData();
-        renderOtagSkills();
-        if (otagMode) renderOtagSkillList();
-        sounds.notify.play();
-        alert(`🎉 「${skill.name}」スキルを購入・装備しました！`);
-    } else {
-        alert(`コインが足りません！\n必要: ${skill.cost.toLocaleString()}🪙\n所持: ${coins.toLocaleString()}🪙`);
-    }
-};
-
-window.equipOtagSkill = (skillId) => {
-    equippedOtagSkill = skillId;
-    localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
-    saveAndDisplayData();
-    renderOtagSkills();
-    if (otagMode) renderOtagSkillList();
 };
 
 function renderNormalSkills() {
@@ -2486,7 +2256,7 @@ function renderNormalSkills() {
     container.innerHTML = "";
     
     Object.values(SKILL_DB).forEach(skill => {
-        if (skill.gacha || skill.id === "none") return;
+        if (skill.gacha || skill.id === "none" || skill.event) return;
         
         const isOwned = ownedSkills.includes(skill.id);
         const isEquipped = equippedSkill === skill.id;
@@ -2593,7 +2363,6 @@ window.equipGachaCharacter = (charId) => {
     
     renderGachaSkills();
     renderNormalSkills();
-    renderOtagSkills();
     
     if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
         renderGachaCharacters(getCurrentGachaTabRarity());
@@ -2614,7 +2383,6 @@ window.buySkill = (skillId) => {
         saveAndDisplayData();
         renderNormalSkills();
         renderGachaSkills();
-        renderOtagSkills();
         if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
             renderGachaCharacters(getCurrentGachaTabRarity());
         }
@@ -2630,7 +2398,6 @@ window.equipSkill = (skillId) => {
     saveAndDisplayData();
     renderNormalSkills();
     renderGachaSkills();
-    renderOtagSkills();
     if (el("screen-gacha") && !el("screen-gacha").classList.contains("hidden")) {
         renderGachaCharacters(getCurrentGachaTabRarity());
     }
@@ -2788,7 +2555,6 @@ window.drawGacha = async (type) => {
     showGachaResult(results);
     renderGachaCharacters(getCurrentGachaTabRarity());
     renderGachaSkills();
-    renderOtagSkills();
 };
 
 function showGachaResult(results) {
@@ -3012,12 +2778,11 @@ function openScreen(id) {
 window.goHome = () => { 
     gameActive = false; 
     trainingMode = false;
-    otagMode = false;
+    eventMode = false;
     clearInterval(gameInterval);
     resetSkillState();
     clearHandicapEffects();
     clearFakeTyping();
-    stopOtagGame();
 
     if (myPartyId && myPartyId.startsWith("match_")) {
         window.leaveParty();
@@ -3262,6 +3027,11 @@ function canType() {
 }
 
 window.addEventListener("keydown", e => {
+    // イベントモード中はスキル使用不可
+    if (eventMode && eventGameActive) {
+        return;
+    }
+    
     if (!gameActive) return;
     if (hackerTabsActive > 0) return;
     
@@ -3426,14 +3196,13 @@ function syncRivals() {
                 el("rival-list").innerHTML = scores.map(({id, ...m}) => {
                     const memberSkin = m.skin || { face: "face-1" };
                     const memberFace = FACE_DATA[memberSkin.face] || "😊";
-                    const memberHat = HAT_TYPES[memberSkin.hat]?.emoji || "";
                     const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                     return `
                         <div class="friend-item">
                             <div class="friend-left">
                                 <div class="friend-face">
                                     <span>${memberFace}</span>
-                                    <span style="font-size: 1rem;">${memberHat}${memberAccessory}</span>
+                                    <span style="font-size: 1rem;">${memberAccessory}</span>
                                 </div>
                                 <span class="friend-name">${m.name}</span>
                             </div>
@@ -3470,7 +3239,7 @@ function endGame() {
     let earnedCoins = Math.floor(score / 10);
     let isWinner = false;
 
-    if (!isStoryMode && !trainingMode) {
+    if (!isStoryMode && !trainingMode && !eventMode) {
         if (equippedSkill === "fundraiser") earnedCoins *= 2;
         if (equippedSkill === "godfundraiser") earnedCoins *= 4;
     }
@@ -3486,7 +3255,7 @@ function endGame() {
                     isWinner = true;
                 }
 
-                if (earnedCoins > 0 && !isStoryMode && !trainingMode) {
+                if (earnedCoins > 0 && !isStoryMode && !trainingMode && !eventMode) {
                     coins += earnedCoins;
                     saveAndDisplayData();
                 }
@@ -3510,15 +3279,14 @@ function endGame() {
                 } else {
                     el("ranking-box").innerHTML = res.map((item, i) => {
                         const m = item[1];
-                        const memberSkin = m.skin || { face: "face-1", bodyType: "normal", hat: "none" };
+                        const memberSkin = m.skin || { face: "face-1" };
                         const memberFace = FACE_DATA[memberSkin.face] || "😊";
-                        const memberHat = HAT_TYPES[memberSkin.hat]?.emoji || "";
                         const memberAccessory = m.accessory ? ACCESSORY_DB[m.accessory]?.emoji || "" : "";
                         return `<div class="ranking-row">
                             <div style="display: flex; align-items: center; gap: 5px;">
                                 <div class="friend-face">
                                     <span style="font-size: 1.2rem;">${memberFace}</span>
-                                    <span style="font-size: 1rem;">${memberHat}${memberAccessory}</span>
+                                    <span style="font-size: 1rem;">${memberAccessory}</span>
                                 </div>
                                 <span>${i+1}位: ${m.name}</span>
                             </div>
@@ -3534,6 +3302,8 @@ function endGame() {
                     coinText = `チーム平均スコア: ${avgScore.toLocaleString()} pts`;
                 } else if (trainingResult) {
                     coinText = trainingResult;
+                } else if (eventMode) {
+                    coinText = "イベント報酬は別途獲得";
                 } else {
                     coinText = isWinner ? `勝利ボーナス！ +${earnedCoins.toLocaleString()} 🪙` : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
                 }
@@ -3549,13 +3319,18 @@ function endGame() {
             }
         });
     } else { 
-        if (earnedCoins > 0 && !isStoryMode && !trainingMode) {
+        if (earnedCoins > 0 && !isStoryMode && !trainingMode && !eventMode) {
             coins += earnedCoins;
             saveAndDisplayData();
         }
         
         if (trainingResult) {
             el("ranking-box").innerHTML = trainingResult;
+        } else if (eventMode) {
+            el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>
+                <div class="ranking-row" style="color: #FFD700; margin-top: 15px; border-top: 2px dashed #FFD700; padding-top: 15px;">
+                    <span>結果</span><span>イベント報酬は別途獲得</span>
+                </div>`;
         } else {
             el("ranking-box").innerHTML = `<div class="ranking-row"><span>スコア</span><span>${score.toLocaleString()} pts</span></div>`; 
             let coinText = isStoryMode ? "ストーリーモードクリア！報酬は別途獲得" : `獲得コイン +${earnedCoins.toLocaleString()} 🪙`;
@@ -3605,8 +3380,8 @@ function handleTrainingResult() {
 }
 
 window.openTraining = () => {
-    if (myPartyId || isMatchmaking || otagMode) {
-        alert("パーティー中・マッチング待機中・鬼ごっこ中は修行できません");
+    if (myPartyId || isMatchmaking || eventMode) {
+        alert("パーティー中・マッチング待機中・イベント中は修行できません");
         return;
     }
     const savedTraining = JSON.parse(localStorage.getItem("ramo_training_completed")) || { training1: false, training2: false };
@@ -3648,7 +3423,7 @@ function updateTrainingStatus() {
 }
 
 window.startTraining = (type) => {
-    if (myPartyId || isMatchmaking || otagMode) return;
+    if (myPartyId || isMatchmaking || eventMode) return;
     
     trainingMode = true;
     trainingType = type;
@@ -3695,1175 +3470,403 @@ function trainingStatusAttack() {
 }
 
 // =========================================
-// 鬼ごっこタイピングモード (拡張版)
+// イベントモード (混ぜたら混ぜたら)
 // =========================================
 
-function renderOtagSkillList() {
-    const container = document.querySelector('.otag-card .skill-list');
-    if (!container) return;
-    
-    const skills = [
-        { id: 'dash', name: '🏃 ダッシュ', desc: 'CT20秒: 2秒間 足が80%速くなる' },
-        { id: 'netgun', name: '🎯 あみでっぽう', desc: 'CT100秒: 向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く' },
-        { id: 'builder', name: '🏗️ ビルダー', desc: 'CT50秒: 自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）' },
-        { id: 'invisible', name: '👻 透明', desc: 'CT40秒: 6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる' }
-    ];
-    
-    container.innerHTML = skills.map(skill => {
-        const isOwned = otagOwnedSkills[skill.id];
-        const isEquipped = equippedOtagSkill === skill.id;
-        const skillData = OTAG_SKILL_DB[skill.id];
-        
-        let status = "";
-        let statusColor = "";
-        
-        if (!isOwned) {
-            status = `${skillData.cost.toLocaleString()}🪙`;
-            statusColor = '#FFD700';
-        } else if (isEquipped) {
-            status = '装備中';
-            statusColor = '#00FF00';
-        }
-        
-        return `
-            <div class="skill-item" style="border: 2px solid #FFA500; border-radius: 15px; padding: 15px;" onclick="window.selectOtagSkill('${skill.id}')">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: bold;">${skill.name}</span>
-                    ${status ? `<span style="color: ${statusColor};">${status}</span>` : ''}
-                </div>
-                <small>${skill.desc}</small>
-            </div>
-        `;
-    }).join('');
-    
-    // ショップへ行くボタンを追加
-    container.innerHTML += `
-        <div class="skill-item" style="border: 2px solid #FFD700; border-radius: 15px; padding: 15px; margin-top: 15px;" onclick="window.openShop()">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: bold;">🛒 スキルショップへ</span>
-                <span style="color: #FFD700;">スキル購入</span>
-            </div>
-            <small>鬼ごっこスキルを購入・装備できます</small>
-        </div>
-    `;
-}
-
-window.openOtagMode = () => {
-    if (myPartyId || isMatchmaking || trainingMode) {
-        alert("パーティー中・マッチング待機中・修行中は鬼ごっこモードを開けません");
-        return;
-    }
-    otagMode = true;
-    renderOtagSkillList();
-    openScreen("screen-otag");
-};
-
-window.startOtagGame = () => {
-    if (myPartyId && !isLeader) {
-        alert("パーティーリーダーのみがゲームを開始できます");
-        return;
-    }
-    
-    resetOtagGame();
-    el("otag-deck-select").classList.remove("hidden");
-    startOtagDeckTimer();
-    openScreen("screen-otag-game");
-    otagGameActive = true;
-};
-
-function resetOtagGame() {
-    otagPlayer = {
-        worldX: 400,
-        worldY: 300,
-        x: 0,
-        y: 0,
-        stamina: 100,
-        maxStamina: 100,
-        speed: 5,
-        isRunning: false,
-        invisible: false,
-        invisibleTimer: null,
-        direction: 'down'
-    };
-    
-    otagGhosts = [
-        { id: 1, worldX: 200, worldY: 200, speed: 2, stunned: false, stunTimer: 0 },
-        { id: 2, worldX: 600, worldY: 300, speed: 2, stunned: false, stunTimer: 0 },
-        { id: 3, worldX: 400, worldY: 500, speed: 2, stunned: false, stunTimer: 0 },
-        { id: 4, worldX: 800, worldY: 400, speed: 2, stunned: false, stunTimer: 0 }
-    ];
-    
-    otagGenerators = [
-        { id: 1, worldX: 100, worldY: 100, active: false, typingActive: false, isMoneyGenerator: false },
-        { id: 2, worldX: 700, worldY: 150, active: false, typingActive: false, isMoneyGenerator: false },
-        { id: 3, worldX: 200, worldY: 500, active: false, typingActive: false, isMoneyGenerator: false },
-        { id: 4, worldX: 850, worldY: 500, active: false, typingActive: false, isMoneyGenerator: true }
-    ];
-    
-    otagWalls = [
-        { worldX: 300, worldY: 150, width: 100, height: 20 },
-        { worldX: 500, worldY: 250, width: 20, height: 100 },
-        { worldX: 600, worldY: 450, width: 150, height: 20 }
-    ];
-    
-    otagTimer = 900;
-    otagReward = 0;
-    otagDeckSelected = null;
-    otagDeckTimer = 15;
-    otagTypingActive = false;
-    otagPlacedTiles = [];
-    
-    otagSkillCooldowns = { dash: 0, netgun: 0, builder: 0, invisible: 0, support: 0, staminaBottle: 0 };
-    otagKeys = { w: false, a: false, s: false, d: false, arrowUp: false, arrowDown: false, arrowLeft: false, arrowRight: false, space: false };
-}
-
-function startOtagDeckTimer() {
-    if (otagDeckInterval) clearInterval(otagDeckInterval);
-    
-    const timerEl = el("otag-deck-timer");
-    if (!timerEl) return;
-    
-    timerEl.innerText = otagDeckTimer;
-    
-    otagDeckInterval = setInterval(() => {
-        otagDeckTimer--;
-        if (timerEl) timerEl.innerText = otagDeckTimer;
-        
-        if (otagDeckTimer <= 0) {
-            clearInterval(otagDeckInterval);
-            if (!otagDeckSelected) {
-                const decks = ['support', 'stamina_up', 'stamina_bottle'];
-                const randomDeck = decks[Math.floor(Math.random() * decks.length)];
-                selectOtagDeck(randomDeck);
-            }
-            el("otag-deck-select").classList.add("hidden");
-            startOtagMainGame();
-        }
-    }, 1000);
-}
-
-window.selectOtagDeck = (deckType) => {
-    // 一度選択したら再度選択できないように
-    if (otagDeckSelected) return;
-    
-    otagDeckSelected = deckType;
-    
-    if (deckType === 'support') {
-        otagPlayer.maxStamina -= 10;
-        otagPlayer.stamina = Math.min(otagPlayer.stamina, otagPlayer.maxStamina);
-        otagDeckSkills.support = true;
-    } else if (deckType === 'stamina_up') {
-        otagPlayer.maxStamina += 25;
-        otagPlayer.stamina = otagPlayer.maxStamina;
-        otagDeckSkills.staminaUp = true;
-    } else if (deckType === 'stamina_bottle') {
-        otagDeckSkills.staminaBottle = true;
-    }
-    
-    // 選択後すぐに非表示にせず、タイマー終了を待つが、連打防止のためイベントリスナーを削除
-    document.querySelectorAll('.deck-card').forEach(card => {
-        card.onclick = null;
+// ホーム画面タブ切り替え
+document.querySelectorAll('.home-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.home-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+        const targetId = 'tab-' + tab.dataset.tab;
+        document.getElementById(targetId).classList.remove('hidden');
     });
-    
-    updateOtagUI();
+});
+
+window.openEventMode = () => {
+    if (myPartyId) {
+        alert("パーティー中はイベントを開始できません。");
+        return;
+    }
+    eventMode = true;
+    updateEventDifficultyButtons();
+    openScreen('screen-event-mode');
 };
 
-function startOtagMainGame() {
-    if (otagKeyHandler) {
-        window.removeEventListener("keydown", otagKeyHandler);
-        window.removeEventListener("keyup", otagKeyHandler);
-    }
-    
-    otagKeyHandler = handleOtagKeyDown;
-    window.addEventListener("keydown", otagKeyHandler);
-    window.addEventListener("keyup", handleOtagKeyUp);
-    
-    if (otagGameInterval) clearInterval(otagGameInterval);
-    otagGameInterval = setInterval(updateOtagGame, 50);
-    
-    if (otagStaminaInterval) clearInterval(otagStaminaInterval);
-    otagStaminaInterval = setInterval(updateOtagStamina, 100);
-    
-    if (otagGhostInterval) clearInterval(otagGhostInterval);
-    otagGhostInterval = setInterval(updateOtagGhosts, 200);
-    
-    if (otagRewardInterval) clearInterval(otagRewardInterval);
-    otagRewardInterval = setInterval(() => {
-        if (otagTimer > 0) {
-            otagReward += 300;
-            updateOtagUI();
-        }
-    }, 1000);
-    
-    // スキン適用
-    updateOtagPlayerAppearance();
-}
+function updateEventDifficultyButtons() {
+    const easyBtn = document.getElementById('event-diff-easy');
+    const normalBtn = document.getElementById('event-diff-normal');
+    const hardBtn = document.getElementById('event-diff-hard');
+    const bossBtn = document.getElementById('event-diff-boss');
+    const uraBtn = document.getElementById('event-ura-button');
 
-function handleOtagKeyDown(e) {
-    if (!otagGameActive || otagTypingActive) return;
-    
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
-        otagKeys.arrowUp = true;
-        otagPlayer.direction = 'up';
-        e.preventDefault();
+    // 簡単は常に利用可能
+    easyBtn.classList.remove('locked', 'cleared');
+    if (eventProgress.easy) easyBtn.classList.add('cleared');
+
+    // 中級 (簡単クリアで解放)
+    normalBtn.classList.remove('cleared');
+    if (eventProgress.easy) {
+        normalBtn.classList.remove('locked');
+        if (eventProgress.normal) normalBtn.classList.add('cleared');
+    } else {
+        normalBtn.classList.add('locked');
     }
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
-        otagKeys.arrowDown = true;
-        otagPlayer.direction = 'down';
-        e.preventDefault();
+
+    // 難しい (中級クリアで解放)
+    hardBtn.classList.remove('cleared');
+    if (eventProgress.normal) {
+        hardBtn.classList.remove('locked');
+        if (eventProgress.hard) hardBtn.classList.add('cleared');
+    } else {
+        hardBtn.classList.add('locked');
     }
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
-        otagKeys.arrowLeft = true;
-        otagPlayer.direction = 'left';
-        e.preventDefault();
+
+    // ボス (難しいクリアで解放)
+    bossBtn.classList.remove('cleared');
+    if (eventProgress.hard) {
+        bossBtn.classList.remove('locked');
+        if (eventProgress.boss) bossBtn.classList.add('cleared');
+    } else {
+        bossBtn.classList.add('locked');
     }
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
-        otagKeys.arrowRight = true;
-        otagPlayer.direction = 'right';
-        e.preventDefault();
-    }
-    
-    if (e.code === "Space") {
-        if (otagPlayer.stamina > 0) {
-            otagKeys.space = true;
-            otagPlayer.isRunning = true;
-        }
-        e.preventDefault();
-    }
-    
-    // キー1〜4でスキル装備（所持しているもののみ）
-    if (e.key === '1' && otagOwnedSkills.dash) equippedOtagSkill = 'dash';
-    if (e.key === '2' && otagOwnedSkills.netgun) equippedOtagSkill = 'netgun';
-    if (e.key === '3' && otagOwnedSkills.builder) equippedOtagSkill = 'builder';
-    if (e.key === '4' && otagOwnedSkills.invisible) equippedOtagSkill = 'invisible';
-    
-    // 装備中のスキルを使用
-    if (e.code === "Space") {
-        activateOtagSkill(equippedOtagSkill);
-    }
-    
-    if (e.key === '5' && otagDeckSkills.support) activateOtagSkill('support');
-    if (e.key === '6' && otagDeckSkills.staminaBottle) activateOtagSkill('staminaBottle');
-    
-    if (e.key === 'r' || e.key === 'R') {
-        checkOtagGenerator();
-        e.preventDefault();
+
+    // 裏面ボタン (ボスクリアで表示)
+    if (eventProgress.boss) {
+        uraBtn.classList.remove('hidden');
+    } else {
+        uraBtn.classList.add('hidden');
     }
 }
 
-function handleOtagKeyUp(e) {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') otagKeys.arrowUp = false;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') otagKeys.arrowDown = false;
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') otagKeys.arrowLeft = false;
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') otagKeys.arrowRight = false;
-    if (e.code === "Space") {
-        otagKeys.space = false;
-        otagPlayer.isRunning = false;
-    }
-}
-
-function updateOtagGame() {
-    if (!otagGameActive || otagTypingActive) return;
-    
-    let moveX = 0, moveY = 0;
-    if (otagKeys.arrowUp) moveY -= 1;
-    if (otagKeys.arrowDown) moveY += 1;
-    if (otagKeys.arrowLeft) moveX -= 1;
-    if (otagKeys.arrowRight) moveX += 1;
-    
-    if (moveX !== 0 || moveY !== 0) {
-        const length = Math.sqrt(moveX * moveX + moveY * moveY);
-        moveX = moveX / length;
-        moveY = moveY / length;
-        
-        let currentSpeed = otagPlayer.speed;
-        if (otagPlayer.isRunning && otagPlayer.stamina > 0) {
-            currentSpeed *= 1.8;
-        }
-        
-        const newWorldX = otagPlayer.worldX + moveX * currentSpeed;
-        const newWorldY = otagPlayer.worldY + moveY * currentSpeed;
-        
-        if (!checkOtagWallCollision(newWorldX, newWorldY)) {
-            otagPlayer.worldX = newWorldX;
-            otagPlayer.worldY = newWorldY;
-        }
-        
-        if (otagPlayer.isRunning) {
-            otagPlayer.stamina = Math.max(0, otagPlayer.stamina - 1);
-            if (otagPlayer.stamina <= 0) {
-                otagPlayer.isRunning = false;
-            }
-        }
-        
-        checkOtagTileEffect();
-    }
-    
-    checkOtagGhostCollision();
-    updateOtagPlayerDisplay();
-    updateOtagUI();
-}
-
-function updateOtagStamina() {
-    if (!otagGameActive) return;
-    if (!otagPlayer.isRunning) {
-        setTimeout(() => {
-            if (!otagPlayer.isRunning) {
-                otagPlayer.stamina = Math.min(otagPlayer.maxStamina, otagPlayer.stamina + 2);
-            }
-        }, 1500);
-    }
-    updateOtagUI();
-}
-
-function updateOtagGhosts() {
-    if (!otagGameActive) return;
-    if (otagPlayer.invisible) return;
-    
-    otagGhosts.forEach(ghost => {
-        if (ghost.stunned) {
-            ghost.stunTimer -= 0.2;
-            if (ghost.stunTimer <= 0) {
-                ghost.stunned = false;
-                ghost.speed = 2;
-            }
+// 難易度選択
+document.querySelectorAll('.event-diff-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const diff = e.currentTarget.dataset.diff;
+        if (e.currentTarget.classList.contains('locked')) {
+            alert("前の難易度をクリアしてください！");
             return;
         }
-        
-        const dx = otagPlayer.worldX - ghost.worldX;
-        const dy = otagPlayer.worldY - ghost.worldY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < 200) {
-            const angle = Math.atan2(dy, dx);
-            const moveX = Math.cos(angle) * ghost.speed;
-            const moveY = Math.sin(angle) * ghost.speed;
-            
-            const newX = ghost.worldX + moveX;
-            const newY = ghost.worldY + moveY;
-            
-            if (!checkOtagWallCollisionForGhost(newX, newY)) {
-                ghost.worldX = newX;
-                ghost.worldY = newY;
-            }
-        } else {
-            ghost.worldX += Math.sin(Date.now() * 0.001 + ghost.id) * 0.5;
-            ghost.worldY += Math.cos(Date.now() * 0.001 + ghost.id) * 0.5;
-        }
-        
-        updateOtagGhostDisplay(ghost);
+        startEventGame(diff);
     });
-}
+});
 
-function checkOtagWallCollision(newWorldX, newWorldY) {
-    for (let wall of otagWalls) {
-        if (newWorldX > wall.worldX - 20 && newWorldX < wall.worldX + wall.width + 20 &&
-            newWorldY > wall.worldY - 20 && newWorldY < wall.worldY + wall.height + 20) {
-            return true;
+function startEventGame(diff) {
+    eventDifficulty = diff;
+    eventQuestions = [...EVENT_QUESTION_DB[diff]]; // 問題をコピー
+    eventCurrentQuestionIndex = 0;
+    eventAnswers = [];
+    canUseSkill = false; // イベント中はスキル使用不可
+
+    // コイン消費
+    let cost = 0;
+    if (diff === 'easy') cost = 10000;
+    else if (diff === 'normal') cost = 50000;
+    else if (diff === 'hard') cost = 75000;
+    // ボスと裏面はコイン消費なし（代わりにスキル獲得）
+
+    if (cost > 0) {
+        if (coins < cost) {
+            alert(`コインが足りません！ 必要: ${cost}🪙`);
+            eventMode = false;
+            return;
         }
+        coins -= cost;
+        saveAndDisplayData();
     }
-    return false;
+
+    openScreen('screen-event-game');
+    resetEventGame();
+    showEventReadyPanel();
 }
 
-function checkOtagWallCollisionForGhost(newWorldX, newWorldY) {
-    for (let wall of otagWalls) {
-        if (newWorldX > wall.worldX - 20 && newWorldX < wall.worldX + wall.width + 20 &&
-            newWorldY > wall.worldY - 20 && newWorldY < wall.worldY + wall.height + 20) {
-            return true;
-        }
-    }
-    return false;
+function resetEventGame() {
+    eventGameActive = false;
+    eventTypingActive = false;
+    if (eventTimerInterval) clearInterval(eventTimerInterval);
+    document.getElementById('event-ready-panel').classList.remove('hidden');
+    document.getElementById('event-game-play').classList.add('hidden');
+    document.getElementById('event-typing-area').classList.add('hidden');
+    document.getElementById('event-choices-container').innerHTML = '';
+    eventPartyVotes = {};
 }
 
-function checkOtagGhostCollision() {
-    for (let ghost of otagGhosts) {
-        if (ghost.stunned) continue;
-        
-        const dx = otagPlayer.worldX - ghost.worldX;
-        const dy = otagPlayer.worldY - ghost.worldY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < 30) { // 当たり判定を40→30に縮小
-            if (otagPlayer.invisible) return;
-            otagPlayerDead();
-            break;
-        }
-    }
-}
+function showEventReadyPanel() {
+    const readyPanel = document.getElementById('event-ready-panel');
+    const readyList = document.getElementById('event-ready-list');
+    const readyBtn = document.getElementById('event-ready-btn');
+    const timerEl = document.getElementById('event-ready-timer');
 
-function otagPlayerDead() {
-    if (otagDeckSkills.support) {
-        otagPlayer.worldX = 400;
-        otagPlayer.worldY = 300;
-        showBattleAlert("💫 サポートで復活！", "#FF69B4");
+    readyPanel.classList.remove('hidden');
+    document.getElementById('event-game-play').classList.add('hidden');
+
+    if (myPartyId) {
+        // パーティーモード
+        readyBtn.classList.remove('hidden');
+        // Firebaseでパーティーメンバーの準備状態を監視 (簡易実装)
+        readyList.innerHTML = '<div>パーティーメンバーの準備を待っています...</div>';
+        // タイマーは20秒 (パーティーは+5秒)
+        startEventReadyTimer(20);
     } else {
-        endOtagGame(false);
+        // ソロモード
+        readyBtn.classList.add('hidden');
+        readyList.innerHTML = '<div>ソロモード: すぐに開始します。</div>';
+        startEventReadyTimer(5); // ソロは5秒カウントダウン後自動開始
     }
 }
 
-function checkOtagGenerator() {
-    for (let gen of otagGenerators) {
-        const dx = otagPlayer.worldX - gen.worldX;
-        const dy = otagPlayer.worldY - gen.worldY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < 50 && !gen.active) {
-            gen.active = true;
-            gen.typingActive = true;
-            otagTypingActive = true;
-            startOtagTyping(gen);
-            break;
+function startEventReadyTimer(seconds) {
+    const timerEl = document.getElementById('event-ready-timer');
+    let timeLeft = seconds;
+    timerEl.innerText = `00:${timeLeft.toString().padStart(2, '0')}`;
+    
+    const interval = setInterval(() => {
+        timeLeft--;
+        timerEl.innerText = `00:${timeLeft.toString().padStart(2, '0')}`;
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            // 準備完了とみなしてゲーム開始
+            startEventGamePlay();
+        }
+    }, 1000);
+}
+
+window.sendEventReady = () => {
+    // パーティー用。ソロでは呼ばれない。
+    if (myPartyId) {
+        // Firebase に準備OKを送信
+        alert("準備OK！ (実際にはFirebaseに送信)");
+        // ここで全員の準備ができたかを確認するロジックが必要
+        // 簡易的に即時開始
+        startEventGamePlay();
+    }
+};
+
+function startEventGamePlay() {
+    eventGameActive = true;
+    document.getElementById('event-ready-panel').classList.add('hidden');
+    document.getElementById('event-game-play').classList.remove('hidden');
+    loadNextEventQuestion();
+}
+
+function loadNextEventQuestion() {
+    if (eventCurrentQuestionIndex >= eventQuestions.length) {
+        endEventGame(true); // クリア
+        return;
+    }
+
+    const q = eventQuestions[eventCurrentQuestionIndex];
+    document.getElementById('event-question').innerText = q.question;
+    document.getElementById('event-progress-display').innerText = `問 ${eventCurrentQuestionIndex + 1} / ${eventQuestions.length}`;
+
+    // 選択肢を表示
+    const choicesContainer = document.getElementById('event-choices-container');
+    choicesContainer.innerHTML = '';
+    q.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'event-option-btn';
+        btn.innerText = opt;
+        btn.onclick = () => handleEventChoice(opt);
+        choicesContainer.appendChild(btn);
+    });
+
+    // タイピングエリアは非表示に
+    document.getElementById('event-typing-area').classList.add('hidden');
+
+    // タイマー開始
+    startEventQuestionTimer(myPartyId ? 20 : 15); // パーティーは+5秒
+}
+
+function startEventQuestionTimer(seconds) {
+    if (eventTimerInterval) clearInterval(eventTimerInterval);
+    eventTimer = seconds;
+    const timerEl = document.getElementById('event-timer-display');
+    timerEl.innerText = `00:${eventTimer.toString().padStart(2, '0')}`;
+
+    eventTimerInterval = setInterval(() => {
+        eventTimer--;
+        timerEl.innerText = `00:${eventTimer.toString().padStart(2, '0')}`;
+        if (eventTimer <= 0) {
+            clearInterval(eventTimerInterval);
+            // 時間切れ: 不正解としてゲームオーバー
+            endEventGame(false);
+        }
+    }, 1000);
+}
+
+function handleEventChoice(selectedOption) {
+    if (!eventGameActive) return;
+
+    clearInterval(eventTimerInterval);
+    const q = eventQuestions[eventCurrentQuestionIndex];
+
+    if (myPartyId) {
+        // パーティー: 投票処理
+        eventPartyVotes[selectedOption] = (eventPartyVotes[selectedOption] || 0) + 1;
+        // 投票数を表示
+        const buttons = document.querySelectorAll('.event-option-btn');
+        buttons.forEach(btn => {
+            if (btn.innerText === selectedOption) {
+                let countSpan = btn.querySelector('.event-vote-count');
+                if (!countSpan) {
+                    countSpan = document.createElement('div');
+                    countSpan.className = 'event-vote-count';
+                    btn.appendChild(countSpan);
+                }
+                countSpan.innerText = `👍 ${eventPartyVotes[selectedOption]}`;
+            }
+        });
+
+        // 全員が投票したかをチェック (簡易的に2秒後確定)
+        setTimeout(() => {
+            if (eventGameActive) {
+                determinePartyChoiceAndProceed(q);
+            }
+        }, 2000);
+    } else {
+        // ソロ: 選択後すぐにタイピングへ
+        proceedToTyping(selectedOption, q.answer);
+    }
+}
+
+function determinePartyChoiceAndProceed(q) {
+    // 最も投票の多かった選択肢を選ぶ
+    let maxVotes = 0;
+    let chosenOption = q.options[0];
+    for (const opt in eventPartyVotes) {
+        if (eventPartyVotes[opt] > maxVotes) {
+            maxVotes = eventPartyVotes[opt];
+            chosenOption = opt;
         }
     }
+    eventPartyVotes = {}; // リセット
+    proceedToTyping(chosenOption, q.answer);
 }
 
-function startOtagTyping(generator) {
-    const difficulties = ['normal', 'hard'];
-    const diff = difficulties[Math.floor(Math.random() * difficulties.length)];
-    const wordList = WORD_DB[diff];
-    
-    otagTypingWords = [];
-    for (let i = 0; i < 5; i++) {
-        const word = wordList[Math.floor(Math.random() * wordList.length)];
-        otagTypingWords.push(word);
-    }
-    otagTypingCurrentIndex = 0;
-    otagTypingRemaining = 5;
-    otagTypingRomaIdx = 0;
-    
-    const minigame = el("otag-typing-minigame");
-    const wordEl = el("otag-typing-word");
-    const romaEl = el("otag-typing-roma");
-    const remainingEl = el("otag-typing-remaining");
-    
-    if (minigame && wordEl && romaEl && remainingEl) {
-        minigame.classList.remove("hidden");
-        otagTypingCurrentWord = otagTypingWords[0];
-        wordEl.innerText = otagTypingCurrentWord;
-        const patterns = getRomaPatterns(otagTypingCurrentWord);
-        otagTypingCurrentRoma = patterns[0];
-        romaEl.innerHTML = `<span class="char-done"></span><span class="char-todo">${otagTypingCurrentRoma}</span>`;
-        remainingEl.innerText = otagTypingRemaining;
-    }
-    
-    if (otagTypingHandler) {
-        window.removeEventListener("keydown", otagTypingHandler);
-    }
-    otagTypingHandler = handleOtagTyping;
-    window.addEventListener("keydown", otagTypingHandler);
+function proceedToTyping(chosenOption, correctAnswer) {
+    // 選択したものがタイピングとして出てくる
+    const typingWord = chosenOption; // 例: "紫"
+    document.getElementById('event-choices-container').innerHTML = ''; // 選択肢を消す
+    document.getElementById('event-typing-area').classList.remove('hidden');
+
+    // タイピングのセットアップ
+    document.getElementById('event-q-ja').innerText = typingWord;
+    const patterns = getRomaPatterns(typingWord);
+    eventCurrentRoma = patterns[0];
+    eventRomaIdx = 0;
+    renderEventRoma();
+
+    eventTypingActive = true;
+    // タイマーをリセットせず継続
 }
 
-function handleOtagTyping(e) {
-    if (!otagTypingActive) return;
-    
-    const targetChar = otagTypingCurrentRoma[otagTypingRomaIdx];
-    if (!targetChar) return;
-    
-    if (e.key.toLowerCase() === targetChar.toLowerCase()) {
-        otagTypingRomaIdx++;
-        
-        const romaEl = el("otag-typing-roma");
-        if (romaEl) {
-            const done = otagTypingCurrentRoma.substring(0, otagTypingRomaIdx);
-            const todo = otagTypingCurrentRoma.substring(otagTypingRomaIdx);
-            romaEl.innerHTML = `<span class="char-done">${done}</span><span class="char-todo">${todo}</span>`;
-        }
-        
+function renderEventRoma() {
+    const doneEl = document.getElementById('event-q-done');
+    const todoEl = document.getElementById('event-q-todo');
+    if (doneEl) doneEl.innerText = eventCurrentRoma.substring(0, eventRomaIdx);
+    if (todoEl) todoEl.innerText = eventCurrentRoma.substring(eventRomaIdx);
+}
+
+// イベントモード用キーボードイベント
+window.addEventListener('keydown', (e) => {
+    if (!eventGameActive || !eventTypingActive) return;
+
+    if (e.key.toLowerCase() === eventCurrentRoma[eventRomaIdx]?.toLowerCase()) {
+        // 正解
+        eventRomaIdx++;
+        renderEventRoma();
         sounds.type.play();
-        
-        if (otagTypingRomaIdx >= otagTypingCurrentRoma.length) {
-            sounds.correct.play();
-            otagTypingCurrentIndex++;
-            otagTypingRemaining--;
+
+        if (eventRomaIdx >= eventCurrentRoma.length) {
+            // タイピング成功
+            eventTypingActive = false;
+            clearInterval(eventTimerInterval);
             
-            const remainingEl = el("otag-typing-remaining");
-            if (remainingEl) remainingEl.innerText = otagTypingRemaining;
-            
-            if (otagTypingRemaining <= 0) {
-                completeOtagGenerator();
+            // 選んだ答えが正解かチェック
+            const q = eventQuestions[eventCurrentQuestionIndex];
+            const selectedWord = document.getElementById('event-q-ja').innerText;
+            if (selectedWord === q.answer) {
+                // 正解！次の問題へ
+                eventCurrentQuestionIndex++;
+                loadNextEventQuestion();
             } else {
-                otagTypingCurrentWord = otagTypingWords[otagTypingCurrentIndex];
-                const wordEl = el("otag-typing-word");
-                if (wordEl) wordEl.innerText = otagTypingCurrentWord;
-                
-                const patterns = getRomaPatterns(otagTypingCurrentWord);
-                otagTypingCurrentRoma = patterns[0];
-                otagTypingRomaIdx = 0;
-                
-                const romaEl = el("otag-typing-roma");
-                if (romaEl) romaEl.innerHTML = `<span class="char-done"></span><span class="char-todo">${otagTypingCurrentRoma}</span>`;
+                // 不正解！ゲームオーバー
+                endEventGame(false);
             }
         }
-    } else if (!["Shift","Alt","Control","Space","1","2","3","4","5","6","r","R"].includes(e.key)) {
+    } else if (!["Shift","Alt","Control","Space","1","2","3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
+        // ミス
         sounds.miss.play();
     }
-}
+});
 
-function completeOtagGenerator() {
-    otagTypingActive = false;
-    
-    for (let gen of otagGenerators) {
-        if (gen.typingActive) {
-            // 成功後もジェネレーターを再利用可能にする
-            gen.active = false;      // 再びRキーで起動できるように
-            gen.typingActive = false;
+function endEventGame(isClear) {
+    eventGameActive = false;
+    eventTypingActive = false;
+    canUseSkill = true; // スキル使用可能に戻す
+    clearInterval(eventTimerInterval);
 
-            if (gen.isMoneyGenerator) {
-                otagReward += 10;
-            } else {
-                otagTimer -= 3;
-            }
-            break;
+    if (isClear) {
+        // クリア処理
+        eventProgress[eventDifficulty] = true;
+        localStorage.setItem("ramo_event_progress", JSON.stringify(eventProgress));
+
+        // 報酬付与
+        let rewardCoins = 0;
+        let skillReward = null;
+        if (eventDifficulty === 'easy') rewardCoins = 10000;
+        else if (eventDifficulty === 'normal') rewardCoins = 50000;
+        else if (eventDifficulty === 'hard') rewardCoins = 75000;
+        else if (eventDifficulty === 'boss') {
+            skillReward = 'color_splash';
+            rewardCoins = 0;
+        } else if (eventDifficulty === 'ura1') {
+            rewardCoins = 100000;
+        } else if (eventDifficulty === 'ura2') {
+            skillReward = 'hacker_splash';
         }
+
+        if (rewardCoins > 0) {
+            coins += rewardCoins;
+            alert(`🎉 クリア！ ${rewardCoins.toLocaleString()}🪙 獲得！`);
+        }
+        if (skillReward) {
+            if (!ownedSkills.includes(skillReward)) {
+                ownedSkills.push(skillReward);
+                alert(`🎉 限定スキル「${SKILL_DB[skillReward]?.name || skillReward}」を獲得しました！`);
+            }
+        }
+        saveAndDisplayData();
+
+        // ボスクリアなら裏面ボタン表示
+        if (eventDifficulty === 'boss') {
+            const uraBtn = document.getElementById('event-ura-button');
+            if (uraBtn) uraBtn.classList.remove('hidden');
+        }
+
+        openScreen('screen-event-mode');
+        updateEventDifficultyButtons();
+    } else {
+        // ゲームオーバー
+        alert("❌ ゲームオーバー... また挑戦してね！");
+        openScreen('screen-event-mode');
     }
-    
-    const minigame = el("otag-typing-minigame");
-    if (minigame) minigame.classList.add("hidden");
-    
-    if (otagTypingHandler) {
-        window.removeEventListener("keydown", otagTypingHandler);
-        otagTypingHandler = null;
-    }
-    updateOtagUI();
+    eventMode = false;
 }
 
-window.stopOtagGenerator = () => {
-    otagTypingActive = false;
-    const minigame = el("otag-typing-minigame");
-    if (minigame) minigame.classList.add("hidden");
-    
-    if (otagTypingHandler) {
-        window.removeEventListener("keydown", otagTypingHandler);
-        otagTypingHandler = null;
-    }
-};
-
-function activateOtagSkill(skillType) {
-    if (otagTypingActive) return;
-    
-    switch(skillType) {
-        case 'dash':
-            if (otagSkillCooldowns.dash > 0) {
-                showBattleAlert(`⏳ ダッシュクールダウン中`, "#FFA500");
-                return;
-            }
-            otagPlayer.speed = 9;
-            otagSkillCooldowns.dash = 20;
-            setTimeout(() => { otagPlayer.speed = 5; }, 2000);
-            startOtagCooldown('dash', 20);
-            break;
-            
-        case 'netgun':
-            if (!otagOwnedSkills.netgun) {
-                showBattleAlert("このスキルを所持していません", "#FF0000");
-                return;
-            }
-            if (otagSkillCooldowns.netgun > 0) {
-                showBattleAlert(`⏳ あみでっぽうクールダウン中`, "#FFA500");
-                return;
-            }
-            for (let ghost of otagGhosts) {
-                const dx = ghost.worldX - otagPlayer.worldX;
-                const dy = ghost.worldY - otagPlayer.worldY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                let inRange = false;
-                switch(otagPlayer.direction) {
-                    case 'up': inRange = (dy < 0 && Math.abs(dx) < 50 && Math.abs(dy) < 150); break;
-                    case 'down': inRange = (dy > 0 && Math.abs(dx) < 50 && Math.abs(dy) < 150); break;
-                    case 'left': inRange = (dx < 0 && Math.abs(dy) < 50 && Math.abs(dx) < 150); break;
-                    case 'right': inRange = (dx > 0 && Math.abs(dy) < 50 && Math.abs(dx) < 150); break;
-                }
-                
-                if (inRange) {
-                    ghost.stunned = true;
-                    ghost.stunTimer = 5;
-                    ghost.speed = 1.2;
-                }
-            }
-            otagSkillCooldowns.netgun = 100;
-            startOtagCooldown('netgun', 100);
-            break;
-            
-        case 'builder':
-            if (!otagOwnedSkills.builder) {
-                showBattleAlert("このスキルを所持していません", "#FF0000");
-                return;
-            }
-            if (otagSkillCooldowns.builder > 0) {
-                showBattleAlert(`⏳ ビルダークールダウン中`, "#FFA500");
-                return;
-            }
-            otagPlacedTiles.push({
-                worldX: otagPlayer.worldX,
-                worldY: otagPlayer.worldY,
-                active: true,
-                timer: 20
-            });
-            otagSkillCooldowns.builder = 50;
-            startOtagCooldown('builder', 50);
-            break;
-            
-        case 'invisible':
-            if (!otagOwnedSkills.invisible) {
-                showBattleAlert("このスキルを所持していません", "#FF0000");
-                return;
-            }
-            if (otagSkillCooldowns.invisible > 0) {
-                showBattleAlert(`⏳ 透明クールダウン中`, "#FFA500");
-                return;
-            }
-            otagPlayer.invisible = true;
-            otagPlayer.speed = 6.5;
-            if (otagPlayer.invisibleTimer) clearTimeout(otagPlayer.invisibleTimer);
-            otagPlayer.invisibleTimer = setTimeout(() => {
-                otagPlayer.invisible = false;
-                otagPlayer.speed = 5;
-            }, 6000);
-            otagSkillCooldowns.invisible = 40;
-            startOtagCooldown('invisible', 40);
-            break;
-            
-        case 'support':
-            if (otagSkillCooldowns.support > 0) {
-                showBattleAlert(`⏳ サポートクールダウン中`, "#FFA500");
-                return;
-            }
-            otagSkillCooldowns.support = 150;
-            startOtagCooldown('support', 150);
-            break;
-            
-        case 'staminaBottle':
-            if (otagSkillCooldowns.staminaBottle > 0) {
-                showBattleAlert(`⏳ スタミナボトルクールダウン中`, "#FFA500");
-                return;
-            }
-            otagPlayer.maxStamina += 10;
-            otagPlayer.speed *= 1.3;
-            setTimeout(() => { otagPlayer.speed = 5; }, 5000);
-            otagSkillCooldowns.staminaBottle = 50;
-            startOtagCooldown('staminaBottle', 50);
-            break;
-    }
-}
-
-function startOtagCooldown(skill, seconds) {
-    const interval = setInterval(() => {
-        if (otagSkillCooldowns[skill] > 0) {
-            otagSkillCooldowns[skill]--;
+window.openUraMode = () => {
+    // 裏面の難易度選択
+    if (confirm("激ムズに挑戦しますか？")) {
+        startEventGame('ura1');
+    } else if (confirm("裏ボスに挑戦しますか？")) {
+        if (eventProgress.ura1) {
+            startEventGame('ura2');
         } else {
-            clearInterval(interval);
-        }
-    }, 1000);
-}
-
-function checkOtagTileEffect() {
-    for (let tile of otagPlacedTiles) {
-        if (!tile.active) continue;
-        
-        const dx = otagPlayer.worldX - tile.worldX;
-        const dy = otagPlayer.worldY - tile.worldY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < 40) {
-            otagPlayer.speed = 7.5;
-            setTimeout(() => {
-                if (otagPlayer.speed > 5) otagPlayer.speed = 5;
-            }, 3000);
-        }
-        
-        tile.timer -= 0.05;
-        if (tile.timer <= 0) {
-            tile.active = false;
-        }
-    }
-}
-
-function updateOtagPlayerDisplay() {
-    const playerEl = el("otag-player");
-    if (!playerEl) return;
-    
-    const offsetX = otagPlayer.worldX - 400;
-    const offsetY = otagPlayer.worldY - 300;
-    
-    playerEl.style.left = "50%";
-    playerEl.style.top = "50%";
-    playerEl.style.transform = "translate(-50%, -50%)";
-    playerEl.style.opacity = otagPlayer.invisible ? "0.3" : "1";
-    
-    // 鬼の表示
-    otagGhosts.forEach(ghost => {
-        const ghostEl = el(`otag-ghost-${ghost.id}`);
-        if (ghostEl) {
-            const screenX = ghost.worldX - offsetX;
-            const screenY = ghost.worldY - offsetY;
-            ghostEl.style.left = screenX + "px";
-            ghostEl.style.top = screenY + "px";
-            ghostEl.style.opacity = ghost.stunned ? "0.5" : "1";
-            ghostEl.style.background = "none";
-            ghostEl.innerText = ghost.stunned ? "😵" : "👔🕶️";
-            ghostEl.style.fontSize = "30px";
-            ghostEl.style.display = "flex";
-            ghostEl.style.alignItems = "center";
-            ghostEl.style.justifyContent = "center";
-        }
-    });
-    
-    // ジェネレーターの表示（初回のみ作成）
-    otagGenerators.forEach((gen, index) => {
-        let genEl = document.getElementById(`otag-generator-${gen.id}`);
-        if (!genEl) {
-            genEl = document.createElement('div');
-            genEl.id = `otag-generator-${gen.id}`;
-            genEl.className = 'otag-generator';
-            genEl.style.position = 'absolute';
-            genEl.style.width = '40px';
-            genEl.style.height = '40px';
-            genEl.style.borderRadius = '50%';
-            genEl.style.display = 'flex';
-            genEl.style.alignItems = 'center';
-            genEl.style.justifyContent = 'center';
-            genEl.style.fontSize = '24px';
-            genEl.style.background = 'rgba(255, 215, 0, 0.3)';
-            genEl.style.border = '2px solid gold';
-            genEl.style.cursor = 'pointer';
-            genEl.onclick = () => {
-                if (otagGameActive && !otagTypingActive) checkOtagGeneratorById(gen.id);
-            };
-            document.querySelector('.otag-game-canvas').appendChild(genEl);
-        }
-        const screenX = gen.worldX - offsetX;
-        const screenY = gen.worldY - offsetY;
-        genEl.style.left = screenX + "px";
-        genEl.style.top = screenY + "px";
-        genEl.innerText = gen.isMoneyGenerator ? "💰" : "⚡";
-        genEl.style.backgroundColor = gen.active ? '#aaa' : 'rgba(255, 215, 0, 0.3)';
-    });
-    
-    // 壁の表示
-    document.querySelectorAll('.otag-wall').forEach((wall, index) => {
-        if (index < otagWalls.length) {
-            const w = otagWalls[index];
-            const screenX = w.worldX - offsetX;
-            const screenY = w.worldY - offsetY;
-            wall.style.left = screenX + "px";
-            wall.style.top = screenY + "px";
-        }
-    });
-    
-    // タイルの表示
-    otagPlacedTiles.forEach((tile, idx) => {
-        let tileEl = document.getElementById(`otag-tile-${idx}`);
-        if (!tile.active) {
-            if (tileEl) tileEl.remove();
-            return;
-        }
-        if (!tileEl) {
-            tileEl = document.createElement('div');
-            tileEl.id = `otag-tile-${idx}`;
-            tileEl.className = 'otag-tile';
-            tileEl.style.position = 'absolute';
-            tileEl.style.width = '40px';
-            tileEl.style.height = '40px';
-            tileEl.style.background = 'rgba(0, 255, 0, 0.5)';
-            tileEl.style.borderRadius = '10px';
-            tileEl.style.pointerEvents = 'none';
-            tileEl.style.zIndex = '8';
-            document.querySelector('.otag-game-canvas').appendChild(tileEl);
-        }
-        const screenX = tile.worldX - offsetX;
-        const screenY = tile.worldY - offsetY;
-        tileEl.style.left = screenX + "px";
-        tileEl.style.top = screenY + "px";
-    });
-}
-
-function checkOtagGeneratorById(id) {
-    const gen = otagGenerators.find(g => g.id === id);
-    if (gen && !gen.active) {
-        gen.active = true;
-        gen.typingActive = true;
-        otagTypingActive = true;
-        startOtagTyping(gen);
-    }
-}
-
-function updateOtagGhostDisplay(ghost) {}
-
-function updateOtagUI() {
-    const timerEl = el("otag-timer");
-    const staminaEl = el("otag-stamina");
-    const rewardEl = el("otag-reward");
-    
-    if (timerEl) {
-        const minutes = Math.floor(otagTimer / 60);
-        const seconds = otagTimer % 60;
-        timerEl.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-    if (staminaEl) {
-        staminaEl.innerText = `${otagPlayer.stamina}/${otagPlayer.maxStamina}`;
-    }
-    if (rewardEl) {
-        rewardEl.innerText = otagReward.toLocaleString();
-    }
-}
-
-function endOtagGame(won) {
-    otagGameActive = false;
-    otagMode = false;
-    
-    if (otagGameInterval) clearInterval(otagGameInterval);
-    if (otagStaminaInterval) clearInterval(otagStaminaInterval);
-    if (otagGhostInterval) clearInterval(otagGhostInterval);
-    if (otagRewardInterval) clearInterval(otagRewardInterval);
-    
-    if (otagKeyHandler) {
-        window.removeEventListener("keydown", otagKeyHandler);
-        otagKeyHandler = null;
-    }
-    window.removeEventListener("keyup", handleOtagKeyUp);
-    
-    if (otagTypingHandler) {
-        window.removeEventListener("keydown", otagTypingHandler);
-        otagTypingHandler = null;
-    }
-    
-    if (won) {
-        coins += otagReward;
-        alert(`🎉 鬼ごっこクリア！\n獲得コイン: ${otagReward.toLocaleString()}🪙`);
-    } else {
-        alert(`❌ ゲームオーバー...\n獲得コイン: ${Math.floor(otagReward / 2).toLocaleString()}🪙`);
-        coins += Math.floor(otagReward / 2);
-    }
-    
-    saveAndDisplayData();
-    goHome();
-}
-
-function stopOtagGame() {
-    if (otagGameActive) {
-        endOtagGame(false);
-    }
-}
-
-window.selectOtagSkill = (skillId) => {
-    // スキルが所持済みなら装備、未所持ならショップへ誘導
-    if (otagOwnedSkills[skillId]) {
-        equippedOtagSkill = skillId;
-        renderOtagSkillList();
-    } else {
-        if (confirm("このスキルは未購入です。スキルショップに移動しますか？")) {
-            openShop();
+            alert("先に激ムズをクリアしてください！");
         }
     }
 };
-
-// スキンショップへのショートカット
-window.goToSkinShop = () => {
-    openSkinShop();
-};
-
-// =========================================
-// 鬼ごっこスキンショップ関連関数 (新規追加)
-// =========================================
-window.openOtagSkinShop = () => {
-    tempOtagSkinData = JSON.parse(JSON.stringify(otagSkinData));
-    openScreen("screen-otag-skin-shop");
-    updateOtagSkinPreview();
-    renderOtagSkinCategory(); // 初期表示は肌の色
-    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
-};
-
-window.saveAndExitOtagSkinShop = () => {
-    otagSkinData = JSON.parse(JSON.stringify(tempOtagSkinData));
-    localStorage.setItem("ramo_otag_skin", JSON.stringify(otagSkinData));
-    saveAndDisplayData(); // コインなども保存
-    goHome();
-};
-
-function updateOtagSkinPreview() {
-    const previewSkin = document.getElementById("otag-preview-skin");
-    const previewFace = document.getElementById("otag-preview-face");
-    const previewHat = document.getElementById("otag-preview-hat");
-    const previewClothes = document.getElementById("otag-preview-clothes");
-    const previewBody = document.querySelector('#otag-skin-preview .skin-preview');
-
-    if (previewSkin) {
-        if (tempOtagSkinData.skin === "skin-gold") {
-            previewSkin.style.background = SKIN_COLORS["skin-gold"];
-        } else if (tempOtagSkinData.skin === "custom") {
-            previewSkin.style.background = `rgb(${tempOtagSkinData.skinCustom?.r || 255}, ${tempOtagSkinData.skinCustom?.g || 205}, ${tempOtagSkinData.skinCustom?.b || 148})`;
-        } else {
-            previewSkin.style.background = SKIN_COLORS[tempOtagSkinData.skin] || SKIN_COLORS["skin-1"];
-        }
-    }
-    if (previewFace) previewFace.innerText = FACE_DATA[tempOtagSkinData.face] || "😊";
-    if (previewHat) previewHat.innerText = HAT_TYPES[tempOtagSkinData.hat]?.emoji || "";
-    if (previewClothes) {
-        const clothes = CLOTHES_TYPES[tempOtagSkinData.clothes.type] || CLOTHES_TYPES.plain;
-        previewClothes.innerText = clothes.emoji || "";
-        previewClothes.style.backgroundColor = tempOtagSkinData.clothes.color;
-    }
-    if (previewBody) {
-        switch(tempOtagSkinData.bodyType) {
-            case 'thin': previewBody.style.transform = 'scale(0.9)'; break;
-            case 'chubby': previewBody.style.transform = 'scale(1.2)'; break;
-            default: previewBody.style.transform = 'scale(1)';
-        }
-    }
-}
-
-window.switchOtagSkinCategory = (category) => {
-    document.querySelectorAll('#screen-otag-skin-shop .skin-cat-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('#screen-otag-skin-shop .skin-grid').forEach(grid => grid.classList.add('hidden'));
-
-    const activeBtn = Array.from(document.querySelectorAll('#screen-otag-skin-shop .skin-cat-btn')).find(btn => 
-        btn.textContent.includes(category === 'skin' ? '肌の色' : category === 'face' ? '顔' : category === 'body' ? '体型' : category === 'hat' ? '帽子' : '服装')
-    );
-    if (activeBtn) activeBtn.classList.add('active');
-
-    const gridId = `otag-skin-category-${category}`;
-    document.getElementById(gridId).classList.remove('hidden');
-
-    // 各カテゴリのレンダリング
-    switch(category) {
-        case 'skin': renderOtagSkinCategory(); break;
-        case 'face': renderOtagFaceCategory(); break;
-        case 'body': renderOtagBodyCategory(); break;
-        case 'hat': renderOtagHatCategory(); break;
-        case 'clothes': renderOtagClothesCategory(); break;
-    }
-};
-
-function renderOtagSkinCategory() {
-    const grid = document.getElementById("otag-skin-category-skin");
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    for (let i = 1; i <= 10; i++) {
-        const skinId = `skin-${i}`;
-        const isEquipped = tempOtagSkinData.skin === skinId;
-        const item = document.createElement("div");
-        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
-        item.style.background = SKIN_COLORS[skinId];
-        item.onclick = () => {
-            tempOtagSkinData.skin = skinId;
-            updateOtagSkinPreview();
-            renderOtagSkinCategory();
-        };
-        grid.appendChild(item);
-    }
-
-    // 金色（大金持ちアクセサリー所持者のみ）
-    if (skinData.accessories && skinData.accessories.includes('rich')) {
-        const goldItem = document.createElement("div");
-        goldItem.className = `skin-item owned ${tempOtagSkinData.skin === 'skin-gold' ? 'equipped' : ''}`;
-        goldItem.style.background = SKIN_COLORS["skin-gold"];
-        goldItem.onclick = () => {
-            tempOtagSkinData.skin = "skin-gold";
-            updateOtagSkinPreview();
-            renderOtagSkinCategory();
-        };
-        grid.appendChild(goldItem);
-    }
-}
-
-function renderOtagFaceCategory() {
-    const grid = document.getElementById("otag-skin-category-face");
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    for (let i = 1; i <= 30; i++) {
-        const faceId = `face-${i}`;
-        const isEquipped = tempOtagSkinData.face === faceId;
-        const item = document.createElement("div");
-        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
-        item.innerHTML = FACE_DATA[faceId];
-        item.onclick = () => {
-            tempOtagSkinData.face = faceId;
-            updateOtagSkinPreview();
-            renderOtagFaceCategory();
-        };
-        grid.appendChild(item);
-    }
-
-    // 特別な顔
-    if (skinData.accessories && skinData.accessories.includes('rich')) {
-        const moneyFace = document.createElement("div");
-        moneyFace.className = `skin-item owned ${tempOtagSkinData.face === 'face-money' ? 'equipped' : ''}`;
-        moneyFace.innerHTML = "🤑";
-        moneyFace.onclick = () => {
-            tempOtagSkinData.face = "face-money";
-            updateOtagSkinPreview();
-            renderOtagFaceCategory();
-        };
-        grid.appendChild(moneyFace);
-    }
-}
-
-function renderOtagBodyCategory() {
-    const grid = document.getElementById("otag-skin-category-body");
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    Object.entries(BODY_TYPES).forEach(([id, data]) => {
-        const isEquipped = tempOtagSkinData.bodyType === id;
-        const item = document.createElement("div");
-        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
-        item.innerHTML = data.name;
-        item.onclick = () => {
-            tempOtagSkinData.bodyType = id;
-            updateOtagSkinPreview();
-            renderOtagBodyCategory();
-        };
-        grid.appendChild(item);
-    });
-}
-
-function renderOtagHatCategory() {
-    const grid = document.getElementById("otag-skin-category-hat");
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    Object.entries(HAT_TYPES).forEach(([id, data]) => {
-        const isOwned = id === 'none' || (tempOtagSkinData.ownedHats && tempOtagSkinData.ownedHats[id]);
-        const isEquipped = tempOtagSkinData.hat === id;
-        const canAfford = coins >= data.cost;
-
-        const item = document.createElement("div");
-        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
-        item.innerHTML = `
-            <span style="font-size: 2rem;">${data.emoji || '👤'}</span>
-            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
-        `;
-
-        if (isOwned) {
-            item.onclick = () => {
-                tempOtagSkinData.hat = id;
-                updateOtagSkinPreview();
-                renderOtagHatCategory();
-            };
-        } else if (canAfford) {
-            item.onclick = () => {
-                if (confirm(`${data.name}を購入しますか？`)) {
-                    coins -= data.cost;
-                    if (!tempOtagSkinData.ownedHats) tempOtagSkinData.ownedHats = {};
-                    tempOtagSkinData.ownedHats[id] = true;
-                    tempOtagSkinData.hat = id;
-                    updateOtagSkinPreview();
-                    renderOtagHatCategory();
-                    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
-                }
-            };
-        }
-        grid.appendChild(item);
-    });
-}
-
-function renderOtagClothesCategory() {
-    const grid = document.getElementById("otag-skin-category-clothes");
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    Object.entries(CLOTHES_TYPES).forEach(([id, data]) => {
-        const isOwned = id === 'plain' || (tempOtagSkinData.ownedClothes && tempOtagSkinData.ownedClothes[id]);
-        const isEquipped = tempOtagSkinData.clothes.type === id;
-        const canAfford = coins >= data.cost;
-
-        const item = document.createElement("div");
-        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
-        item.innerHTML = `
-            <span style="font-size: 2rem;">${data.emoji}</span>
-            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
-        `;
-
-        if (isOwned) {
-            item.onclick = () => {
-                tempOtagSkinData.clothes.type = id;
-                updateOtagSkinPreview();
-                renderOtagClothesCategory();
-            };
-        } else if (canAfford) {
-            item.onclick = () => {
-                if (confirm(`${data.name}を購入しますか？`)) {
-                    coins -= data.cost;
-                    if (!tempOtagSkinData.ownedClothes) tempOtagSkinData.ownedClothes = {};
-                    tempOtagSkinData.ownedClothes[id] = true;
-                    tempOtagSkinData.clothes.type = id;
-                    updateOtagSkinPreview();
-                    renderOtagClothesCategory();
-                    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
-                }
-            };
-        }
-        grid.appendChild(item);
-    });
-
-    // カスタム服装（色＋ステッカー）
-    const customItem = document.createElement("div");
-    customItem.className = `skin-item ${tempOtagSkinData.clothes.type === 'custom' ? 'equipped' : ''}`;
-    customItem.style.background = tempOtagSkinData.clothes.color;
-    customItem.innerHTML = `
-        <span style="font-size: 1.5rem;">${tempOtagSkinData.clothes.sticker || '✏️'}</span>
-        <span class="skin-price">30000🪙</span>
-    `;
-    customItem.onclick = () => openOtagCustomClothesPicker();
-    grid.appendChild(customItem);
-}
-
-function openOtagCustomClothesPicker() {
-    const cost = 30000;
-    if (tempOtagSkinData.clothes.type !== 'custom' && coins < cost) {
-        alert(`コインが足りません！\n必要: ${cost}🪙`);
-        return;
-    }
-
-    const color = prompt("色を入力 (例: #ff0000, red, rgb(255,0,0)):", tempOtagSkinData.clothes.color);
-    if (!color) return;
-    const sticker = prompt("ステッカー（1文字）:", tempOtagSkinData.clothes.sticker || "");
-    if (sticker && sticker.length > 1) {
-        alert("1文字で入力してください");
-        return;
-    }
-
-    if (tempOtagSkinData.clothes.type !== 'custom') {
-        coins -= cost;
-    }
-    tempOtagSkinData.clothes.type = 'custom';
-    tempOtagSkinData.clothes.color = color;
-    tempOtagSkinData.clothes.sticker = sticker || "";
-    updateOtagSkinPreview();
-    renderOtagClothesCategory();
-    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
-}
-
-// =========================================
-// 鬼ごっこプレイヤーにスキンを適用
-// =========================================
-function updateOtagPlayerAppearance() {
-    const playerEl = document.getElementById("otag-player");
-    if (!playerEl) return;
-
-    // 肌の色
-    if (otagSkinData.skin === "skin-gold") {
-        playerEl.style.background = SKIN_COLORS["skin-gold"];
-    } else {
-        playerEl.style.background = SKIN_COLORS[otagSkinData.skin] || SKIN_COLORS["skin-1"];
-    }
-
-    // 顔・帽子・服装の絵文字を合成
-    const faceEmoji = FACE_DATA[otagSkinData.face] || "😊";
-    const hatEmoji = HAT_TYPES[otagSkinData.hat]?.emoji || "";
-    const clothesEmoji = CLOTHES_TYPES[otagSkinData.clothes.type]?.emoji || "";
-
-    playerEl.innerText = hatEmoji + faceEmoji + clothesEmoji;
-
-    // 体型の適用 (CSS transform)
-    let scale = 1;
-    if (otagSkinData.bodyType === 'thin') scale = 0.9;
-    else if (otagSkinData.bodyType === 'chubby') scale = 1.2;
-    playerEl.style.transform = `translate(-50%, -50%) scale(${scale})`;
-}
 
 // =========================================
 // スキル・バトルエフェクト処理
@@ -4888,7 +3891,7 @@ function setupSkillUI() {
         
         if (skill.id === "fundraiser" || skill.id === "godfundraiser") {
             // パッシブ
-        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4" || skill.id === "invincible_man" || skill.id === "swordsman" || skill.id === "hacker_trainee" || skill.id === "ultimateAutoType") {
+        } else if (skill.id === "hacker" || skill.id === "accelerator" || skill.id === "hacker_milestone4" || skill.id === "invincible_man" || skill.id === "swordsman" || skill.id === "hacker_trainee" || skill.id === "ultimateAutoType" || skill.id === "color_splash" || skill.id === "hacker_splash") {
             el("in-game-skill-btn").classList.add("hidden");
             if (skill.id === "hacker") {
                 key1.classList.remove("hidden"); key1.innerText = "1: タブ追加 (30s)";
@@ -4914,6 +3917,15 @@ function setupSkillUI() {
                 keySpace.classList.remove("hidden"); keySpace.innerText = "Space: StarterGui (5000s)";
             } else if (skill.id === "ultimateAutoType") {
                 keySpace.classList.remove("hidden"); keySpace.innerText = "Space: 最強自動入力 (120s)";
+            } else if (skill.id === "color_splash") {
+                key1.classList.remove("hidden"); key1.innerText = "1: スプラッシュ (25s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: 塗りつぶし (50s)";
+                key3.classList.remove("hidden"); key3.innerText = "3: スケートボード (70s)";
+                keySpace.classList.remove("hidden"); keySpace.innerText = "Space: 最強スプレー (70s)";
+            } else if (skill.id === "hacker_splash") {
+                key1.classList.remove("hidden"); key1.innerText = "1: スプラッシュタブ追加 (40s)";
+                key2.classList.remove("hidden"); key2.innerText = "2: 混ぜ混ぜハック (65s)";
+                key3.classList.remove("hidden"); key3.innerText = "3: カラーオイル (35s)";
             }
         } else if (skill.id === "comboGod") {
             el("in-game-skill-btn").classList.remove("hidden");
@@ -4978,6 +3990,17 @@ function updateCooldownText() {
     } else if (skill.id === "ultimateAutoType") {
         let ks = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]最強自動入力OK";
         txt = ks;
+    } else if (skill.id === "color_splash") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]スプラッシュOK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]塗りつぶしOK";
+        let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]スケートボードOK";
+        let ks = cooldowns.space > 0 ? `[Space]冷却中(${cooldowns.space}s)` : "[Space]最強スプレーOK";
+        txt = `${k1} | ${k2} | ${k3} | ${ks}`;
+    } else if (skill.id === "hacker_splash") {
+        let k1 = cooldowns.key1 > 0 ? `[1]冷却中(${cooldowns.key1}s)` : "[1]スプラッシュタブ追加OK";
+        let k2 = cooldowns.key2 > 0 ? `[2]冷却中(${cooldowns.key2}s)` : "[2]混ぜ混ぜハックOK";
+        let k3 = cooldowns.key3 > 0 ? `[3]冷却中(${cooldowns.key3}s)` : "[3]カラーオイルOK";
+        txt = `${k1} | ${k2} | ${k3}`;
     } else if (skill.gacha) {
         txt = cooldowns.space > 0 ? `冷却中... (${cooldowns.space}s)` : "準備完了！(スペースキーで発動)";
     } else {
@@ -5068,7 +4091,7 @@ function startSpecificCooldown(slot, seconds) {
     
     if (cooldownTimers[slot]) clearInterval(cooldownTimers[slot]);
     
-    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType") {
+    if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "comboGod" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType" && equippedSkill !== "color_splash" && equippedSkill !== "hacker_splash") {
         el("in-game-skill-btn").classList.add("cooldown");
         el("skill-cooldown-bar").style.height = "100%";
     }
@@ -5079,12 +4102,12 @@ function startSpecificCooldown(slot, seconds) {
         cooldowns[slot]--;
         if (cooldowns[slot] <= 0) {
             clearInterval(cooldownTimers[slot]);
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType" && equippedSkill !== "color_splash" && equippedSkill !== "hacker_splash") {
                 el("in-game-skill-btn").classList.remove("cooldown");
                 el("skill-cooldown-bar").style.height = "0%";
             }
         } else {
-            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType") {
+            if (slot === "space" && equippedSkill !== "hacker" && equippedSkill !== "accelerator" && equippedSkill !== "hacker_milestone4" && equippedSkill !== "invincible_man" && equippedSkill !== "swordsman" && equippedSkill !== "hacker_trainee" && equippedSkill !== "ultimateAutoType" && equippedSkill !== "color_splash" && equippedSkill !== "hacker_splash") {
                 const pct = (cooldowns[slot] / maxCooldowns[slot]) * 100;
                 el("skill-cooldown-bar").style.height = `${pct}%`;
             }
@@ -5242,6 +4265,15 @@ window.activateSkill = (keySlot = "space") => {
             activateUltimateAutoType();
             return;
         }
+        else if (skill.id === "color_splash") {
+            // 最強スプレー
+            sendAttackToOpponents("splash", 10000, 0);
+            showBattleAlert("💦 最強スプレー発動！", "#FF69B4");
+            startSpecificCooldown("space", 70);
+        }
+        else if (skill.id === "hacker_splash") {
+            // ハッカースプラッシュはキー割り当てのみ
+        }
         else if (skill.gacha) {
             if (skill.id === "paintballer") {
                 sendAttackToOpponents("paint", 5000, 0);
@@ -5310,6 +4342,16 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("🎮 アクションゲーム！", "#00ffff");
             startSpecificCooldown("key1", 150);
         }
+        else if (skill.id === "color_splash") {
+            sendAttackToOpponents("blind", 5000, 0);
+            showBattleAlert("🎨 スプラッシュ発動！", "#FF69B4");
+            startSpecificCooldown("key1", 25);
+        }
+        else if (skill.id === "hacker_splash") {
+            sendAttackToOpponents("splash_tabs", 3000, 0);
+            showBattleAlert("💻 スプラッシュタブ追加！", "#00ff00");
+            startSpecificCooldown("key1", 40);
+        }
     }
 
     if (keySlot === "key2") {
@@ -5361,6 +4403,16 @@ window.activateSkill = (keySlot = "space") => {
             showBattleAlert("💊 免疫力発動！スタンを解除！", "#00FF00");
             startSpecificCooldown("key2", 200);
         }
+        else if (skill.id === "color_splash") {
+            sendAttackToOpponents("fill", 5000, 0);
+            showBattleAlert("🖌️ 塗りつぶし発動！", "#FFA500");
+            startSpecificCooldown("key2", 50);
+        }
+        else if (skill.id === "hacker_splash") {
+            sendAttackToOpponents("mix_hack", 3000, 0);
+            showBattleAlert("🎨 混ぜ混ぜハック！", "#ff00ff");
+            startSpecificCooldown("key2", 65);
+        }
     }
 
     if (keySlot === "key3") {
@@ -5381,6 +4433,16 @@ window.activateSkill = (keySlot = "space") => {
             sendAttackToOpponents("fake_typing", 0, 0);
             showBattleAlert("📝 偽物タイピング発動！", "#ffa500");
             startSpecificCooldown("key3", 200);
+        }
+        else if (skill.id === "color_splash") {
+            startAutoTypeEngine(5000, 200);
+            showBattleAlert("🛹 スケートボード発動！自動入力5秒", "#00FFFF");
+            startSpecificCooldown("key3", 70);
+        }
+        else if (skill.id === "hacker_splash") {
+            sendAttackToOpponents("oil", 3000, 0);
+            showBattleAlert("🛢️ カラーオイル発動！", "#FF4500");
+            startSpecificCooldown("key3", 35);
         }
     }
 
@@ -6211,6 +5273,47 @@ function handleIncomingAttack(attack) {
         return;
     }
 
+    // イベントスキル用
+    if (attack.type === "blind") {
+        applyPaintEffect(5000);
+        return;
+    }
+
+    if (attack.type === "fill") {
+        // 塗りつぶし効果（文字が見えなくなる）
+        const wordJa = el("q-ja");
+        const wordRoma = el("q-roma");
+        if (wordJa) wordJa.style.opacity = "0";
+        if (wordRoma) wordRoma.style.opacity = "0";
+        setTimeout(() => {
+            if (wordJa) wordJa.style.opacity = "1";
+            if (wordRoma) wordRoma.style.opacity = "1";
+        }, 5000);
+        return;
+    }
+
+    if (attack.type === "splash") {
+        applySwayEffect(10000);
+        return;
+    }
+
+    if (attack.type === "splash_tabs") {
+        createHackerTabs();
+        applyPaintEffect(3000);
+        return;
+    }
+
+    if (attack.type === "mix_hack") {
+        setStun(3000);
+        return;
+    }
+
+    if (attack.type === "oil") {
+        setStun(3000);
+        setTimeout(() => applySwayEffect(10000), 3000);
+        return;
+    }
+
     if (attack.duration > 0) applyJamming(attack.duration);
 }
 
@@ -6523,8 +5626,8 @@ function isChapterLocked(chapter) {
 }
 
 window.openStoryMode = () => {
-    if (isMatchmaking || trainingMode || otagMode) {
-        alert("マッチング待機中・修行中・鬼ごっこ中はストーリーモードを開けません");
+    if (isMatchmaking || trainingMode || eventMode) {
+        alert("マッチング待機中・修行中・イベント中はストーリーモードを開けません");
         return;
     }
     get(ref(db, `users/${myId}/story_progress`)).then(snap => {
@@ -6757,8 +5860,8 @@ async function checkPartyProgress() {
 }
 
 window.startStorySolo = () => {
-    if (myPartyId || trainingMode || otagMode) {
-        alert("パーティー参加中・修行中・鬼ごっこ中は一人プレイできません");
+    if (myPartyId || trainingMode || eventMode) {
+        alert("パーティー参加中・修行中・イベント中は一人プレイできません");
         return;
     }
     
@@ -6818,19 +5921,19 @@ window.executeDodge = () => {
 
 // --- モード制御 ---
 window.openSingleSelect = () => {
-    if (myPartyId || isMatchmaking || trainingMode || otagMode) return; 
+    if (myPartyId || isMatchmaking || trainingMode || eventMode) return; 
     openScreen("screen-single-select");
 };
 
 window.startSingle = (diff) => { 
-    if (myPartyId || isMatchmaking || trainingMode || otagMode) return; 
+    if (myPartyId || isMatchmaking || trainingMode || eventMode) return; 
     currentWords = WORD_DB[diff]; 
     openScreen("screen-play"); 
     startGame(60); 
 };
 
 window.openFriendBattle = () => {
-    if (isMatchmaking || trainingMode || otagMode) return;
+    if (isMatchmaking || trainingMode || eventMode) return;
     if (!myPartyId) return alert("パーティーに参加していません！");
     if (!isLeader) return alert("リーダー限定です！");
     openScreen("screen-battle-setup");
@@ -6860,7 +5963,7 @@ window.openOnlineMatch = () => {
         updateButtonStates();
         return;
     }
-    if (trainingMode || otagMode) return alert("修行中・鬼ごっこ中は利用できません");
+    if (trainingMode || eventMode) return alert("修行中・イベント中は利用できません");
     
     const n = prompt("何人で遊ぶ？ (2-4)");
     if (![2,3,4].includes(Number(n))) return;
@@ -6881,7 +5984,7 @@ window.openOnlineMatch = () => {
                         name: player.name, 
                         score: 0, 
                         ready: false,
-                        skin: player.skin || { skin: "skin-1", face: "face-1", bodyType: "normal", hat: "none" },
+                        skin: player.skin || { skin: "skin-1", face: "face-1" },
                         team: Math.random() < 0.5 ? "red" : "blue",
                         handicap: "none"
                     }; 
@@ -6934,10 +6037,9 @@ get(userRef).then(snap => {
         if(data.daily_code_date) dailyCodeDate = data.daily_code_date;
         if(data.used_codes) usedCodes = data.used_codes;
         if(data.clear_codes) clearCodes = data.clear_codes;
-        // 鬼ごっこ関連
-        if(data.otag_skin) otagSkinData = data.otag_skin;
-        if(data.otag_skills) otagOwnedSkills = data.otag_skills;
-        if(data.equipped_otag) equippedOtagSkill = data.equipped_otag;
+        
+        // イベント進捗読み込み
+        if(data.event_progress) eventProgress = data.event_progress;
         
         localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
         localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
@@ -6948,14 +6050,12 @@ get(userRef).then(snap => {
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
         localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         localStorage.setItem("ramo_training_completed", JSON.stringify(trainingCompleted));
-        localStorage.setItem("ramo_otag_skin", JSON.stringify(otagSkinData));
-        localStorage.setItem("ramo_otag_skills", JSON.stringify(otagOwnedSkills));
-        localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
+        localStorage.setItem("ramo_event_progress", JSON.stringify(eventProgress));
     }
     saveAndDisplayData();
     updateTrainingStatus();
     updateStoryProgressDisplay();
-    updateOtagPlayerAppearance(); // 初期表示用
+    updateEventDifficultyButtons(); // イベントボタンの状態更新
 }).catch(err => console.error("Firebase load error:", err));
 
 update(userRef, { 
@@ -6974,9 +6074,7 @@ update(userRef, {
     daily_code_date: dailyCodeDate,
     used_codes: usedCodes,
     clear_codes: clearCodes,
-    otag_skin: otagSkinData,
-    otag_skills: otagOwnedSkills,
-    equipped_otag: equippedOtagSkill,
+    event_progress: eventProgress,
     lastSeen: Date.now()
 }).catch(err => console.error("Firebase update error:", err));
 
