@@ -93,14 +93,26 @@ let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
 };
 let equippedAccessory = localStorage.getItem("ramo_accessory") || null;
 
-// アクセサリーデータ（既存）
+// アクセサリーデータ（あなたが指定した内容）
 const ACCESSORY_DB = {
     headphone1: { id: "headphone1", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
     banana: { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
+    guitar: { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
+    glitter: { id: "glitter", name: "キラキラ", cost: 50000, emoji: "✨" },
+    sword: { id: "sword", name: "剣", cost: 1000000, emoji: "⚔️" },
+    crown: { 
+        id: "crown", 
+        name: "王冠", 
+        cost: 10000000, 
+        emoji: "👑",
+        unlocks: { 
+            skin: "skin-gold"
+        }
+    },
+    // 元のデータも残す（必要なら）
     weirdglasses1: { id: "weirdglasses1", name: "変なメガネ", cost: 15000, emoji: "👀" },
     sunglasses: { id: "sunglasses", name: "サングラス", cost: 30000, emoji: "🕶️" },
     headphone2: { id: "headphone2", name: "高級ヘッドフォン", cost: 50000, emoji: "🎧💖" },
-    guitar: { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
     trophySilver: { id: "trophySilver", name: "銀トロフィー", cost: 100000, emoji: "🏆" },
     weirdglasses2: { id: "weirdglasses2", name: "変なメガネ2", cost: 150000, emoji: "👓💫" },
     trophyGold: { id: "trophyGold", name: "金トロフィー", cost: 1000000, emoji: "🏆👑" },
@@ -115,7 +127,6 @@ const ACCESSORY_DB = {
         }
     }
 };
-
 // 肌の色データ（既存＋カスタム）
 const SKIN_COLORS = {
     "skin-1": "#f5d0a9",
