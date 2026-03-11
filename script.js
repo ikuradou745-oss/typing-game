@@ -1,13 +1,13 @@
 // =========================================
 // ULTIMATE TYPING ONLINE - RAMO EDITION
-// FIREBASE & TYPING ENGINE V23.3 (鬼ごっこ修正版)
+// FIREBASE & TYPING ENGINE V23.3 (鬼ごっこ修正版・完全統合)
 // 修正内容:
-// 1. 鬼ごっこスキルショップを本家ショップと統合
-// 2. スキンショップを本格実装（体型・肌色・服装・帽子）
-// 3. ジェネレーターの見た目を改善
-// 4. デッキケース連打バグ修正
-// 5. ハンター当たり判定を適正化
-// 6. スクロールバグ修正
+// 1. 鬼ごっこスキン専用データ追加 (otagSkinData)
+// 2. 鬼ごっこスキンショップで肌・顔・体型・帽子・服装変更可能
+// 3. 鬼ごっこスキルショップで全スキル購入可能（デッキスキル含む、cost設定）
+// 4. ジェネレーター再利用可能化
+// 5. 鬼ごっこプレイヤーにスキン適用
+// 6. 通常スキンで一番高いアクセサリー購入で金色肌追加
 // =========================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -248,7 +248,9 @@ let trainingCompleted = {
     training2: false
 };
 
-// --- 鬼ごっこタイピングモード関連 ---
+// =========================================
+// 鬼ごっこタイピングモード関連 (拡張)
+// =========================================
 let otagMode = false;
 let otagGameActive = false;
 let otagPlayer = { 
@@ -303,16 +305,16 @@ let otagPlacedTiles = [];
 let otagKeyHandler = null;
 let otagTypingHandler = null;
 
-// 鬼ごっこスキル所有フラグ（購入状態）
-let otagOwnedSkills = {
-    dash: true,
+// 鬼ごっこスキル所有フラグ（購入状態）デッキスキルも含む
+let otagOwnedSkills = JSON.parse(localStorage.getItem("ramo_otag_skills")) || {
+    dash: true,      // 初期所持
     netgun: false,
     builder: false,
     invisible: false,
-    support: false,
+    support: false,  // 購入可能に（cost設定）
     staminaBottle: false
 };
-let equippedOtagSkill = 'dash'; // 現在装備中のスキル
+let equippedOtagSkill = localStorage.getItem("ramo_equipped_otag") || 'dash';
 
 // デッキスキル（ゲーム中に選択）
 let otagDeckSkills = {
@@ -320,6 +322,34 @@ let otagDeckSkills = {
     staminaUp: false,
     staminaBottle: false
 };
+
+// 鬼ごっこスキルデータベース (costを設定)
+const OTAG_SKILL_DB = {
+    dash: { id: "dash", name: "ダッシュ", cost: 0, cooldown: 20, desc: "2秒間 足が80%速くなる", default: true },
+    netgun: { id: "netgun", name: "あみでっぽう", cost: 100000, cooldown: 100, desc: "向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く" },
+    builder: { id: "builder", name: "ビルダー", cost: 500000, cooldown: 50, desc: "自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）" },
+    invisible: { id: "invisible", name: "透明", cost: 500000, cooldown: 40, desc: "6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる" },
+    support: { id: "support", name: "サポート", cost: 200000, cooldown: 150, desc: "死んだ味方のところで使うと復活（デッキスキル）" },
+    staminaBottle: { id: "staminaBottle", name: "スタミナボトル", cost: 150000, cooldown: 50, desc: "周りの味方のスタミナ+10、回復速度50%UP、足30%UP(5秒)（デッキスキル）" }
+};
+
+// 鬼ごっこスキン専用データ
+let otagSkinData = JSON.parse(localStorage.getItem("ramo_otag_skin")) || {
+    skin: "skin-1",
+    face: "face-1",
+    bodyType: "normal",
+    hat: "none",
+    clothes: {
+        type: "plain",
+        color: "#ffffff",
+        sticker: ""
+    },
+    ownedHats: { none: true },
+    ownedClothes: { plain: true }
+};
+
+// 鬼ごっこスキンショップ用の一時データ
+let tempOtagSkinData = JSON.parse(JSON.stringify(otagSkinData));
 
 // スキンショップ用の一時選択
 let tempSkinData = JSON.parse(JSON.stringify(skinData));
@@ -499,16 +529,6 @@ const SKILL_DB = {
     ...Object.fromEntries(
         Object.entries(GACHA_CHAR_DB).map(([key, val]) => [key, { ...val, cost: 0 }])
     )
-};
-
-// 鬼ごっこスキルデータベース
-const OTAG_SKILL_DB = {
-    dash: { id: "dash", name: "ダッシュ", cost: 0, cooldown: 20, desc: "2秒間 足が80%速くなる", default: true },
-    netgun: { id: "netgun", name: "あみでっぽう", cost: 100000, cooldown: 100, desc: "向いている方向に細長い赤いヒットボックスを0.5秒だし、鬼が当たると5秒スタン＆スタン後10秒間足40%遅く" },
-    builder: { id: "builder", name: "ビルダー", cost: 500000, cooldown: 50, desc: "自分の足場に足が速くなるタイルを設置（味方が乗ると3秒間足50%速く、20秒で消える）" },
-    invisible: { id: "invisible", name: "透明", cost: 500000, cooldown: 40, desc: "6秒間半透明になり鬼からの追跡が効かなくなり、足が30%速くなる" },
-    support: { id: "support", name: "サポート", cost: 0, cooldown: 150, desc: "死んだ味方のところで使うと復活（デッキスキル）", deck: true },
-    staminaBottle: { id: "staminaBottle", name: "スタミナボトル", cost: 0, cooldown: 50, desc: "周りの味方のスタミナ+10、回復速度50%UP、足30%UP(5秒)（デッキスキル）", deck: true }
 };
 
 // ガチャ関連
@@ -1293,11 +1313,16 @@ function saveAndDisplayData() {
     localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
     localStorage.setItem("ramo_yuseSyazai2_used", yuseSyazai2Used.toString());
     localStorage.setItem("ramo_tysm1045_used", tysm1045Used.toString());
+    // 鬼ごっこ関連
+    localStorage.setItem("ramo_otag_skin", JSON.stringify(otagSkinData));
+    localStorage.setItem("ramo_otag_skills", JSON.stringify(otagOwnedSkills));
+    localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
     
     if (el("coin-amount")) el("coin-amount").innerText = coins.toLocaleString();
     if (el("shop-coin-amount")) el("shop-coin-amount").innerText = coins.toLocaleString();
     if (el("skin-coin-amount")) el("skin-coin-amount").innerText = coins.toLocaleString();
     if (el("gacha-coin-amount")) el("gacha-coin-amount").innerText = coins.toLocaleString();
+    if (el("otag-skin-coin-amount")) el("otag-skin-coin-amount").innerText = coins.toLocaleString();
     
     updateStoryProgressDisplay();
     updateTrainingStatus();
@@ -1316,6 +1341,9 @@ function saveAndDisplayData() {
             accessory: equippedAccessory,
             name: myName,
             clear_codes: clearCodes,
+            otag_skin: otagSkinData,
+            otag_skills: otagOwnedSkills,
+            equipped_otag: equippedOtagSkill,
             lastUpdate: Date.now()
         });
     }).catch(err => console.error("Firebase save error:", err));
@@ -2402,8 +2430,6 @@ function renderOtagSkills() {
     container.innerHTML = "";
     
     Object.values(OTAG_SKILL_DB).forEach(skill => {
-        if (skill.deck) return; // デッキスキルはショップで販売しない
-        
         const isOwned = otagOwnedSkills[skill.id];
         const isEquipped = equippedOtagSkill === skill.id;
         
@@ -2433,7 +2459,9 @@ window.buyOtagSkill = (skillId) => {
     if (coins >= skill.cost) {
         coins -= skill.cost;
         otagOwnedSkills[skillId] = true;
-        equippedOtagSkill = skillId;
+        equippedOtagSkill = skillId; // 購入後自動装備
+        localStorage.setItem("ramo_otag_skills", JSON.stringify(otagOwnedSkills));
+        localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
         saveAndDisplayData();
         renderOtagSkills();
         if (otagMode) renderOtagSkillList();
@@ -2446,6 +2474,7 @@ window.buyOtagSkill = (skillId) => {
 
 window.equipOtagSkill = (skillId) => {
     equippedOtagSkill = skillId;
+    localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
     saveAndDisplayData();
     renderOtagSkills();
     if (otagMode) renderOtagSkillList();
@@ -3666,7 +3695,7 @@ function trainingStatusAttack() {
 }
 
 // =========================================
-// 鬼ごっこタイピングモード
+// 鬼ごっこタイピングモード (拡張版)
 // =========================================
 
 function renderOtagSkillList() {
@@ -3865,6 +3894,9 @@ function startOtagMainGame() {
             updateOtagUI();
         }
     }, 1000);
+    
+    // スキン適用
+    updateOtagPlayerAppearance();
 }
 
 function handleOtagKeyDown(e) {
@@ -4172,9 +4204,10 @@ function completeOtagGenerator() {
     
     for (let gen of otagGenerators) {
         if (gen.typingActive) {
-            gen.active = true;
+            // 成功後もジェネレーターを再利用可能にする
+            gen.active = false;      // 再びRキーで起動できるように
             gen.typingActive = false;
-            
+
             if (gen.isMoneyGenerator) {
                 otagReward += 10;
             } else {
@@ -4529,6 +4562,308 @@ window.selectOtagSkill = (skillId) => {
 window.goToSkinShop = () => {
     openSkinShop();
 };
+
+// =========================================
+// 鬼ごっこスキンショップ関連関数 (新規追加)
+// =========================================
+window.openOtagSkinShop = () => {
+    tempOtagSkinData = JSON.parse(JSON.stringify(otagSkinData));
+    openScreen("screen-otag-skin-shop");
+    updateOtagSkinPreview();
+    renderOtagSkinCategory(); // 初期表示は肌の色
+    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
+};
+
+window.saveAndExitOtagSkinShop = () => {
+    otagSkinData = JSON.parse(JSON.stringify(tempOtagSkinData));
+    localStorage.setItem("ramo_otag_skin", JSON.stringify(otagSkinData));
+    saveAndDisplayData(); // コインなども保存
+    goHome();
+};
+
+function updateOtagSkinPreview() {
+    const previewSkin = document.getElementById("otag-preview-skin");
+    const previewFace = document.getElementById("otag-preview-face");
+    const previewHat = document.getElementById("otag-preview-hat");
+    const previewClothes = document.getElementById("otag-preview-clothes");
+    const previewBody = document.querySelector('#otag-skin-preview .skin-preview');
+
+    if (previewSkin) {
+        if (tempOtagSkinData.skin === "skin-gold") {
+            previewSkin.style.background = SKIN_COLORS["skin-gold"];
+        } else if (tempOtagSkinData.skin === "custom") {
+            previewSkin.style.background = `rgb(${tempOtagSkinData.skinCustom?.r || 255}, ${tempOtagSkinData.skinCustom?.g || 205}, ${tempOtagSkinData.skinCustom?.b || 148})`;
+        } else {
+            previewSkin.style.background = SKIN_COLORS[tempOtagSkinData.skin] || SKIN_COLORS["skin-1"];
+        }
+    }
+    if (previewFace) previewFace.innerText = FACE_DATA[tempOtagSkinData.face] || "😊";
+    if (previewHat) previewHat.innerText = HAT_TYPES[tempOtagSkinData.hat]?.emoji || "";
+    if (previewClothes) {
+        const clothes = CLOTHES_TYPES[tempOtagSkinData.clothes.type] || CLOTHES_TYPES.plain;
+        previewClothes.innerText = clothes.emoji || "";
+        previewClothes.style.backgroundColor = tempOtagSkinData.clothes.color;
+    }
+    if (previewBody) {
+        switch(tempOtagSkinData.bodyType) {
+            case 'thin': previewBody.style.transform = 'scale(0.9)'; break;
+            case 'chubby': previewBody.style.transform = 'scale(1.2)'; break;
+            default: previewBody.style.transform = 'scale(1)';
+        }
+    }
+}
+
+window.switchOtagSkinCategory = (category) => {
+    document.querySelectorAll('#screen-otag-skin-shop .skin-cat-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#screen-otag-skin-shop .skin-grid').forEach(grid => grid.classList.add('hidden'));
+
+    const activeBtn = Array.from(document.querySelectorAll('#screen-otag-skin-shop .skin-cat-btn')).find(btn => 
+        btn.textContent.includes(category === 'skin' ? '肌の色' : category === 'face' ? '顔' : category === 'body' ? '体型' : category === 'hat' ? '帽子' : '服装')
+    );
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const gridId = `otag-skin-category-${category}`;
+    document.getElementById(gridId).classList.remove('hidden');
+
+    // 各カテゴリのレンダリング
+    switch(category) {
+        case 'skin': renderOtagSkinCategory(); break;
+        case 'face': renderOtagFaceCategory(); break;
+        case 'body': renderOtagBodyCategory(); break;
+        case 'hat': renderOtagHatCategory(); break;
+        case 'clothes': renderOtagClothesCategory(); break;
+    }
+};
+
+function renderOtagSkinCategory() {
+    const grid = document.getElementById("otag-skin-category-skin");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    for (let i = 1; i <= 10; i++) {
+        const skinId = `skin-${i}`;
+        const isEquipped = tempOtagSkinData.skin === skinId;
+        const item = document.createElement("div");
+        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
+        item.style.background = SKIN_COLORS[skinId];
+        item.onclick = () => {
+            tempOtagSkinData.skin = skinId;
+            updateOtagSkinPreview();
+            renderOtagSkinCategory();
+        };
+        grid.appendChild(item);
+    }
+
+    // 金色（大金持ちアクセサリー所持者のみ）
+    if (skinData.accessories && skinData.accessories.includes('rich')) {
+        const goldItem = document.createElement("div");
+        goldItem.className = `skin-item owned ${tempOtagSkinData.skin === 'skin-gold' ? 'equipped' : ''}`;
+        goldItem.style.background = SKIN_COLORS["skin-gold"];
+        goldItem.onclick = () => {
+            tempOtagSkinData.skin = "skin-gold";
+            updateOtagSkinPreview();
+            renderOtagSkinCategory();
+        };
+        grid.appendChild(goldItem);
+    }
+}
+
+function renderOtagFaceCategory() {
+    const grid = document.getElementById("otag-skin-category-face");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    for (let i = 1; i <= 30; i++) {
+        const faceId = `face-${i}`;
+        const isEquipped = tempOtagSkinData.face === faceId;
+        const item = document.createElement("div");
+        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
+        item.innerHTML = FACE_DATA[faceId];
+        item.onclick = () => {
+            tempOtagSkinData.face = faceId;
+            updateOtagSkinPreview();
+            renderOtagFaceCategory();
+        };
+        grid.appendChild(item);
+    }
+
+    // 特別な顔
+    if (skinData.accessories && skinData.accessories.includes('rich')) {
+        const moneyFace = document.createElement("div");
+        moneyFace.className = `skin-item owned ${tempOtagSkinData.face === 'face-money' ? 'equipped' : ''}`;
+        moneyFace.innerHTML = "🤑";
+        moneyFace.onclick = () => {
+            tempOtagSkinData.face = "face-money";
+            updateOtagSkinPreview();
+            renderOtagFaceCategory();
+        };
+        grid.appendChild(moneyFace);
+    }
+}
+
+function renderOtagBodyCategory() {
+    const grid = document.getElementById("otag-skin-category-body");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    Object.entries(BODY_TYPES).forEach(([id, data]) => {
+        const isEquipped = tempOtagSkinData.bodyType === id;
+        const item = document.createElement("div");
+        item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
+        item.innerHTML = data.name;
+        item.onclick = () => {
+            tempOtagSkinData.bodyType = id;
+            updateOtagSkinPreview();
+            renderOtagBodyCategory();
+        };
+        grid.appendChild(item);
+    });
+}
+
+function renderOtagHatCategory() {
+    const grid = document.getElementById("otag-skin-category-hat");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    Object.entries(HAT_TYPES).forEach(([id, data]) => {
+        const isOwned = id === 'none' || (tempOtagSkinData.ownedHats && tempOtagSkinData.ownedHats[id]);
+        const isEquipped = tempOtagSkinData.hat === id;
+        const canAfford = coins >= data.cost;
+
+        const item = document.createElement("div");
+        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
+        item.innerHTML = `
+            <span style="font-size: 2rem;">${data.emoji || '👤'}</span>
+            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
+        `;
+
+        if (isOwned) {
+            item.onclick = () => {
+                tempOtagSkinData.hat = id;
+                updateOtagSkinPreview();
+                renderOtagHatCategory();
+            };
+        } else if (canAfford) {
+            item.onclick = () => {
+                if (confirm(`${data.name}を購入しますか？`)) {
+                    coins -= data.cost;
+                    if (!tempOtagSkinData.ownedHats) tempOtagSkinData.ownedHats = {};
+                    tempOtagSkinData.ownedHats[id] = true;
+                    tempOtagSkinData.hat = id;
+                    updateOtagSkinPreview();
+                    renderOtagHatCategory();
+                    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
+                }
+            };
+        }
+        grid.appendChild(item);
+    });
+}
+
+function renderOtagClothesCategory() {
+    const grid = document.getElementById("otag-skin-category-clothes");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    Object.entries(CLOTHES_TYPES).forEach(([id, data]) => {
+        const isOwned = id === 'plain' || (tempOtagSkinData.ownedClothes && tempOtagSkinData.ownedClothes[id]);
+        const isEquipped = tempOtagSkinData.clothes.type === id;
+        const canAfford = coins >= data.cost;
+
+        const item = document.createElement("div");
+        item.className = `skin-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${!isOwned && !canAfford ? 'locked' : ''}`;
+        item.innerHTML = `
+            <span style="font-size: 2rem;">${data.emoji}</span>
+            <span class="skin-price">${data.cost.toLocaleString()}🪙</span>
+        `;
+
+        if (isOwned) {
+            item.onclick = () => {
+                tempOtagSkinData.clothes.type = id;
+                updateOtagSkinPreview();
+                renderOtagClothesCategory();
+            };
+        } else if (canAfford) {
+            item.onclick = () => {
+                if (confirm(`${data.name}を購入しますか？`)) {
+                    coins -= data.cost;
+                    if (!tempOtagSkinData.ownedClothes) tempOtagSkinData.ownedClothes = {};
+                    tempOtagSkinData.ownedClothes[id] = true;
+                    tempOtagSkinData.clothes.type = id;
+                    updateOtagSkinPreview();
+                    renderOtagClothesCategory();
+                    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
+                }
+            };
+        }
+        grid.appendChild(item);
+    });
+
+    // カスタム服装（色＋ステッカー）
+    const customItem = document.createElement("div");
+    customItem.className = `skin-item ${tempOtagSkinData.clothes.type === 'custom' ? 'equipped' : ''}`;
+    customItem.style.background = tempOtagSkinData.clothes.color;
+    customItem.innerHTML = `
+        <span style="font-size: 1.5rem;">${tempOtagSkinData.clothes.sticker || '✏️'}</span>
+        <span class="skin-price">30000🪙</span>
+    `;
+    customItem.onclick = () => openOtagCustomClothesPicker();
+    grid.appendChild(customItem);
+}
+
+function openOtagCustomClothesPicker() {
+    const cost = 30000;
+    if (tempOtagSkinData.clothes.type !== 'custom' && coins < cost) {
+        alert(`コインが足りません！\n必要: ${cost}🪙`);
+        return;
+    }
+
+    const color = prompt("色を入力 (例: #ff0000, red, rgb(255,0,0)):", tempOtagSkinData.clothes.color);
+    if (!color) return;
+    const sticker = prompt("ステッカー（1文字）:", tempOtagSkinData.clothes.sticker || "");
+    if (sticker && sticker.length > 1) {
+        alert("1文字で入力してください");
+        return;
+    }
+
+    if (tempOtagSkinData.clothes.type !== 'custom') {
+        coins -= cost;
+    }
+    tempOtagSkinData.clothes.type = 'custom';
+    tempOtagSkinData.clothes.color = color;
+    tempOtagSkinData.clothes.sticker = sticker || "";
+    updateOtagSkinPreview();
+    renderOtagClothesCategory();
+    document.getElementById("otag-skin-coin-amount").innerText = coins.toLocaleString();
+}
+
+// =========================================
+// 鬼ごっこプレイヤーにスキンを適用
+// =========================================
+function updateOtagPlayerAppearance() {
+    const playerEl = document.getElementById("otag-player");
+    if (!playerEl) return;
+
+    // 肌の色
+    if (otagSkinData.skin === "skin-gold") {
+        playerEl.style.background = SKIN_COLORS["skin-gold"];
+    } else {
+        playerEl.style.background = SKIN_COLORS[otagSkinData.skin] || SKIN_COLORS["skin-1"];
+    }
+
+    // 顔・帽子・服装の絵文字を合成
+    const faceEmoji = FACE_DATA[otagSkinData.face] || "😊";
+    const hatEmoji = HAT_TYPES[otagSkinData.hat]?.emoji || "";
+    const clothesEmoji = CLOTHES_TYPES[otagSkinData.clothes.type]?.emoji || "";
+
+    playerEl.innerText = hatEmoji + faceEmoji + clothesEmoji;
+
+    // 体型の適用 (CSS transform)
+    let scale = 1;
+    if (otagSkinData.bodyType === 'thin') scale = 0.9;
+    else if (otagSkinData.bodyType === 'chubby') scale = 1.2;
+    playerEl.style.transform = `translate(-50%, -50%) scale(${scale})`;
+}
 
 // =========================================
 // スキル・バトルエフェクト処理
@@ -6599,6 +6934,10 @@ get(userRef).then(snap => {
         if(data.daily_code_date) dailyCodeDate = data.daily_code_date;
         if(data.used_codes) usedCodes = data.used_codes;
         if(data.clear_codes) clearCodes = data.clear_codes;
+        // 鬼ごっこ関連
+        if(data.otag_skin) otagSkinData = data.otag_skin;
+        if(data.otag_skills) otagOwnedSkills = data.otag_skills;
+        if(data.equipped_otag) equippedOtagSkill = data.equipped_otag;
         
         localStorage.setItem("ramo_tysm_used", tysmUsed.toString());
         localStorage.setItem("ramo_byramo_used", byramoUsed.toString());
@@ -6609,10 +6948,14 @@ get(userRef).then(snap => {
         localStorage.setItem("ramo_used_codes", JSON.stringify(usedCodes));
         localStorage.setItem("ramo_clear_codes", JSON.stringify(clearCodes));
         localStorage.setItem("ramo_training_completed", JSON.stringify(trainingCompleted));
+        localStorage.setItem("ramo_otag_skin", JSON.stringify(otagSkinData));
+        localStorage.setItem("ramo_otag_skills", JSON.stringify(otagOwnedSkills));
+        localStorage.setItem("ramo_equipped_otag", equippedOtagSkill);
     }
     saveAndDisplayData();
     updateTrainingStatus();
     updateStoryProgressDisplay();
+    updateOtagPlayerAppearance(); // 初期表示用
 }).catch(err => console.error("Firebase load error:", err));
 
 update(userRef, { 
@@ -6631,6 +6974,9 @@ update(userRef, {
     daily_code_date: dailyCodeDate,
     used_codes: usedCodes,
     clear_codes: clearCodes,
+    otag_skin: otagSkinData,
+    otag_skills: otagOwnedSkills,
+    equipped_otag: equippedOtagSkill,
     lastSeen: Date.now()
 }).catch(err => console.error("Firebase update error:", err));
 
