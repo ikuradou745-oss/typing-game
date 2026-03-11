@@ -56,7 +56,15 @@ body, html {
 #app { display: flex; height: 100vh; width: 100vw; }
 
 /* メインエリア */
-#main-area { flex: 1; display: flex; flex-direction: column; padding: 40px; position: relative; min-width: 0; overflow-y: auto; }
+#main-area { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    padding: 40px; 
+    position: relative; 
+    min-width: 0; 
+    overflow-y: auto; 
+}
 .header-logo {
     font-family: 'Exo 2', sans-serif; font-size: 3rem; font-weight: 900;
     background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
@@ -68,7 +76,13 @@ body, html {
 .screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
 .hidden { display: none !important; }
 
-/* ボタン - パーティー中でも使用可能に */
+/* ホーム画面のスクロール余白修正 */
+#screen-home {
+    padding-top: 30px;
+    padding-bottom: 60px;
+}
+
+/* ボタン */
 .btn-group { 
     display: grid; 
     grid-template-columns: 1fr 1fr; 
@@ -120,7 +134,7 @@ body, html {
 }
 
 /* =========================================
-   クリアコード表示エリア（新規追加）
+   クリアコード表示エリア
    ========================================= */
 #clear-code-display {
     position: fixed;
@@ -279,7 +293,7 @@ body, html {
 }
 
 /* =========================================
-   ステージ解放コード入力UI（新規追加）
+   ステージ解放コード入力UI
    ========================================= */
 #stage-unlock-ui,
 #skill-unlock-ui {
@@ -572,7 +586,7 @@ body, html {
 }
 
 /* =========================================
-   修行モード用コードボタン（新規追加）
+   修行モード用コードボタン
    ========================================= */
 .training-code-buttons {
     display: flex;
@@ -604,7 +618,7 @@ body, html {
     border-color: var(--accent-gold);
 }
 
-/* プレイ画面 - タイピング文字表示の改善 */
+/* プレイ画面 */
 #timer-display { 
     font-size: 4rem; 
     color: var(--accent-red); 
@@ -643,7 +657,7 @@ body, html {
     box-shadow: 0 0 30px var(--accent-green);
 }
 
-/* 偽物タイピング表示エリア - 本物と同じスタイル */
+/* 偽物タイピング表示エリア */
 #fake-typing-display {
     display: flex;
     flex-direction: column;
@@ -680,7 +694,7 @@ body, html {
 }
 
 /* =========================================
-   サイドバー (フレンドリスト・パーティーリスト縦長修正版)
+   サイドバー
    ========================================= */
 #sidebar { 
     width: 400px;
@@ -689,7 +703,7 @@ body, html {
     padding: 16px 12px;
     display: flex; 
     flex-direction: column; 
-    gap: 12px;  /* 16px → 12px に縮小（タブ追加のため） */
+    gap: 12px;
     height: 100vh;
 }
 
@@ -702,7 +716,6 @@ body, html {
     flex-direction: column;
 }
 
-/* プロフィールパネル - 固定サイズ */
 .profile-panel {
     flex: 0 0 auto;
 }
@@ -777,9 +790,7 @@ body, html {
 .skin-color-10 { background: #6a4a2a; }
 .skin-color-gold { background: linear-gradient(135deg, #ffd700, #b8860b); }
 
-/* =========================================
-   フレンド/パーティー切り替えタブ（新規追加）
-   ========================================= */
+/* フレンド/パーティー切り替えタブ */
 .social-tabs {
     display: flex;
     gap: 8px;
@@ -819,7 +830,6 @@ body, html {
     flex-direction: column;
 }
 
-/* 各コンテナのスタイル（ID指定で上書き） */
 #friends-container,
 #party-container {
     flex: 1;
@@ -852,12 +862,10 @@ body, html {
     max-height: none;
 }
 
-/* スクロールバーのカスタマイズ */
 .side-scroll::-webkit-scrollbar { width: 5px; }
 .side-scroll::-webkit-scrollbar-track { background: transparent; }
 .side-scroll::-webkit-scrollbar-thumb { background: var(--accent-blue); border-radius: 10px; }
 
-/* フォーム要素 */
 input[type="text"], .cyber-select { 
     background: #000; 
     border: 1px solid var(--accent-blue); 
@@ -892,7 +900,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     font-size: 0.85rem;
 }
 
-/* フレンドアイテム - 縦方向にスペースを確保 */
 .friend-item { 
     display: flex; 
     justify-content: space-between; 
@@ -992,7 +999,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     max-width: 130px;
 }
 
-/* パーティーアクションボタン */
 #party-actions {
     margin-top: 5px;
 }
@@ -1002,8 +1008,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     font-size: 0.9rem;
 }
 
-/* 以下、元のCSSの残りの部分はそのまま */
-/* スキルショップ - タブ機能追加 */
+/* スキルショップ */
 .shop-coin-display { 
     font-size: 1.8rem; 
     color: #FFD700; 
@@ -1085,6 +1090,13 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     box-shadow: 0 5px 20px #FF69B4;
 }
 
+.shop-item.otag-skill {
+    border-color: #FFA500;
+}
+.shop-item.otag-skill:hover {
+    box-shadow: 0 5px 20px #FFA500;
+}
+
 .shop-btn { 
     background: var(--accent-purple); 
     color: #fff; 
@@ -1104,6 +1116,14 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 .shop-btn.gacha-btn:hover:not(:disabled) {
     background: #ff8ac7;
     box-shadow: 0 0 15px #FF69B4;
+}
+
+.shop-btn.otag-btn {
+    background: #FFA500;
+}
+.shop-btn.otag-btn:hover:not(:disabled) {
+    background: #ffb347;
+    box-shadow: 0 0 15px #FFA500;
 }
 
 .shop-item .skill-rarity {
@@ -1128,7 +1148,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     color: white;
 }
 
-/* ショップのフッターボタン - 位置調整 */
 .shop-footer-buttons {
     margin-top: 10px;
     display: flex;
@@ -1162,7 +1181,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 #in-game-skill-btn:hover { transform: scale(1.05); border-color: var(--accent-gold); }
 #skill-cooldown-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(255, 49, 49, 0.5); transition: height 1s linear; }
 
-/* マルチキー情報表示 */
 #skill-keys-container {
     display: flex;
     flex-direction: column;
@@ -1187,7 +1205,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   スキンショップ
+   スキンショップ (プロフィール用)
    ========================================= */
 #screen-skin-shop {
     justify-content: flex-start;
@@ -1249,6 +1267,20 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     font-size: 3.5rem;
     pointer-events: none;
     text-shadow: 0 0 15px gold;
+}
+
+.preview-clothes {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40%;
+    background: rgba(255,255,255,0.3);
+    border-top: 2px solid #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
 }
 
 .skin-categories {
@@ -1380,8 +1412,16 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     min-width: 140px;
 }
 
+/* 鬼ごっこスキンショップ */
+#screen-otag-skin-shop {
+    justify-content: flex-start;
+    padding: 15px 20px 20px 20px;
+    overflow-y: auto;
+    height: 100%;
+}
+
 /* =========================================
-   デバッグモード - 機能改善
+   デバッグモード
    ========================================= */
 #debug-overlay {
     position: fixed;
@@ -1516,7 +1556,7 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
 }
 
 /* =========================================
-   ストーリーモード用スタイル（強化版）
+   ストーリーモード用スタイル
    ========================================= */
 .story-chapter-selector {
     display: flex;
@@ -1623,7 +1663,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     box-shadow: 0 0 20px var(--accent-blue);
 }
 
-/* クリア済みステージ */
 .stage-node.completed {
     border-color: var(--accent-green);
     box-shadow: 0 0 20px var(--accent-green);
@@ -1665,7 +1704,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     100% { transform: scale(1); }
 }
 
-/* ロックされたステージ（強化版） */
 .stage-node.locked {
     opacity: 0.6;
     cursor: not-allowed;
@@ -1705,14 +1743,12 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
 }
 
-/* 解放済みステージ（プレイ可能） */
 .stage-node.available {
     border-color: var(--story-available);
     box-shadow: 0 0 15px var(--story-available);
     cursor: pointer;
 }
 
-/* ボスステージ */
 .stage-node.boss-stage {
     border-color: #FFD700;
     box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
@@ -1734,7 +1770,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     box-shadow: 0 0 25px #FFD700;
 }
 
-/* 現在選択中のステージ */
 .stage-node.current {
     border-color: var(--accent-blue);
     transform: scale(1.08);
@@ -1782,7 +1817,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     text-shadow: 0 0 5px var(--story-available);
 }
 
-/* ステージ詳細画面 */
 .stage-detail-panel {
     background: var(--panel-bg);
     border: 3px solid var(--accent-purple);
@@ -1859,7 +1893,6 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); box-
     margin-top: 20px;
 }
 
-/* スコアプログレスバー */
 #story-progress-bar {
     width: 80%;
     max-width: 600px;
@@ -2274,10 +2307,6 @@ body.bleeding #game-core {
     box-shadow: 0 0 30px var(--accent-gold);
 }
 
-/* =========================================
-   新スキル用エフェクト
-   ========================================= */
-
 /* 無敵状態（虹色エフェクト） */
 #invincible-effect {
     position: fixed;
@@ -2616,7 +2645,6 @@ body.bleeding #game-core {
     user-select: none;
 }
 
-/* ハンデ種類ごとの色分け */
 .handicap-option[data-handicap="none"] { border-color: #888; color: #ccc; }
 .handicap-option[data-handicap="score_half"] { border-color: var(--accent-gold); color: var(--accent-gold); }
 .handicap-option[data-handicap="no_type_10"] { border-color: var(--accent-blue); color: var(--accent-blue); }
@@ -2945,7 +2973,6 @@ body.bleeding #game-core {
     cursor: pointer;
 }
 
-/* ガチャキャラアイテム（装備表示強化） */
 .gacha-char-item {
     background: linear-gradient(145deg, #1a1a2a, #0a0a1a);
     border: 2px solid #333;
@@ -2968,7 +2995,6 @@ body.bleeding #game-core {
 .gacha-char-item.sr { border-color: #8a2be2; }
 .gacha-char-item.ur { border-color: #ff4500; }
 
-/* 装備中のキャラ（強調表示） */
 .gacha-char-item.equipped {
     border-color: #FF69B4;
     border-width: 3px;
@@ -2993,7 +3019,6 @@ body.bleeding #game-core {
     box-shadow: 0 0 10px #FF69B4;
 }
 
-/* 所持済みキャラ */
 .gacha-char-item.owned:not(.equipped) {
     border-color: var(--accent-green);
     box-shadow: 0 0 10px var(--accent-green);
@@ -3383,8 +3408,114 @@ body.swaying .stat-box {
 }
 
 /* =========================================
-   ストーリーモード スキル獲得表示（追加）
+   鬼ごっこゲーム画面修正
    ========================================= */
+.otag-game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #1a1a2a;
+    overflow: hidden;
+}
+
+.otag-game-canvas {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+}
+
+.otag-player {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 20px var(--accent-blue);
+    z-index: 10;
+}
+
+.otag-ghost {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    z-index: 5;
+    transition: opacity 0.3s;
+}
+
+.otag-wall {
+    position: absolute;
+    background: #666;
+    transform: translate(-50%, -50%);
+    border: 2px solid #888;
+}
+
+.otag-generator {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 215, 0, 0.3);
+    border: 2px solid gold;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 6;
+    transition: 0.2s;
+}
+
+.otag-generator:hover {
+    background: rgba(255, 215, 0, 0.6);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.otag-generator.active {
+    background: #aaa;
+    border-color: #666;
+}
+
+.otag-tile {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 255, 0, 0.5);
+    border-radius: 10px;
+    transform: translate(-50%, -50%);
+    z-index: 8;
+}
+
+#otag-deck-select {
+    z-index: 20;
+}
+
+.deck-card {
+    transition: 0.2s;
+}
+
+.deck-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px var(--accent-gold);
+}
+
+.deck-card:active {
+    transform: translateY(0);
+}
+
+/* ストーリーモード スキル獲得表示（追加） */
 .skill-obtained {
     color: var(--skill-obtained);
     font-weight: bold;
