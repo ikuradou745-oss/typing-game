@@ -93,14 +93,26 @@ let skinData = JSON.parse(localStorage.getItem("ramo_skin")) || {
 };
 let equippedAccessory = localStorage.getItem("ramo_accessory") || null;
 
-// アクセサリーデータ（既存）
+// アクセサリーデータ（あなたが指定した内容）
 const ACCESSORY_DB = {
     headphone1: { id: "headphone1", name: "ヘッドフォン", cost: 5000, emoji: "🎧" },
     banana: { id: "banana", name: "バナナ", cost: 15000, emoji: "🍌" },
+    guitar: { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
+    glitter: { id: "glitter", name: "キラキラ", cost: 50000, emoji: "✨" },
+    sword: { id: "sword", name: "剣", cost: 1000000, emoji: "⚔️" },
+    crown: { 
+        id: "crown", 
+        name: "王冠", 
+        cost: 10000000, 
+        emoji: "👑",
+        unlocks: { 
+            skin: "skin-gold"
+        }
+    },
+    // 元のデータも残す（必要なら）
     weirdglasses1: { id: "weirdglasses1", name: "変なメガネ", cost: 15000, emoji: "👀" },
     sunglasses: { id: "sunglasses", name: "サングラス", cost: 30000, emoji: "🕶️" },
     headphone2: { id: "headphone2", name: "高級ヘッドフォン", cost: 50000, emoji: "🎧💖" },
-    guitar: { id: "guitar", name: "ギター", cost: 50000, emoji: "🎸" },
     trophySilver: { id: "trophySilver", name: "銀トロフィー", cost: 100000, emoji: "🏆" },
     weirdglasses2: { id: "weirdglasses2", name: "変なメガネ2", cost: 150000, emoji: "👓💫" },
     trophyGold: { id: "trophyGold", name: "金トロフィー", cost: 1000000, emoji: "🏆👑" },
@@ -115,7 +127,6 @@ const ACCESSORY_DB = {
         }
     }
 };
-
 // 肌の色データ（既存＋カスタム）
 const SKIN_COLORS = {
     "skin-1": "#f5d0a9",
@@ -131,7 +142,7 @@ const SKIN_COLORS = {
     "skin-gold": "linear-gradient(135deg, #ffd700, #b8860b)"
 };
 
-// 顔データ（既存）
+// 顔データ（40種類）
 const FACE_DATA = {
     "face-1": "😊", "face-2": "🙂", "face-3": "😎", "face-4": "😲", "face-5": "😴",
     "face-6": "😠", "face-7": "😢", "face-8": "😉", "face-9": "😆", "face-10": "😇",
@@ -139,6 +150,8 @@ const FACE_DATA = {
     "face-16": "🤪", "face-17": "🤓", "face-18": "🥸", "face-19": "😎", "face-20": "🤠",
     "face-21": "👽", "face-22": "🤖", "face-23": "👻", "face-24": "💀", "face-25": "🎃",
     "face-26": "😺", "face-27": "🙈", "face-28": "🐧", "face-29": "🐱", "face-30": "🐶",
+    "face-31": "🦊", "face-32": "🐼", "face-33": "🐸", "face-34": "🐨", "face-35": "🦁",
+    "face-36": "🐮", "face-37": "🐷", "face-38": "🐙", "face-39": "🦄", "face-40": "🐉",
     "face-money": "🤑"
 };
 
@@ -230,94 +243,93 @@ let eventRomaIdx = 0;
 let eventPartyVotes = {}; // パーティー投票用 { option: count }
 let canUseSkill = true; // イベント中はスキル使用不可
 
-// イベント問題データベース
+// イベント問題データベース - 回答をひらがなに修正
 const EVENT_QUESTION_DB = {
     easy: [
-        { question: "赤！と青！をまぜたら？", options: ["紫", "緑", "黄色"], answer: "紫", colors: ["赤", "青"] },
-        { question: "青！と黄色！をまぜたら？", options: ["緑", "紫", "オレンジ"], answer: "緑", colors: ["青", "黄色"] },
-        { question: "赤！と黄色！をまぜたら？", options: ["オレンジ", "紫", "緑"], answer: "オレンジ", colors: ["赤", "黄色"] },
-        { question: "白！と黒！をまぜたら？", options: ["灰色", "茶色", "ピンク"], answer: "灰色", colors: ["白", "黒"] },
-        { question: "赤！と白！をまぜたら？", options: ["ピンク", "オレンジ", "紫"], answer: "ピンク", colors: ["赤", "白"] },
-        { question: "青！と白！をまぜたら？", options: ["水色", "緑", "紫"], answer: "水色", colors: ["青", "白"] },
-        { question: "黄色！と黒！をまぜたら？", options: ["黄緑", "茶色", "オレンジ"], answer: "黄緑", colors: ["黄色", "黒"] },
-        { question: "赤！と黒！をまぜたら？", options: ["茶色", "紫", "赤黒"], answer: "茶色", colors: ["赤", "黒"] },
-        { question: "緑！と白！をまぜたら？", options: ["若葉色", "黄緑", "水色"], answer: "若葉色", colors: ["緑", "白"] },
-        { question: "青！と黒！をまぜたら？", options: ["深藍", "紫", "紺"], answer: "紺", colors: ["青", "黒"] }
+        { question: "赤！と青！をまぜたら？", options: ["紫", "緑", "黄色"], answer: "むらさき", colors: ["赤", "青"] },
+        { question: "青！と黄色！をまぜたら？", options: ["緑", "紫", "オレンジ"], answer: "みどり", colors: ["青", "黄色"] },
+        { question: "赤！と黄色！をまぜたら？", options: ["オレンジ", "紫", "緑"], answer: "おれんじ", colors: ["赤", "黄色"] },
+        { question: "白！と黒！をまぜたら？", options: ["灰色", "茶色", "ピンク"], answer: "はいいろ", colors: ["白", "黒"] },
+        { question: "赤！と白！をまぜたら？", options: ["ピンク", "オレンジ", "紫"], answer: "ぴんく", colors: ["赤", "白"] },
+        { question: "青！と白！をまぜたら？", options: ["水色", "緑", "紫"], answer: "みずいろ", colors: ["青", "白"] },
+        { question: "黄色！と黒！をまぜたら？", options: ["黄緑", "茶色", "オレンジ"], answer: "きみどり", colors: ["黄色", "黒"] },
+        { question: "赤！と黒！をまぜたら？", options: ["茶色", "紫", "赤黒"], answer: "ちゃいろ", colors: ["赤", "黒"] },
+        { question: "緑！と白！をまぜたら？", options: ["若葉色", "黄緑", "水色"], answer: "わかばいろ", colors: ["緑", "白"] },
+        { question: "青！と黒！をまぜたら？", options: ["深藍", "紫", "紺"], answer: "こん", colors: ["青", "黒"] }
     ],
     normal: [
-        { question: "紫！とオレンジ！をまぜたら？", options: ["赤紫", "茶色", "黄土色"], answer: "茶色", colors: ["紫", "オレンジ"] },
-        { question: "赤！と紫！をまぜたら？", options: ["赤紫", "ピンク", "ワインレッド"], answer: "赤紫", colors: ["赤", "紫"] },
-        { question: "青！とオレンジ！をまぜたら？", options: ["茶色", "緑", "紫"], answer: "茶色", colors: ["青", "オレンジ"] },
-        { question: "黄色！と紫！をまぜたら？", options: ["黄土色", "茶色", "黄緑"], answer: "黄土色", colors: ["黄色", "紫"] },
-        { question: "緑！とオレンジ！をまぜたら？", options: ["黄緑", "茶色", "黄土色"], answer: "黄土色", colors: ["緑", "オレンジ"] },
-        { question: "白！と紫！をまぜたら？", options: ["ラベンダー", "ピンク", "水色"], answer: "ラベンダー", colors: ["白", "紫"] },
-        { question: "黒！とオレンジ！をまぜたら？", options: ["茶色", "黄土色", "こげ茶"], answer: "こげ茶", colors: ["黒", "オレンジ"] },
-        { question: "赤！とオレンジ！をまぜたら？", options: ["朱色", "ピンク", "茶色"], answer: "朱色", colors: ["赤", "オレンジ"] },
-        { question: "青！と紫！をまぜたら？", options: ["藍色", "赤紫", "水色"], answer: "藍色", colors: ["青", "紫"] },
-        { question: "黄色！とオレンジ！をまぜたら？", options: ["山吹色", "黄土色", "金色"], answer: "山吹色", colors: ["黄色", "オレンジ"] },
-        { question: "紫！と緑！をまぜたら？", options: ["灰色", "茶色", "青緑"], answer: "灰色", colors: ["紫", "緑"] },
-        { question: "オレンジ！と青！をまぜたら？", options: ["茶色", "紫", "緑"], answer: "茶色", colors: ["オレンジ", "青"] },
-        { question: "ピンク！と紫！をまぜたら？", options: ["赤紫", "マゼンタ", "ワインレッド"], answer: "赤紫", colors: ["ピンク", "紫"] },
-        { question: "水色！と黄色！をまぜたら？", options: ["黄緑", "若草色", "ミント"], answer: "黄緑", colors: ["水色", "黄色"] },
-        { question: "紫！と白！をまぜたら？", options: ["ラベンダー", "薄紫", "ピンク"], answer: "ラベンダー", colors: ["紫", "白"] }
+        { question: "紫！とオレンジ！をまぜたら？", options: ["赤紫", "茶色", "黄土色"], answer: "ちゃいろ", colors: ["紫", "オレンジ"] },
+        { question: "赤！と紫！をまぜたら？", options: ["赤紫", "ピンク", "ワインレッド"], answer: "あかむらさき", colors: ["赤", "紫"] },
+        { question: "青！とオレンジ！をまぜたら？", options: ["茶色", "緑", "紫"], answer: "ちゃいろ", colors: ["青", "オレンジ"] },
+        { question: "黄色！と紫！をまぜたら？", options: ["黄土色", "茶色", "黄緑"], answer: "おうどいろ", colors: ["黄色", "紫"] },
+        { question: "緑！とオレンジ！をまぜたら？", options: ["黄緑", "茶色", "黄土色"], answer: "おうどいろ", colors: ["緑", "オレンジ"] },
+        { question: "白！と紫！をまぜたら？", options: ["ラベンダー", "ピンク", "水色"], answer: "らべんだー", colors: ["白", "紫"] },
+        { question: "黒！とオレンジ！をまぜたら？", options: ["茶色", "黄土色", "こげ茶"], answer: "こげちゃ", colors: ["黒", "オレンジ"] },
+        { question: "赤！とオレンジ！をまぜたら？", options: ["朱色", "ピンク", "茶色"], answer: "しゅいろ", colors: ["赤", "オレンジ"] },
+        { question: "青！と紫！をまぜたら？", options: ["藍色", "赤紫", "水色"], answer: "あいいろ", colors: ["青", "紫"] },
+        { question: "黄色！とオレンジ！をまぜたら？", options: ["山吹色", "黄土色", "金色"], answer: "やまぶきいろ", colors: ["黄色", "オレンジ"] },
+        { question: "紫！と緑！をまぜたら？", options: ["灰色", "茶色", "青緑"], answer: "はいいろ", colors: ["紫", "緑"] },
+        { question: "ピンク！と紫！をまぜたら？", options: ["赤紫", "マゼンタ", "ワインレッド"], answer: "あかむらさき", colors: ["ピンク", "紫"] },
+        { question: "水色！と黄色！をまぜたら？", options: ["黄緑", "若草色", "ミント"], answer: "きみどり", colors: ["水色", "黄色"] },
+        { question: "紫！と白！をまぜたら？", options: ["ラベンダー", "薄紫", "ピンク"], answer: "らべんだー", colors: ["紫", "白"] }
     ],
     hard: [
-        { question: "茶色！とピンク！をまぜたら？", options: ["ローズブラウン", "ベージュ", "テラコッタ"], answer: "ローズブラウン", colors: ["茶色", "ピンク"] },
-        { question: "水色！と黄色！をまぜたら？", options: ["若草色", "黄緑", "ミントグリーン"], answer: "若草色", colors: ["水色", "黄色"] },
-        { question: "橙！と紫！をまぜたら？", options: ["赤紫", "茶色", "スミレ色"], answer: "赤紫", colors: ["橙", "紫"] },
-        { question: "黄緑！と青！をまぜたら？", options: ["エメラルドグリーン", "緑", "ターコイズ"], answer: "エメラルドグリーン", colors: ["黄緑", "青"] },
-        { question: "橙！とピンク！をまぜたら？", options: ["サーモンピンク", "コーラル", "赤"], answer: "サーモンピンク", colors: ["橙", "ピンク"] },
-        { question: "紫！と黄緑！をまぜたら？", options: ["オリーブ", "カーキ", "茶色"], answer: "オリーブ", colors: ["紫", "黄緑"] },
-        { question: "茶色！と水色！をまぜたら？", options: ["グレージュ", "カーキ", "モスグリーン"], answer: "グレージュ", colors: ["茶色", "水色"] },
-        { question: "だいだい色！と紫！をまぜたら？", options: ["赤紫", "茶色", "ワインレッド"], answer: "赤紫", colors: ["だいだい色", "紫"] },
-        { question: "おうど色！と青！をまぜたら？", options: ["グレー", "緑", "茶色"], answer: "グレー", colors: ["おうど色", "青"] },
-        { question: "ピンク！と黄緑！をまぜたら？", options: ["黄緑", "若草色", "ベージュ"], answer: "黄緑", colors: ["ピンク", "黄緑"] },
-        { question: "みずいろ！と紫！をまぜたら？", options: ["ラベンダー", "薄紫", "ブルーグレー"], answer: "ラベンダー", colors: ["みずいろ", "紫"] },
-        { question: "きみどり！と茶色！をまぜたら？", options: ["カーキ", "オリーブ", "モスグリーン"], answer: "カーキ", colors: ["きみどり", "茶色"] },
-        { question: "赤！と茶色！をまぜたら？", options: ["赤茶", "テラコッタ", "バーガンディ"], answer: "赤茶", colors: ["赤", "茶色"] },
-        { question: "青！と紫！をまぜたら？", options: ["藍色", "インディゴ", "紺"], answer: "藍色", colors: ["青", "紫"] },
-        { question: "黄色！と緑！をまぜたら？", options: ["黄緑", "若草色", "ライム"], answer: "黄緑", colors: ["黄色", "緑"] },
-        { question: "白！と茶色！をまぜたら？", options: ["ベージュ", "アイボリー", "クリーム"], answer: "ベージュ", colors: ["白", "茶色"] },
-        { question: "黒！と白！をまぜたら？", options: ["灰色", "シルバー", "グレー"], answer: "灰色", colors: ["黒", "白"] },
-        { question: "紫！と黄色！をまぜたら？", options: ["茶色", "灰色", "オリーブ"], answer: "茶色", colors: ["紫", "黄色"] },
-        { question: "緑！と赤！をまぜたら？", options: ["茶色", "黄色", "黒"], answer: "茶色", colors: ["緑", "赤"] },
-        { question: "青！と緑！をまぜたら？", options: ["青緑", "ターコイズ", "エメラルド"], answer: "青緑", colors: ["青", "緑"] }
+        { question: "茶色！とピンク！をまぜたら？", options: ["ローズブラウン", "ベージュ", "テラコッタ"], answer: "ろーずぶらうん", colors: ["茶色", "ピンク"] },
+        { question: "水色！と黄色！をまぜたら？", options: ["若草色", "黄緑", "ミントグリーン"], answer: "わかくさいろ", colors: ["水色", "黄色"] },
+        { question: "橙！と紫！をまぜたら？", options: ["赤紫", "茶色", "スミレ色"], answer: "あかむらさき", colors: ["橙", "紫"] },
+        { question: "黄緑！と青！をまぜたら？", options: ["エメラルドグリーン", "緑", "ターコイズ"], answer: "えめらるどぐりーん", colors: ["黄緑", "青"] },
+        { question: "橙！とピンク！をまぜたら？", options: ["サーモンピンク", "コーラル", "赤"], answer: "さーもんぴんく", colors: ["橙", "ピンク"] },
+        { question: "紫！と黄緑！をまぜたら？", options: ["オリーブ", "カーキ", "茶色"], answer: "おりーぶ", colors: ["紫", "黄緑"] },
+        { question: "茶色！と水色！をまぜたら？", options: ["グレージュ", "カーキ", "モスグリーン"], answer: "ぐれーじゅ", colors: ["茶色", "水色"] },
+        { question: "だいだい色！と紫！をまぜたら？", options: ["赤紫", "茶色", "ワインレッド"], answer: "あかむらさき", colors: ["だいだい色", "紫"] },
+        { question: "おうど色！と青！をまぜたら？", options: ["グレー", "緑", "茶色"], answer: "ぐれー", colors: ["おうど色", "青"] },
+        { question: "ピンク！と黄緑！をまぜたら？", options: ["黄緑", "若草色", "ベージュ"], answer: "きみどり", colors: ["ピンク", "黄緑"] },
+        { question: "みずいろ！と紫！をまぜたら？", options: ["ラベンダー", "薄紫", "ブルーグレー"], answer: "らべんだー", colors: ["みずいろ", "紫"] },
+        { question: "きみどり！と茶色！をまぜたら？", options: ["カーキ", "オリーブ", "モスグリーン"], answer: "かーき", colors: ["きみどり", "茶色"] },
+        { question: "赤！と茶色！をまぜたら？", options: ["赤茶", "テラコッタ", "バーガンディ"], answer: "あかちゃ", colors: ["赤", "茶色"] },
+        { question: "青！と紫！をまぜたら？", options: ["藍色", "インディゴ", "紺"], answer: "あいいろ", colors: ["青", "紫"] },
+        { question: "黄色！と緑！をまぜたら？", options: ["黄緑", "若草色", "ライム"], answer: "きみどり", colors: ["黄色", "緑"] },
+        { question: "白！と茶色！をまぜたら？", options: ["ベージュ", "アイボリー", "クリーム"], answer: "べーじゅ", colors: ["白", "茶色"] },
+        { question: "黒！と白！をまぜたら？", options: ["灰色", "シルバー", "グレー"], answer: "はいいろ", colors: ["黒", "白"] },
+        { question: "紫！と黄色！をまぜたら？", options: ["茶色", "灰色", "オリーブ"], answer: "ちゃいろ", colors: ["紫", "黄色"] },
+        { question: "緑！と赤！をまぜたら？", options: ["茶色", "黄色", "黒"], answer: "ちゃいろ", colors: ["緑", "赤"] },
+        { question: "青！と緑！をまぜたら？", options: ["青緑", "ターコイズ", "エメラルド"], answer: "あおみどり", colors: ["青", "緑"] }
     ],
     boss: [
-        { question: "赤！と青！と黄色！をまぜたら？", options: ["黒", "白", "茶色"], answer: "茶色", colors: ["赤", "青", "黄色"] },
-        { question: "青！と黄色！と白！をまぜたら？", options: ["水色", "若草色", "ミント"], answer: "若草色", colors: ["青", "黄色", "白"] },
-        { question: "赤！と白！と黒！をまぜたら？", options: ["灰色", "ピンク", "茶色"], answer: "灰色", colors: ["赤", "白", "黒"] },
-        { question: "赤！と青！と白！をまぜたら？", options: ["水色", "紫", "ピンク"], answer: "水色", colors: ["赤", "青", "白"] },
-        { question: "黄色！と青！と黒！をまぜたら？", options: ["緑", "茶色", "深緑"], answer: "深緑", colors: ["黄色", "青", "黒"] },
-        { question: "赤！と黄色！と黒！をまぜたら？", options: ["茶色", "オレンジ", "こげ茶"], answer: "こげ茶", colors: ["赤", "黄色", "黒"] },
-        { question: "緑！と青！と黄色！をまぜたら？", options: ["黄緑", "エメラルド", "ミント"], answer: "黄緑", colors: ["緑", "青", "黄色"] },
-        { question: "紫！と白！と黒！をまぜたら？", options: ["灰色", "ラベンダー", "薄紫"], answer: "灰色", colors: ["紫", "白", "黒"] },
-        { question: "オレンジ！と青！と黄色！をまぜたら？", options: ["茶色", "黄土色", "カーキ"], answer: "茶色", colors: ["オレンジ", "青", "黄色"] },
-        { question: "ピンク！と白！と赤！をまぜたら？", options: ["薄ピンク", "ローズ", "コーラル"], answer: "薄ピンク", colors: ["ピンク", "白", "赤"] },
-        { question: "茶色！と白！と黒！をまぜたら？", options: ["ベージュ", "灰色", "クリーム"], answer: "ベージュ", colors: ["茶色", "白", "黒"] },
-        { question: "水色！と青！と白！をまぜたら？", options: ["空色", "水色", "薄青"], answer: "空色", colors: ["水色", "青", "白"] },
-        { question: "黄緑！と緑！と黄色！をまぜたら？", options: ["黄緑", "若草色", "ライム"], answer: "黄緑", colors: ["黄緑", "緑", "黄色"] },
-        { question: "紫！と青！と赤！をまぜたら？", options: ["暗紫色", "ワインレッド", "バーガンディ"], answer: "暗紫色", colors: ["紫", "青", "赤"] },
-        { question: "橙！と赤！と黄色！をまぜたら？", options: ["朱色", "橙", "金赤"], answer: "朱色", colors: ["橙", "赤", "黄色"] }
+        { question: "赤！と青！と黄色！をまぜたら？", options: ["黒", "白", "茶色"], answer: "ちゃいろ", colors: ["赤", "青", "黄色"] },
+        { question: "青！と黄色！と白！をまぜたら？", options: ["水色", "若草色", "ミント"], answer: "わかくさいろ", colors: ["青", "黄色", "白"] },
+        { question: "赤！と白！と黒！をまぜたら？", options: ["灰色", "ピンク", "茶色"], answer: "はいいろ", colors: ["赤", "白", "黒"] },
+        { question: "赤！と青！と白！をまぜたら？", options: ["水色", "紫", "ピンク"], answer: "みずいろ", colors: ["赤", "青", "白"] },
+        { question: "黄色！と青！と黒！をまぜたら？", options: ["緑", "茶色", "深緑"], answer: "ふかみどり", colors: ["黄色", "青", "黒"] },
+        { question: "赤！と黄色！と黒！をまぜたら？", options: ["茶色", "オレンジ", "こげ茶"], answer: "こげちゃ", colors: ["赤", "黄色", "黒"] },
+        { question: "緑！と青！と黄色！をまぜたら？", options: ["黄緑", "エメラルド", "ミント"], answer: "きみどり", colors: ["緑", "青", "黄色"] },
+        { question: "紫！と白！と黒！をまぜたら？", options: ["灰色", "ラベンダー", "薄紫"], answer: "はいいろ", colors: ["紫", "白", "黒"] },
+        { question: "オレンジ！と青！と黄色！をまぜたら？", options: ["茶色", "黄土色", "カーキ"], answer: "ちゃいろ", colors: ["オレンジ", "青", "黄色"] },
+        { question: "ピンク！と白！と赤！をまぜたら？", options: ["薄ピンク", "ローズ", "コーラル"], answer: "うすぴんく", colors: ["ピンク", "白", "赤"] },
+        { question: "茶色！と白！と黒！をまぜたら？", options: ["ベージュ", "灰色", "クリーム"], answer: "べーじゅ", colors: ["茶色", "白", "黒"] },
+        { question: "水色！と青！と白！をまぜたら？", options: ["空色", "水色", "薄青"], answer: "そらいろ", colors: ["水色", "青", "白"] },
+        { question: "黄緑！と緑！と黄色！をまぜたら？", options: ["黄緑", "若草色", "ライム"], answer: "きみどり", colors: ["黄緑", "緑", "黄色"] },
+        { question: "紫！と青！と赤！をまぜたら？", options: ["暗紫色", "ワインレッド", "バーガンディ"], answer: "あんししょく", colors: ["紫", "青", "赤"] },
+        { question: "橙！と赤！と黄色！をまぜたら？", options: ["朱色", "橙", "金赤"], answer: "しゅいろ", colors: ["橙", "赤", "黄色"] }
     ],
     ura1: [
-        { question: "紫！と黄緑！と橙！をまぜたら？", options: ["灰色", "茶色", "黄土色"], answer: "茶色", colors: ["紫", "黄緑", "橙"] },
-        { question: "ピンク！と水色！と黄色！をまぜたら？", options: ["ベージュ", "クリーム", "薄橙"], answer: "ベージュ", colors: ["ピンク", "水色", "黄色"] },
-        { question: "茶色！と緑！と青！をまぜたら？", options: ["カーキ", "モスグリーン", "オリーブ"], answer: "カーキ", colors: ["茶色", "緑", "青"] },
-        { question: "紫！と赤！と黄緑！をまぜたら？", options: ["茶色", "灰色", "黄土色"], answer: "茶色", colors: ["紫", "赤", "黄緑"] },
-        { question: "橙！とピンク！と紫！をまぜたら？", options: ["赤紫", "マゼンタ", "ワインレッド"], answer: "赤紫", colors: ["橙", "ピンク", "紫"] }
+        { question: "紫！と黄緑！と橙！をまぜたら？", options: ["灰色", "茶色", "黄土色"], answer: "ちゃいろ", colors: ["紫", "黄緑", "橙"] },
+        { question: "ピンク！と水色！と黄色！をまぜたら？", options: ["ベージュ", "クリーム", "薄橙"], answer: "べーじゅ", colors: ["ピンク", "水色", "黄色"] },
+        { question: "茶色！と緑！と青！をまぜたら？", options: ["カーキ", "モスグリーン", "オリーブ"], answer: "かーき", colors: ["茶色", "緑", "青"] },
+        { question: "紫！と赤！と黄緑！をまぜたら？", options: ["茶色", "灰色", "黄土色"], answer: "ちゃいろ", colors: ["紫", "赤", "黄緑"] },
+        { question: "橙！とピンク！と紫！をまぜたら？", options: ["赤紫", "マゼンタ", "ワインレッド"], answer: "あかむらさき", colors: ["橙", "ピンク", "紫"] }
     ],
     ura2: [
-        { question: "光の赤と光の緑を混ぜると？", options: ["黄色", "シアン", "マゼンタ"], answer: "黄色", colors: ["光の赤", "光の緑"] },
-        { question: "光の緑と光の青を混ぜると？", options: ["シアン", "黄色", "マゼンタ"], answer: "シアン", colors: ["光の緑", "光の青"] },
-        { question: "光の青と光の赤を混ぜると？", options: ["マゼンタ", "黄色", "シアン"], answer: "マゼンタ", colors: ["光の青", "光の赤"] },
-        { question: "光の赤と光の緑と光の青を全部混ぜると？", options: ["白", "黒", "灰色"], answer: "白", colors: ["光の赤", "光の緑", "光の青"] },
-        { question: "光の赤と光の青を混ぜるとできる色は？", options: ["マゼンタ", "紫", "ピンク"], answer: "マゼンタ", colors: ["光の赤", "光の青"] },
-        { question: "光の緑と光の青を混ぜるとできる色は？", options: ["シアン", "水色", "エメラルド"], answer: "シアン", colors: ["光の緑", "光の青"] },
-        { question: "光の赤と光の緑を混ぜるとできる色は？", options: ["黄色", "橙", "黄緑"], answer: "黄色", colors: ["光の赤", "光の緑"] },
-        { question: "光の赤と光の緑と光の青のうち、2つを混ぜて黄色になる組み合わせは？", options: ["赤と緑", "赤と青", "緑と青"], answer: "赤と緑", colors: ["光の赤", "光の緑"] },
-        { question: "光の赤と光の緑と光の青のうち、2つを混ぜてシアンになる組み合わせは？", options: ["緑と青", "赤と青", "赤と緑"], answer: "緑と青", colors: ["光の緑", "光の青"] },
-        { question: "光の赤と光の緑と光の青のうち、2つを混ぜてマゼンタになる組み合わせは？", options: ["赤と青", "赤と緑", "緑と青"], answer: "赤と青", colors: ["光の赤", "光の青"] }
+        { question: "光の赤と光の緑を混ぜると？", options: ["黄色", "シアン", "マゼンタ"], answer: "きいろ", colors: ["光の赤", "光の緑"] },
+        { question: "光の緑と光の青を混ぜると？", options: ["シアン", "黄色", "マゼンタ"], answer: "しあん", colors: ["光の緑", "光の青"] },
+        { question: "光の青と光の赤を混ぜると？", options: ["マゼンタ", "黄色", "シアン"], answer: "まぜんた", colors: ["光の青", "光の赤"] },
+        { question: "光の赤と光の緑と光の青を全部混ぜると？", options: ["白", "黒", "灰色"], answer: "しろ", colors: ["光の赤", "光の緑", "光の青"] },
+        { question: "光の赤と光の青を混ぜるとできる色は？", options: ["マゼンタ", "紫", "ピンク"], answer: "まぜんた", colors: ["光の赤", "光の青"] },
+        { question: "光の緑と光の青を混ぜるとできる色は？", options: ["シアン", "水色", "エメラルド"], answer: "しあん", colors: ["光の緑", "光の青"] },
+        { question: "光の赤と光の緑を混ぜるとできる色は？", options: ["黄色", "橙", "黄緑"], answer: "きいろ", colors: ["光の赤", "光の緑"] },
+        { question: "光の赤と光の緑と光の青のうち、2つを混ぜて黄色になる組み合わせは？", options: ["赤と緑", "赤と青", "緑と青"], answer: "あかとみどり", colors: ["光の赤", "光の緑"] },
+        { question: "光の赤と光の緑と光の青のうち、2つを混ぜてシアンになる組み合わせは？", options: ["緑と青", "赤と青", "赤と緑"], answer: "みどりとあお", colors: ["光の緑", "光の青"] },
+        { question: "光の赤と光の緑と光の青のうち、2つを混ぜてマゼンタになる組み合わせは？", options: ["赤と青", "赤と緑", "緑と青"], answer: "あかとあお", colors: ["光の赤", "光の青"] }
     ]
 };
 
