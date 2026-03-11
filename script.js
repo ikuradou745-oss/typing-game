@@ -2083,8 +2083,10 @@ function renderSkinCategory() {
     if (!grid) return;
     grid.innerHTML = "";
 
-    for (let i = 1; i <= 10; i++) {
-        const skinId = `skin-${i}`;
+    // 肌の色を上から黒っぽい順に並べ替え
+    const skinOrder = ["skin-10", "skin-9", "skin-8", "skin-7", "skin-6", "skin-5", "skin-4", "skin-3", "skin-2", "skin-1"];
+    
+    skinOrder.forEach(skinId => {
         const isEquipped = tempSkinData.skin === skinId;
         const item = document.createElement("div");
         item.className = `skin-item owned ${isEquipped ? 'equipped' : ''}`;
@@ -2095,7 +2097,33 @@ function renderSkinCategory() {
             renderSkinCategory();
         };
         grid.appendChild(item);
+    });
+
+    // カスタム肌色
+    const customItem = document.createElement("div");
+    customItem.className = `skin-item ${tempSkinData.skin === 'custom' ? 'equipped' : ''}`;
+    customItem.style.background = `rgb(${tempSkinData.skinCustom?.r || 255}, ${tempSkinData.skinCustom?.g || 205}, ${tempSkinData.skinCustom?.b || 148})`;
+    customItem.onclick = () => openCustomSkinPicker();
+    customItem.innerHTML = '<span style="font-size: 0.8rem;">CUSTOM</span>';
+    grid.appendChild(customItem);
+
+    // 金色（王冠または大金持ちアクセサリー所持者のみ）
+    const hasCrown = tempSkinData.accessories && 
+                     (tempSkinData.accessories.includes('crown') || 
+                      tempSkinData.accessories.includes('rich'));
+
+    if (hasCrown) {
+        const goldItem = document.createElement("div");
+        goldItem.className = `skin-item owned ${tempSkinData.skin === 'skin-gold' ? 'equipped' : ''}`;
+        goldItem.style.background = SKIN_COLORS["skin-gold"];
+        goldItem.onclick = () => {
+            tempSkinData.skin = "skin-gold";
+            updateSkinPreview();
+            renderSkinCategory();
+        };
+        grid.appendChild(goldItem);
     }
+}
 
     // カスタム肌色
     const customItem = document.createElement("div");
